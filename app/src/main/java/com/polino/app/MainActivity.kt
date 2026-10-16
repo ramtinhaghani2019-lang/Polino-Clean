@@ -54,7 +54,18 @@ private fun PolinoApp() {
 
     when (screen) {
         Screen.Home -> Scaffold(
-    topBar = { TopAppBar(title = { Text("پولینو") }) }
+    topBar = {
+    TopAppBar(
+        title = { Text("پولینو") },
+        actions = {
+            if (BuildConfig.DEBUG) {
+                Button(onClick = { screen = Screen.TestCenter }) {
+                    Text("تست‌سنتر")
+                }
+            }
+        }
+    )
+}
 ) { padding ->
     Column(modifier = Modifier.padding(padding)) {
         FinanceDashboard()
