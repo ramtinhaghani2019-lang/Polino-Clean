@@ -35,8 +35,6 @@ jobs:
 
       - name: Set up Gradle cache
         uses: gradle/actions/setup-gradle@v4
-        with:
-
       - name: Run unit tests
         run: ./gradlew --no-daemon --stacktrace :app:testDebugUnitTest
 
