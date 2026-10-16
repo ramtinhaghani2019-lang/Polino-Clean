@@ -30,6 +30,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalLayoutDirection
 import com.polino.app.testcenter.TestCenterScreen
 import com.polino.app.ui.theme.PolinoTheme
+import com.polino.app.dashboard.FinanceDashboard
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -53,40 +54,18 @@ private fun PolinoApp() {
 
     when (screen) {
         Screen.Home -> Scaffold(
-            topBar = { TopAppBar(title = { Text("پولینو") }) }
-        ) { padding ->
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding)
-                    .padding(20.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                Text(
-                    text = "پولت را بشناس، آینده‌ات را بساز",
-                    style = MaterialTheme.typography.headlineSmall
-                )
-
-                Card {
-                    Column(
-                        modifier = Modifier.padding(18.dp),
-                        verticalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        Icon(Icons.Outlined.Payments, contentDescription = null)
-                        Text("Polino Clean Base v1", style = MaterialTheme.typography.titleLarge)
-                        Text("نسخه پایه سالم برای شروع توسعه مرحله‌ای پولینو")
-                    }
-                }
-
-                if (BuildConfig.DEBUG) {
-                    Button(onClick = { screen = Screen.TestCenter }) {
-                        Icon(Icons.Outlined.BugReport, contentDescription = null)
-                        Text("  مرکز تست")
-                    }
-                }
+    topBar = { TopAppBar(title = { Text("پولینو") }) }
+) { padding ->
+    Column(modifier = Modifier.padding(padding)) {
+        FinanceDashboard()
+        if (BuildConfig.DEBUG) {
+            Button(onClick = { screen = Screen.TestCenter }) {
+                Text("مرکز تست")
             }
         }
+    }
+}
 
-        Screen.TestCenter -> TestCenterScreen(onBack = { screen = Screen.Home })
+Screen.TestCenter -> TestCenterScreen(onBack = { screen = Screen.Home })
     }
 }
