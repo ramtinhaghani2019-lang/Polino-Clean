@@ -2,7 +2,7 @@ name: Polino Android Build
 
 on:
   push:
-    branches: [ "main", "master", "phase1-dev" ]
+    branches: [ "main", "master", "phase1-dev", "phase2-dev" ]
   pull_request:
   workflow_dispatch:
 
