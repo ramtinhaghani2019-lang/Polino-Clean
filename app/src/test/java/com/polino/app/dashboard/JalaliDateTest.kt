@@ -33,4 +33,20 @@ class JalaliDateTest {
         assertEquals("1404-12", JalaliDate.previousJalaliYearMonth("1405-01"))
         assertEquals("1405-08", JalaliDate.previousJalaliYearMonth("1405-09"))
     }
+
+    @Test
+    fun lastMonths_endingAtGivenMonth() {
+        assertEquals(
+            listOf("1405-06", "1405-07", "1405-08"),
+            JalaliDate.lastJalaliYearMonths(3, "1405-08")
+        )
+    }
+
+    @Test
+    fun lastMonths_crossesYearBoundary() {
+        assertEquals(
+            listOf("1404-12", "1405-01"),
+            JalaliDate.lastJalaliYearMonths(2, "1405-01")
+        )
+    }
 }

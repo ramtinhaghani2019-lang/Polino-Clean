@@ -52,6 +52,7 @@ import com.polino.app.data.BackupData
 import com.polino.app.data.fullBackupToJson
 import com.polino.app.data.parseBackup
 import com.polino.app.data.parseLegacyTransactions
+import com.polino.app.data.nextJalaliYearMonth
 import java.util.UUID
 import kotlinx.coroutines.launch
 
@@ -74,7 +75,7 @@ fun ReportsScreen(onBack: () -> Unit) {
     var info by remember { mutableStateOf("") }
     var showBudgetDialog by remember { mutableStateOf(false) }
 
-    val yearMonth = remember { JalaliDate.currentJalaliYearMonth() }
+    var selectedYearMonth by remember { mutableStateOf(JalaliDate.currentJalaliYearMonth()) }
 
     LaunchedEffect(Unit) {
         runCatching {
@@ -83,10 +84,13 @@ fun ReportsScreen(onBack: () -> Unit) {
             accounts = transactionRepository.getAccounts()
             categories = transactionRepository.getCategories()
             goals = transactionRepository.getGoals()
-            budgets = budgetRepository.getBudgets(yearMonth)
         }.onFailure {
             error = "بارگذاری اطلاعات ناموفق بود. دوباره تلاش کنید."
         }
+    }
+
+    LaunchedEffect(selectedYearMonth) {
+        budgets = budgetRepository.getBudgets(selectedYearMonth)
     }
 
     val exportLauncher = rememberLauncherForActivityResult(
@@ -154,7 +158,7 @@ fun ReportsScreen(onBack: () -> Unit) {
                         accounts = transactionRepository.getAccounts()
                         categories = transactionRepository.getCategories()
                         goals = transactionRepository.getGoals()
-                        budgets = budgetRepository.getBudgets(yearMonth)
+                        budgets = budgetRepository.getBudgets(selectedYearMonth)
                     }.onSuccess {
                         info = "بازیابی کامل انجام شد: ${backup.transactions.size} تراکنش، " +
                             "${backup.budgets.size} بودجه، ${backup.categories.size} دسته، " +
@@ -177,7 +181,7 @@ fun ReportsScreen(onBack: () -> Unit) {
         }
     }
 
-    val monthTransactionsAll = transactionsInMonth(transactions, yearMonth)
+    val monthTransactionsAll = transactionsInMonth(transactions, selectedYearMonth)
     val monthTransactions = monthTransactionsAll.filter {
         selectedAccountId == "all" || it.accountId == selectedAccountId
     }
@@ -227,13 +231,34 @@ fun ReportsScreen(onBack: () -> Unit) {
                 }
             }
             item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    OutlinedButton(onClick = {
+                        selectedYearMonth = JalaliDate.previousJalaliYearMonth(selectedYearMonth)
+                    }) { Text("ماه قبل") }
+                    Text(
+                        JalaliDate.jalaliMonthDisplay(selectedYearMonth),
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                    OutlinedButton(
+                        onClick = {
+                            selectedYearMonth = nextJalaliYearMonth(selectedYearMonth)
+                        },
+                        enabled = selectedYearMonth != JalaliDate.currentJalaliYearMonth()
+                    ) { Text("ماه بعد") }
+                }
+            }
+            item {
                 Card(modifier = Modifier.fillMaxWidth()) {
                     Column(
                         Modifier.padding(20.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Text(
-                            "گزارش ماه ${JalaliDate.jalaliMonthDisplay(yearMonth)}",
+                            "گزارش ماه ${JalaliDate.jalaliMonthDisplay(selectedYearMonth)}",
                             style = MaterialTheme.typography.titleMedium
                         )
                         Text("درآمد: ${money(totals.income)}")
@@ -278,7 +303,7 @@ fun ReportsScreen(onBack: () -> Unit) {
             item { Text("روند ۶ ماه اخیر", style = MaterialTheme.typography.titleMedium) }
             val trendBase = if (selectedAccountId == "all") transactions
             else transactions.filter { it.accountId == selectedAccountId }
-            val trend = monthlyTrend(trendBase, JalaliDate.lastJalaliYearMonths(6))
+            val trend = monthlyTrend(trendBase, JalaliDate.lastJalaliYearMonths(6, selectedYearMonth))
             val maxTrend = (trend.maxOfOrNull { maxOf(it.income, it.expense) } ?: 0L)
                 .takeIf { it > 0 } ?: 1L
             trend.forEach { month ->
@@ -318,7 +343,7 @@ fun ReportsScreen(onBack: () -> Unit) {
                     }
                 }
             }
-            item { Text("بودجه‌های ماه جاری", style = MaterialTheme.typography.titleMedium) }
+            item { Text("بودجه‌های ماه ${JalaliDate.jalaliMonthDisplay(selectedYearMonth)}", style = MaterialTheme.typography.titleMedium) }
             if (budgets.isEmpty()) {
                 item { Text("هنوز بودجه‌ای تعیین نشده است.") }
             }
@@ -339,8 +364,8 @@ fun ReportsScreen(onBack: () -> Unit) {
                                 Text(budget.category, style = MaterialTheme.typography.titleMedium)
                                 IconButton(onClick = {
                                     scope.launch {
-                                        budgetRepository.deleteBudget(yearMonth, budget.category)
-                                        budgets = budgetRepository.getBudgets(yearMonth)
+                                        budgetRepository.deleteBudget(selectedYearMonth, budget.category)
+                                        budgets = budgetRepository.getBudgets(selectedYearMonth)
                                     }
                                 }) {
                                     Icon(Icons.Default.Delete, contentDescription = "حذف بودجه")
@@ -455,8 +480,8 @@ fun ReportsScreen(onBack: () -> Unit) {
             onDismiss = { showBudgetDialog = false },
             onSave = { category, limit ->
                 scope.launch {
-                    budgetRepository.setBudget(yearMonth, category, limit)
-                    budgets = budgetRepository.getBudgets(yearMonth)
+                    budgetRepository.setBudget(selectedYearMonth, category, limit)
+                    budgets = budgetRepository.getBudgets(selectedYearMonth)
                     showBudgetDialog = false
                 }
             }

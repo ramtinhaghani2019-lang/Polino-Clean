@@ -414,10 +414,12 @@ fun FinanceDashboard() {
     if (showDialog) {
         TransactionDialog(
             initial = editing,
+            accounts = accounts,
+            initialAccountId = editing?.accountId ?: selectedAccountId,
             expenseCategories = expenseCategoryNames(categories),
             incomeCategories = incomeCategoryNames(categories),
             onDismiss = { showDialog = false; editing = null; error = "" },
-            onSave = { title, amount, isIncome, category, dateMillis, note ->
+            onSave = { title, amount, isIncome, category, dateMillis, note, accountId ->
                 val transaction = if (editing == null) {
                     MoneyTransaction(
                         id = UUID.randomUUID().toString(),
@@ -426,7 +428,7 @@ fun FinanceDashboard() {
                         income = isIncome,
                         category = category,
                         dateMillis = dateMillis,
-                        accountId = selectedAccountId,
+                        accountId = accountId,
                         note = note
                     )
                 } else {
@@ -436,6 +438,7 @@ fun FinanceDashboard() {
                         income = isIncome,
                         category = category,
                         dateMillis = dateMillis,
+                        accountId = accountId,
                         note = note
                     )
                 }
@@ -1011,10 +1014,12 @@ private fun SummaryCard(title: String, amount: String, isIncome: Boolean) {
 @Composable
 private fun TransactionDialog(
     initial: MoneyTransaction?,
+    accounts: List<AccountEntity>,
+    initialAccountId: String,
     expenseCategories: List<String>,
     incomeCategories: List<String>,
     onDismiss: () -> Unit,
-    onSave: suspend (title: String, amount: Long, income: Boolean, category: String, dateMillis: Long, note: String) -> Boolean,
+    onSave: suspend (title: String, amount: Long, income: Boolean, category: String, dateMillis: Long, note: String, accountId: String) -> Boolean,
     onDelete: suspend (MoneyTransaction) -> Boolean
 ) {
     var title by remember { mutableStateOf(initial?.title ?: "") }
@@ -1023,6 +1028,8 @@ private fun TransactionDialog(
     var category by remember {
         mutableStateOf(initial?.category ?: expenseCategories.firstOrNull() ?: "سایر")
     }
+    var accountId by remember { mutableStateOf(initialAccountId) }
+    var accountExpanded by remember { mutableStateOf(false) }
     var dateMillis by remember {
         mutableStateOf(
             initial?.dateMillis?.takeIf { it != 0L } ?: System.currentTimeMillis()
@@ -1136,6 +1143,25 @@ private fun TransactionDialog(
                         }
                     }
                 }
+                Box {
+                    OutlinedButton(
+                        onClick = { accountExpanded = true },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(accounts.firstOrNull { it.id == accountId }?.name ?: "اصلی")
+                    }
+                    DropdownMenu(
+                        expanded = accountExpanded,
+                        onDismissRequest = { accountExpanded = false }
+                    ) {
+                        accounts.forEach { item ->
+                            DropdownMenuItem(
+                                text = { Text(item.name) },
+                                onClick = { accountId = item.id; accountExpanded = false }
+                            )
+                        }
+                    }
+                }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("تاریخ: ${JalaliDate.formatJalali(dateMillis)}")
                     TextButton(onClick = { showDatePicker = true }) { Text("تغییر تاریخ") }
@@ -1157,7 +1183,7 @@ private fun TransactionDialog(
                     validation = "عنوان و مبلغ معتبر وارد کنید."
                 } else {
                     scope.launch {
-                        if (!onSave(title.trim(), value, isIncome, category, dateMillis, note.trim())) {
+                        if (!onSave(title.trim(), value, isIncome, category, dateMillis, note.trim(), accountId)) {
                             validation = "ذخیره اطلاعات ناموفق بود. دوباره تلاش کنید."
                         }
                     }

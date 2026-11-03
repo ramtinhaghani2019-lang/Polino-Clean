@@ -112,9 +112,13 @@ internal object JalaliDate {
     }
 
     /** فهرست n ماه اخیر شمسی، از قدیمی به جدید، شامل ماه جاری. */
-    internal fun lastJalaliYearMonths(count: Int): List<String> {
+    internal fun lastJalaliYearMonths(count: Int): List<String> =
+        lastJalaliYearMonths(count, currentJalaliYearMonth())
+
+    /** فهرست n ماه شمسی منتهی به ماه داده‌شده، از قدیمی به جدید. */
+    internal fun lastJalaliYearMonths(count: Int, endMonth: String): List<String> {
         val months = ArrayList<String>()
-        var current = currentJalaliYearMonth()
+        var current = endMonth
         repeat(count) {
             months.add(0, current)
             current = previousJalaliYearMonth(current)
