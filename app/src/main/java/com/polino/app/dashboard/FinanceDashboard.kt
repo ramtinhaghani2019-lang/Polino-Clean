@@ -137,7 +137,11 @@ fun FinanceDashboard() {
             }
         }
         .filter { categoryFilter == null || it.category == categoryFilter }
-        .filter { searchQuery.isBlank() || it.title.contains(searchQuery.trim(), ignoreCase = true) }
+        .filter {
+            searchQuery.isBlank() ||
+                it.title.contains(searchQuery.trim(), ignoreCase = true) ||
+                it.note.contains(searchQuery.trim(), ignoreCase = true)
+        }
         .sortedByDescending { it.dateMillis }
 
     LazyColumn(
@@ -318,6 +322,9 @@ fun FinanceDashboard() {
                             Text(transaction.category, style = MaterialTheme.typography.bodySmall)
                             Text(JalaliDate.formatJalali(transaction.dateMillis), style = MaterialTheme.typography.bodySmall)
                         }
+                        if (transaction.note.isNotBlank()) {
+                            Text(transaction.note, style = MaterialTheme.typography.bodySmall)
+                        }
                     }
                 }
             }
@@ -339,7 +346,7 @@ fun FinanceDashboard() {
             expenseCategories = expenseCategoryNames(categories),
             incomeCategories = incomeCategoryNames(categories),
             onDismiss = { showDialog = false; editing = null; error = "" },
-            onSave = { title, amount, isIncome, category, dateMillis ->
+            onSave = { title, amount, isIncome, category, dateMillis, note ->
                 val transaction = if (editing == null) {
                     MoneyTransaction(
                         id = UUID.randomUUID().toString(),
@@ -348,7 +355,8 @@ fun FinanceDashboard() {
                         income = isIncome,
                         category = category,
                         dateMillis = dateMillis,
-                        accountId = selectedAccountId
+                        accountId = selectedAccountId,
+                        note = note
                     )
                 } else {
                     editing!!.copy(
@@ -356,7 +364,8 @@ fun FinanceDashboard() {
                         amount = amount,
                         income = isIncome,
                         category = category,
-                        dateMillis = dateMillis
+                        dateMillis = dateMillis,
+                        note = note
                     )
                 }
                 val ok = runCatching {
@@ -763,7 +772,7 @@ private fun TransactionDialog(
     expenseCategories: List<String>,
     incomeCategories: List<String>,
     onDismiss: () -> Unit,
-    onSave: suspend (title: String, amount: Long, income: Boolean, category: String, dateMillis: Long) -> Boolean,
+    onSave: suspend (title: String, amount: Long, income: Boolean, category: String, dateMillis: Long, note: String) -> Boolean,
     onDelete: suspend (MoneyTransaction) -> Boolean
 ) {
     var title by remember { mutableStateOf(initial?.title ?: "") }
@@ -777,6 +786,7 @@ private fun TransactionDialog(
             initial?.dateMillis?.takeIf { it != 0L } ?: System.currentTimeMillis()
         )
     }
+    var note by remember { mutableStateOf(initial?.note ?: "") }
     var validation by remember { mutableStateOf("") }
     var showDeleteConfirm by remember { mutableStateOf(false) }
     var showDatePicker by remember { mutableStateOf(false) }
@@ -842,6 +852,12 @@ private fun TransactionDialog(
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     singleLine = true
                 )
+                OutlinedTextField(
+                    value = note,
+                    onValueChange = { note = it },
+                    label = { Text("یادداشت (اختیاری)") },
+                    singleLine = true
+                )
                 Row {
                     RadioButton(selected = !isIncome, onClick = {
                         isIncome = false
@@ -899,7 +915,7 @@ private fun TransactionDialog(
                     validation = "عنوان و مبلغ معتبر وارد کنید."
                 } else {
                     scope.launch {
-                        if (!onSave(title.trim(), value, isIncome, category, dateMillis)) {
+                        if (!onSave(title.trim(), value, isIncome, category, dateMillis, note.trim())) {
                             validation = "ذخیره اطلاعات ناموفق بود. دوباره تلاش کنید."
                         }
                     }

@@ -9,5 +9,7 @@ internal data class MoneyTransaction(
     val category: String,
     val dateMillis: Long,
     /** حساب مالک تراکنش؛ پیش‌فرض «اصلی» است تا تراکنش‌های قدیمی همین‌جا بنشینند. */
-    val accountId: String = "main"
+    val accountId: String = "main",
+    /** یادداشت اختیاری تراکنش؛ مثلاً «قرض به علی». */
+    val note: String = ""
 )

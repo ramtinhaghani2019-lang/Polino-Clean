@@ -11,11 +11,12 @@ internal data class TransactionEntity(
     val income: Boolean,
     val category: String,
     val dateMillis: Long,
-    val accountId: String
+    val accountId: String,
+    val note: String
 )
 
 internal fun MoneyTransaction.toEntity(): TransactionEntity =
-    TransactionEntity(id, title, amount, income, category, dateMillis, accountId)
+    TransactionEntity(id, title, amount, income, category, dateMillis, accountId, note)
 
 internal fun TransactionEntity.toDomain(): MoneyTransaction =
-    MoneyTransaction(id, title, amount, income, category, dateMillis, accountId)
+    MoneyTransaction(id, title, amount, income, category, dateMillis, accountId, note)

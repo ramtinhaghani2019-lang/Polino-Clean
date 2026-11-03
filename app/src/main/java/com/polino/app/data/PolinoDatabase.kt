@@ -13,7 +13,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         RecurringEntity::class,
         GoalEntity::class
     ],
-    version = 5,
+    version = 6,
     exportSchema = false
 )
 internal abstract class PolinoDatabase : RoomDatabase() {
@@ -94,6 +94,17 @@ internal abstract class PolinoDatabase : RoomDatabase() {
                     "CREATE TABLE IF NOT EXISTS goals " +
                         "(id TEXT NOT NULL PRIMARY KEY, name TEXT NOT NULL, " +
                         "target INTEGER NOT NULL, accountId TEXT NOT NULL)"
+                )
+            }
+        }
+        /**
+         * مهاجرت v5→v6: ستون یادداشت به جدول تراکنش‌ها اضافه می‌شود؛
+         * تراکنش‌های موجود یادداشت خالی می‌گیرند و هیچ ردیفی تغییر نمی‌کند.
+         */
+        val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "ALTER TABLE transactions ADD COLUMN note TEXT NOT NULL DEFAULT ''"
                 )
             }
         }
