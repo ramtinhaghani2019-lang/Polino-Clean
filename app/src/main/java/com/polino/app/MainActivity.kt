@@ -2,8 +2,8 @@ package com.polino.app
 
 import android.content.Context
 import android.os.Bundle
-import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.fragment.app.FragmentActivity
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
@@ -49,11 +49,13 @@ import com.polino.app.dashboard.FinanceDashboard
 import com.polino.app.dashboard.ManagementScreen
 import com.polino.app.dashboard.ReportsScreen
 import com.polino.app.testcenter.TestCenterScreen
-import com.polino.app.ui.theme.PolinoTheme
+import com.polino.app.security.AppLockScreen
+import com.polino.app.security.LOCK_ENABLED_KEY
+import com.polino.app.security.LOCK_PREFS_NAME
 import com.polino.app.ui.theme.THEME_MODE_KEY
 import com.polino.app.ui.theme.THEME_PREFS_NAME
 
-class MainActivity : ComponentActivity() {
+class MainActivity : FragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
@@ -92,6 +94,19 @@ private fun PolinoApp(
     themeMode: String,
     onThemeModeChange: (String) -> Unit
 ) {
+    val context = LocalContext.current
+    val initialLockEnabled = remember {
+        context.getSharedPreferences(LOCK_PREFS_NAME, Context.MODE_PRIVATE)
+            .getBoolean(LOCK_ENABLED_KEY, false)
+    }
+    var lockEnabled by remember { mutableStateOf(initialLockEnabled) }
+    var unlocked by remember { mutableStateOf(!initialLockEnabled) }
+
+    if (lockEnabled && !unlocked) {
+        AppLockScreen(onUnlocked = { unlocked = true })
+        return
+    }
+
     var tab by remember { mutableStateOf(Tab.Home) }
     var entryScreen by remember { mutableStateOf(false) }
     var showTestCenter by remember { mutableStateOf(false) }
@@ -232,7 +247,14 @@ private fun PolinoApp(
                     onNavigateHome = { tab = Tab.Home },
                     onNavigateToReports = { tab = Tab.Reports },
                     themeMode = themeMode,
-                    onThemeModeChange = onThemeModeChange
+                    onThemeModeChange = onThemeModeChange,
+                    lockEnabled = lockEnabled,
+                    onLockChange = { enabled ->
+                        lockEnabled = enabled
+                        if (enabled) unlocked = true
+                        context.getSharedPreferences(LOCK_PREFS_NAME, Context.MODE_PRIVATE)
+                            .edit().putBoolean(LOCK_ENABLED_KEY, enabled).apply()
+                    }
                 )
                 Tab.Reports -> ReportsScreen(onBack = { tab = Tab.Home })
             }

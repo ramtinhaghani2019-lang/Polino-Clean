@@ -56,7 +56,9 @@ fun ManagementScreen(
     onNavigateHome: () -> Unit,
     onNavigateToReports: () -> Unit,
     themeMode: String = "system",
-    onThemeModeChange: (String) -> Unit = {}
+    onThemeModeChange: (String) -> Unit = {},
+    lockEnabled: Boolean = false,
+    onLockChange: (Boolean) -> Unit = {}
 ) {
     val context = LocalContext.current
     val repository = remember { TransactionRepository(context) }
@@ -164,6 +166,33 @@ fun ManagementScreen(
                                 )
                             }
                     }
+                }
+            }
+        }
+        item {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(20.dp)
+            ) {
+                Column(
+                    Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("قفل برنامه", style = MaterialTheme.typography.titleMedium)
+                        Switch(
+                            checked = lockEnabled,
+                            onCheckedChange = onLockChange
+                        )
+                    }
+                    Text(
+                        "با اثر انگشت یا رمز دستگاه باز می‌شود؛ از اجرای بعد فعال است.",
+                        style = MaterialTheme.typography.bodySmall
+                    )
                 }
             }
         }
