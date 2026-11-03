@@ -1,5 +1,10 @@
 package com.polino.app.dashboard
 
+import android.app.Activity
+import android.content.Intent
+import android.speech.RecognizerIntent
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -16,6 +21,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Backspace
+import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -50,6 +56,7 @@ import com.polino.app.data.MoneyTransaction
 import com.polino.app.data.TransactionRepository
 import com.polino.app.data.expenseCategoryNames
 import com.polino.app.data.incomeCategoryNames
+import com.polino.app.voice.parseSpokenAmount
 import java.util.UUID
 import kotlinx.coroutines.launch
 
@@ -92,6 +99,21 @@ fun EntryScreen(
     }
 
     val amount = amountText.toLongOrNull() ?: 0L
+    val voiceLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode != Activity.RESULT_OK) return@rememberLauncherForActivityResult
+        val spoken = result.data
+            ?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
+            ?.firstOrNull()
+        val parsed = spoken?.let { parseSpokenAmount(it) }
+        if (parsed != null && parsed > 0L) {
+            amountText = parsed.toString()
+            error = ""
+        } else {
+            error = "مبلغ از گفتار تشخیص داده نشد."
+        }
+    }
     val datePickerState = rememberDatePickerState(initialSelectedDateMillis = dateMillis)
     if (showDatePicker) {
         DatePickerDialog(
@@ -181,8 +203,33 @@ fun EntryScreen(
                         Text(
                             "مبلغ تراکنش (تومان)",
                             style = MaterialTheme.typography.labelLarge,
-                            color = Color(0xFF9AA3B8)
+                            color = Color(0xFF9AA3B8),
+                            modifier = Modifier.weight(1f)
                         )
+                        IconButton(onClick = {
+                            val intent =
+                                Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                                    putExtra(
+                                        RecognizerIntent.EXTRA_LANGUAGE_MODEL,
+                                        RecognizerIntent.LANGUAGE_MODEL_FREE_FORM
+                                    )
+                                    putExtra(RecognizerIntent.EXTRA_LANGUAGE, "fa-IR")
+                                    putExtra(
+                                        RecognizerIntent.EXTRA_PROMPT,
+                                        "مبلغ را بگویید؛ مثلاً پانصد هزار تومان"
+                                    )
+                                }
+                            runCatching { voiceLauncher.launch(intent) }
+                                .onFailure {
+                                    error = "تشخیص گفتار روی این گوشی در دسترس نیست."
+                                }
+                        }) {
+                            Icon(
+                                Icons.Default.Mic,
+                                contentDescription = "ورودی صوتی",
+                                tint = EntryGold
+                            )
+                        }
                         TextButton(onClick = { amountText = "" }) {
                             Text("پاک کردن", color = EntryGold)
                         }
