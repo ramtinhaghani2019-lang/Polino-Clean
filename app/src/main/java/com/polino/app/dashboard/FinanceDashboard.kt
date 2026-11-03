@@ -455,6 +455,16 @@ fun FinanceDashboard() {
             onDelete = { name ->
                 repository.deleteCategory(name)
                 categories = repository.getCategories()
+                transactions = repository.getAll()
+            },
+            onRename = { oldName, newName ->
+                val ok = repository.renameCategory(oldName, newName)
+                if (ok) {
+                    categories = repository.getCategories()
+                    transactions = repository.getAll()
+                    if (categoryFilter == oldName) categoryFilter = newName
+                }
+                ok
             }
         )
     }
@@ -613,11 +623,13 @@ private fun CategoryDialog(
     categories: List<CategoryEntity>,
     onDismiss: () -> Unit,
     onAdd: suspend (String, Boolean) -> Boolean,
-    onDelete: suspend (String) -> Unit
+    onDelete: suspend (String) -> Unit,
+    onRename: suspend (String, String) -> Boolean
 ) {
     var name by remember { mutableStateOf("") }
     var isIncome by remember { mutableStateOf(false) }
     var validation by remember { mutableStateOf("") }
+    var categoryToRename by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
 
     AlertDialog(
@@ -637,10 +649,15 @@ private fun CategoryDialog(
                     ) {
                         Text(category.name + if (category.isIncome) " (درآمد)" else " (هزینه)")
                         if (category.name != "سایر") {
-                            TextButton(onClick = {
-                                scope.launch { onDelete(category.name) }
-                            }) {
-                                Text("حذف", color = MaterialTheme.colorScheme.error)
+                            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                TextButton(onClick = { categoryToRename = category.name }) {
+                                    Text("ویرایش")
+                                }
+                                TextButton(onClick = {
+                                    scope.launch { onDelete(category.name) }
+                                }) {
+                                    Text("حذف", color = MaterialTheme.colorScheme.error)
+                                }
                             }
                         }
                     }
@@ -681,6 +698,60 @@ private fun CategoryDialog(
         },
         dismissButton = {
             TextButton(onClick = onDismiss) { Text("بستن") }
+        }
+    )
+    if (categoryToRename != null) {
+        RenameCategoryDialog(
+            currentName = categoryToRename!!,
+            onDismiss = { categoryToRename = null },
+            onSave = { newName ->
+                val ok = onRename(categoryToRename!!, newName)
+                if (ok) categoryToRename = null
+                ok
+            }
+        )
+    }
+}
+
+@Composable
+private fun RenameCategoryDialog(
+    currentName: String,
+    onDismiss: () -> Unit,
+    onSave: suspend (String) -> Boolean
+) {
+    var name by remember { mutableStateOf(currentName) }
+    var validation by remember { mutableStateOf("") }
+    val scope = rememberCoroutineScope()
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("تغییر نام دسته") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text("نام دسته") },
+                    singleLine = true
+                )
+                if (validation.isNotEmpty()) {
+                    Text(validation, color = MaterialTheme.colorScheme.error)
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = {
+                if (name.isBlank()) {
+                    validation = "نام دسته را وارد کنید."
+                } else {
+                    scope.launch {
+                        if (onSave(name.trim())) onDismiss()
+                        else validation = "این دسته از قبل هست."
+                    }
+                }
+            }) { Text("ذخیره") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("انصراف") }
         }
     )
 }

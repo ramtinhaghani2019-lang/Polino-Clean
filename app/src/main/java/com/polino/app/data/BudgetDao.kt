@@ -23,4 +23,8 @@ internal interface BudgetDao {
     /** حذف همه بودجه‌های یک دسته (برای حذف دسته). */
     @Query("DELETE FROM budgets WHERE category = :category")
     suspend fun deleteForCategory(category: String)
+
+    /** تغییر نام دسته در همه بودجه‌ها (برای تغییر نام دسته). */
+    @Query("UPDATE budgets SET category = :newName WHERE category = :oldName")
+    suspend fun renameCategory(oldName: String, newName: String)
 }

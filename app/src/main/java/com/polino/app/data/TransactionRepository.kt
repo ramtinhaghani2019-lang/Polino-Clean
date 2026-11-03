@@ -110,6 +110,26 @@ internal class TransactionRepository(context: Context) {
         return true
     }
 
+    /**
+     * تغییر نام دسته؛ تراکنش‌ها، بودجه‌ها و قاعده‌های تکرارشونده‌اش با
+     * نام جدید ادامه می‌دهند و نوع دسته (هزینه/درآمد) حفظ می‌شود.
+     * «سایر» قابل تغییرنام نیست چون نقطه اتکای حذف دسته‌هاست؛ نام
+     * تکراری یا خالی رد می‌شود.
+     */
+    suspend fun renameCategory(oldName: String, newName: String): Boolean {
+        if (newName.isBlank() || oldName == FALLBACK_CATEGORY) return false
+        if (oldName == newName) return true
+        val all = categoryDao.getAll()
+        val current = all.firstOrNull { it.name == oldName } ?: return false
+        if (all.any { it.name == newName }) return false
+        categoryDao.upsert(CategoryEntity(newName, current.isIncome))
+        dao.reassignCategory(oldName, newName)
+        budgetDao.renameCategory(oldName, newName)
+        recurringDao.renameCategory(oldName, newName)
+        categoryDao.deleteByName(oldName)
+        return true
+    }
+
     suspend fun getRecurring(): List<RecurringEntity> = recurringDao.getAll()
 
     suspend fun addRecurring(item: RecurringEntity) = recurringDao.upsert(item)

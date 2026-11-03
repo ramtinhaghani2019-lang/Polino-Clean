@@ -17,6 +17,10 @@ internal interface RecurringDao {
     @Query("DELETE FROM recurring WHERE id = :id")
     suspend fun deleteById(id: String)
 
+    /** تغییر نام دسته در همه قاعده‌ها (برای تغییر نام دسته). */
+    @Query("UPDATE recurring SET category = :newName WHERE category = :oldName")
+    suspend fun renameCategory(oldName: String, newName: String)
+
     /** انتقال قاعده‌های یک حساب به حسابی دیگر (برای حذف حساب). */
     @Query("UPDATE recurring SET accountId = :newId WHERE accountId = :oldId")
     suspend fun reassignAccounts(oldId: String, newId: String)
