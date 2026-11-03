@@ -1,6 +1,9 @@
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.plugin.compose")
+    // KSP 2.3.x pairs with Kotlin 2.4.x (Kotlin docs pair KSP 2.3.10 with Kotlin 2.4.21;
+    // the 2.3 line no longer embeds the Kotlin version in its own version number).
+    id("com.google.devtools.ksp") version "2.3.10"
 }
 
 android {
@@ -55,6 +58,11 @@ dependencies {
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.material:material-icons-extended")
+
+    val roomVersion = "2.8.5"
+    implementation("androidx.room:room-runtime:$roomVersion")
+    implementation("androidx.room:room-ktx:$roomVersion")
+    ksp("androidx.room:room-compiler:$roomVersion")
 
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")

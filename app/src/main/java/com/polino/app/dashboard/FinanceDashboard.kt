@@ -1,6 +1,5 @@
 package com.polino.app.dashboard
 
-import android.content.Context
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -32,70 +31,28 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import org.json.JSONArray
-import org.json.JSONObject
+import com.polino.app.data.MoneyTransaction
+import com.polino.app.data.TransactionRepository
+import kotlinx.coroutines.launch
 import java.text.NumberFormat
 import java.util.Locale
 import java.util.UUID
-
-private data class MoneyTransaction(
-    val id: String,
-    val title: String,
-    val amount: Long,
-    val income: Boolean,
-    val category: String,
-    val dateMillis: Long
-)
-
-private const val PREFS = "polino_finance_v1"
-private const val KEY = "transactions"
 
 private val EXPENSE_CATEGORIES =
     listOf("خوراک", "مسکن", "حمل‌ونقل", "سلامت", "آموزش", "تفریح", "پوشاک", "سایر")
 private val INCOME_CATEGORIES = listOf("حقوق", "فروش", "هدیه", "سایر")
 
 private enum class TypeFilter { ALL, INCOME, EXPENSE }
-
-private fun loadTransactions(context: Context): List<MoneyTransaction> = runCatching {
-    val raw = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY, "[]") ?: "[]"
-    val array = JSONArray(raw)
-    (0 until array.length()).map { index ->
-        val item = array.getJSONObject(index)
-        val income = item.getBoolean("income")
-        MoneyTransaction(
-            id = item.optString("id").ifBlank { UUID.randomUUID().toString() },
-            title = item.getString("title"),
-            amount = item.getLong("amount"),
-            income = income,
-            category = item.optString("category").ifBlank { "سایر" },
-            dateMillis = item.optLong("dateMillis", 0L)
-        )
-    }
-}.getOrDefault(emptyList())
-
-private fun saveTransactions(context: Context, transactions: List<MoneyTransaction>): Boolean {
-    val array = JSONArray()
-    transactions.forEach { transaction ->
-        array.put(
-            JSONObject()
-                .put("id", transaction.id)
-                .put("title", transaction.title)
-                .put("amount", transaction.amount)
-                .put("income", transaction.income)
-                .put("category", transaction.category)
-                .put("dateMillis", transaction.dateMillis)
-        )
-    }
-    return context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString(KEY, array.toString()).commit()
-}
 
 private fun money(value: Long): String =
     NumberFormat.getIntegerInstance(Locale("fa", "IR")).format(value) + " تومان"
@@ -111,7 +68,8 @@ private fun normalizeDigits(input: String): String = input.map { char ->
 @Composable
 fun FinanceDashboard() {
     val context = LocalContext.current
-    var transactions by remember { mutableStateOf(loadTransactions(context)) }
+    val repository = remember { TransactionRepository(context) }
+    var transactions by remember { mutableStateOf<List<MoneyTransaction>>(emptyList()) }
     var showDialog by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf<MoneyTransaction?>(null) }
     var error by remember { mutableStateOf("") }
@@ -119,6 +77,15 @@ fun FinanceDashboard() {
     var typeFilter by remember { mutableStateOf(TypeFilter.ALL) }
     var categoryFilter by remember { mutableStateOf<String?>(null) }
     var categoryFilterExpanded by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        runCatching {
+            repository.migrateIfNeeded()
+            transactions = repository.getAll()
+        }.onFailure {
+            error = "بارگذاری اطلاعات ناموفق بود. دوباره تلاش کنید."
+        }
+    }
 
     val income = transactions.filter { it.income }.sumOf { it.amount }
     val expense = transactions.filterNot { it.income }.sumOf { it.amount }
@@ -279,57 +246,51 @@ fun FinanceDashboard() {
             initial = editing,
             onDismiss = { showDialog = false; editing = null; error = "" },
             onSave = { title, amount, isIncome, category, dateMillis ->
-                val updated = if (editing == null) {
-                    listOf(
-                        MoneyTransaction(
-                            id = UUID.randomUUID().toString(),
-                            title = title,
-                            amount = amount,
-                            income = isIncome,
-                            category = category,
-                            dateMillis = dateMillis
-                        )
-                    ) + transactions
+                val transaction = if (editing == null) {
+                    MoneyTransaction(
+                        id = UUID.randomUUID().toString(),
+                        title = title,
+                        amount = amount,
+                        income = isIncome,
+                        category = category,
+                        dateMillis = dateMillis
+                    )
                 } else {
-                    val target = editing!!
-                    transactions.map { item ->
-                        if (item.id == target.id) {
-                            item.copy(
-                                title = title,
-                                amount = amount,
-                                income = isIncome,
-                                category = category,
-                                dateMillis = dateMillis
-                            )
-                        } else {
-                            item
-                        }
-                    }
+                    editing!!.copy(
+                        title = title,
+                        amount = amount,
+                        income = isIncome,
+                        category = category,
+                        dateMillis = dateMillis
+                    )
                 }
-                if (saveTransactions(context, updated)) {
-                    transactions = updated
+                val ok = runCatching {
+                    repository.upsert(transaction)
+                    transactions = repository.getAll()
+                }.isSuccess
+                if (ok) {
                     showDialog = false
                     editing = null
                     error = ""
-                    true
                 } else {
                     error = "ذخیره اطلاعات ناموفق بود. دوباره تلاش کنید."
-                    false
                 }
+                ok
             },
             onDelete = { target ->
-                val updated = transactions.filterNot { it.id == target.id }
-                if (saveTransactions(context, updated)) {
-                    transactions = updated
+                val ok = runCatching {
+                    repository.delete(target.id)
+                    transactions = repository.getAll()
+                }.isSuccess
+                if (ok) {
                     showDialog = false
                     editing = null
-                    true
                 } else {
                     error = "حذف اطلاعات ناموفق بود. دوباره تلاش کنید."
                     showDialog = false
                     editing = null
-                    false
                 }
+                ok
             }
         )
     }
@@ -353,8 +314,8 @@ private fun SummaryCard(title: String, amount: String, isIncome: Boolean) {
 private fun TransactionDialog(
     initial: MoneyTransaction?,
     onDismiss: () -> Unit,
-    onSave: (title: String, amount: Long, income: Boolean, category: String, dateMillis: Long) -> Boolean,
-    onDelete: (MoneyTransaction) -> Boolean
+    onSave: suspend (title: String, amount: Long, income: Boolean, category: String, dateMillis: Long) -> Boolean,
+    onDelete: suspend (MoneyTransaction) -> Boolean
 ) {
     var title by remember { mutableStateOf(initial?.title ?: "") }
     var amount by remember { mutableStateOf(initial?.amount?.toString() ?: "") }
@@ -371,6 +332,7 @@ private fun TransactionDialog(
     var showDeleteConfirm by remember { mutableStateOf(false) }
     var showDatePicker by remember { mutableStateOf(false) }
     var categoryExpanded by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
 
     val categories = if (isIncome) INCOME_CATEGORIES else EXPENSE_CATEGORIES
     val datePickerState = rememberDatePickerState(initialSelectedDateMillis = dateMillis)
@@ -400,7 +362,7 @@ private fun TransactionDialog(
             confirmButton = {
                 TextButton(onClick = {
                     showDeleteConfirm = false
-                    onDelete(initial)
+                    scope.launch { onDelete(initial) }
                 }) { Text("حذف", color = MaterialTheme.colorScheme.error) }
             },
             dismissButton = {
@@ -482,8 +444,12 @@ private fun TransactionDialog(
                 val value = normalizeDigits(amount).toLongOrNull()
                 if (title.isBlank() || value == null || value <= 0L) {
                     validation = "عنوان و مبلغ معتبر وارد کنید."
-                } else if (!onSave(title.trim(), value, isIncome, category, dateMillis)) {
-                    validation = "ذخیره اطلاعات ناموفق بود. دوباره تلاش کنید."
+                } else {
+                    scope.launch {
+                        if (!onSave(title.trim(), value, isIncome, category, dateMillis)) {
+                            validation = "ذخیره اطلاعات ناموفق بود. دوباره تلاش کنید."
+                        }
+                    }
                 }
             }) { Text("ذخیره") }
         },
