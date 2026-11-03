@@ -12,6 +12,16 @@ private val DeepGreen = Color(0xFF083F35)
 private val Gold = Color(0xFFE3B04B)
 private val Cream = Color(0xFFF7F4EA)
 
+// پالت لوکس مرحله ۳۳: نیمه‌شب + طلایی + زمرد روشن؛ متفاوت از بنفش پرگار و در عین حال هم‌خانواده هویت پولینو.
+private val Midnight = Color(0xFF0A0E1D)
+private val MidnightSurface = Color(0xFF141B31)
+private val MidnightVariant = Color(0xFF1E2747)
+private val MintEmerald = Color(0xFF34C89E)
+private val PremiumGold = Color(0xFFE3B04B)
+private val SoftWhite = Color(0xFFF2F4F8)
+private val MutedGray = Color(0xFF9AA3B8)
+private val SoftRed = Color(0xFFFF6B6B)
+
 private val LightColors = lightColorScheme(
     primary = Emerald,
     secondary = Gold,
@@ -24,14 +34,17 @@ private val LightColors = lightColorScheme(
 )
 
 private val DarkColors = darkColorScheme(
-    primary = Color(0xFF62D6B7),
-    secondary = Gold,
-    background = Color(0xFF081B17),
-    surface = Color(0xFF0D2B24),
-    onPrimary = Color(0xFF081B17),
+    primary = MintEmerald,
+    secondary = PremiumGold,
+    background = Midnight,
+    surface = MidnightSurface,
+    surfaceVariant = MidnightVariant,
+    onPrimary = Color.Black,
     onSecondary = Color.Black,
-    onBackground = Color.White,
-    onSurface = Color.White
+    onBackground = SoftWhite,
+    onSurface = SoftWhite,
+    onSurfaceVariant = MutedGray,
+    error = SoftRed
 )
 
 @Composable

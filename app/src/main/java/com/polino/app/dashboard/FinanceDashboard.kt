@@ -1,6 +1,21 @@
 package com.polino.app.dashboard
 
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Category
+import androidx.compose.material.icons.filled.Flag
+import androidx.compose.material.icons.filled.Repeat
+import androidx.compose.material.icons.filled.Savings
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
+import com.polino.app.R
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Box
@@ -62,8 +77,23 @@ import java.util.UUID
 private enum class TypeFilter { ALL, INCOME, EXPENSE }
 private enum class SortOrder { NEWEST, OLDEST, AMOUNT_DESC, AMOUNT_ASC }
 
+private val MidnightHero = Color(0xFF0F1730)
+private val HeroGold = Color(0xFFE3B04B)
+private val HeroIncome = Color(0xFF34C89E)
+private val HeroExpense = Color(0xFFFF6B6B)
+private val HeroMuted = Color(0xFF9AA3B8)
+
+private fun ymKey(yearMonth: String): Int {
+    val parts = yearMonth.split("-")
+    return (parts.getOrNull(0)?.toIntOrNull() ?: 0) * 12 +
+        (parts.getOrNull(1)?.toIntOrNull() ?: 0)
+}
+
 @Composable
-fun FinanceDashboard() {
+fun FinanceDashboard(
+    addRequest: Int = 0,
+    onNavigateToReports: () -> Unit = {}
+) {
     val context = LocalContext.current
     val repository = remember { TransactionRepository(context) }
     val budgetRepository = remember { BudgetRepository(context) }
@@ -88,6 +118,16 @@ fun FinanceDashboard() {
     var showRecurringDialog by remember { mutableStateOf(false) }
     var showDeleteAccountConfirm by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
+
+    // درخواست افزودن از دکمه + ناوبری پایین؛ هر بار که شمارنده عوض شود،
+    // دیالوگ افزودن تراکنش باز می‌شود.
+    LaunchedEffect(addRequest) {
+        if (addRequest > 0) {
+            editing = null
+            error = ""
+            showDialog = true
+        }
+    }
 
     LaunchedEffect(Unit) {
         runCatching {
@@ -194,15 +234,49 @@ fun FinanceDashboard() {
         SortOrder.AMOUNT_ASC -> filtered.sortedBy { it.amount }
     }
 
+    // موجودی پایان ۶ ماه اخیر شمسی برای نمودار کارت قهرمان؛ بر اساس
+    // همان حساب انتخاب‌شده (یا همه حساب‌ها) محاسبه می‌شود.
+    val currentMonth = JalaliDate.currentJalaliYearMonth()
+    val heroMonths = remember(accountTransactions, currentMonth) {
+        JalaliDate.lastJalaliYearMonths(6, currentMonth)
+    }
+    val heroBalances = remember(accountTransactions, heroMonths) {
+        heroMonths.map { month ->
+            val key = ymKey(month)
+            accountTransactions
+                .filter { ymKey(JalaliDate.jalaliYearMonthOf(it.dateMillis)) <= key }
+                .sumOf { if (it.income) it.amount else -it.amount }
+        }
+    }
+    val monthTotals = remember(accountTransactions, currentMonth) {
+        monthTotals(transactionsInMonth(accountTransactions, currentMonth))
+    }
+
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(20.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         item {
-            Text("داشبورد مالی پولینو", style = MaterialTheme.typography.headlineSmall)
-            Text("اطلاعات ثبت‌شده روی همین دستگاه", style = MaterialTheme.typography.labelMedium)
-            Text("نسخه ${BuildConfig.VERSION_NAME}", style = MaterialTheme.typography.labelMedium)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Image(
+                    painter = painterResource(R.drawable.polino_logo),
+                    contentDescription = "لوگوی پولینو",
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .size(48.dp)
+                        .clip(RoundedCornerShape(14.dp))
+                )
+                Spacer(Modifier.width(12.dp))
+                Column {
+                    Text("پولینو", style = MaterialTheme.typography.headlineSmall)
+                    Text("نسخه ${BuildConfig.VERSION_NAME}", style = MaterialTheme.typography.labelMedium)
+                }
+            }
+            if (error.isNotEmpty()) {
+                Spacer(Modifier.height(8.dp))
+                Text(error, color = MaterialTheme.colorScheme.error)
+            }
         }
         item {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -253,47 +327,76 @@ fun FinanceDashboard() {
         item {
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primary)
+                shape = RoundedCornerShape(28.dp),
+                colors = CardDefaults.cardColors(containerColor = MidnightHero)
             ) {
-                Column(Modifier.padding(20.dp)) {
-                    Text("موجودی کل", color = MaterialTheme.colorScheme.onPrimary)
+                Column(
+                    Modifier.padding(20.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Text(
+                        "موجودی کل",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = HeroMuted
+                    )
                     Text(
                         money(income - expense),
-                        style = MaterialTheme.typography.headlineMedium,
-                        color = MaterialTheme.colorScheme.onPrimary
+                        style = MaterialTheme.typography.displaySmall,
+                        color = HeroGold
                     )
+                    BalanceChart(months = heroMonths, balances = heroBalances)
                 }
             }
         }
         item {
-            val currentMonth = JalaliDate.currentJalaliYearMonth()
-            val totals = remember(accountTransactions, currentMonth) {
-                monthTotals(transactionsInMonth(accountTransactions, currentMonth))
-            }
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(20.dp)
-            ) {
-                Column(
-                    Modifier.padding(20.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Card(
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(20.dp)
                 ) {
-                    Text(
-                        "این ماه (${JalaliDate.jalaliMonthDisplay(currentMonth)})",
-                        style = MaterialTheme.typography.titleMedium
-                    )
-                    Text("درآمد: ${money(totals.income)}")
-                    Text("هزینه: ${money(totals.expense)}")
-                    Text(
-                        "مانده: ${money(totals.income - totals.expense)}",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = if (totals.income - totals.expense >= 0) {
-                            MaterialTheme.colorScheme.primary
-                        } else {
-                            MaterialTheme.colorScheme.error
-                        }
-                    )
+                    Column(
+                        Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Text(
+                            "درآمد این ماه",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = HeroIncome
+                        )
+                        Text(
+                            "+" + money(monthTotals.income),
+                            style = MaterialTheme.typography.titleMedium,
+                            color = HeroIncome
+                        )
+                        Text(
+                            JalaliDate.jalaliMonthDisplay(currentMonth),
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                }
+                Card(
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(20.dp)
+                ) {
+                    Column(
+                        Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Text(
+                            "هزینه این ماه",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = HeroExpense
+                        )
+                        Text(
+                            "−" + money(monthTotals.expense),
+                            style = MaterialTheme.typography.titleMedium,
+                            color = HeroExpense
+                        )
+                        Text(
+                            JalaliDate.jalaliMonthDisplay(currentMonth),
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
                 }
             }
         }
@@ -346,9 +449,33 @@ fun FinanceDashboard() {
             }
         }
         item {
+            Text("دسترسی سریع", style = MaterialTheme.typography.titleMedium)
+            Spacer(Modifier.height(8.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Box(Modifier.weight(1f)) { SummaryCard("درآمد", money(income), true) }
-                Box(Modifier.weight(1f)) { SummaryCard("هزینه", money(expense), false) }
+                QuickTile(
+                    modifier = Modifier.weight(1f),
+                    label = "دسته‌ها",
+                    icon = Icons.Default.Category,
+                    onClick = { showCategoryDialog = true }
+                )
+                QuickTile(
+                    modifier = Modifier.weight(1f),
+                    label = "تکرارشونده‌ها",
+                    icon = Icons.Default.Repeat,
+                    onClick = { showRecurringDialog = true }
+                )
+                QuickTile(
+                    modifier = Modifier.weight(1f),
+                    label = "بودجه‌ها",
+                    icon = Icons.Default.Savings,
+                    onClick = onNavigateToReports
+                )
+                QuickTile(
+                    modifier = Modifier.weight(1f),
+                    label = "اهداف",
+                    icon = Icons.Default.Flag,
+                    onClick = onNavigateToReports
+                )
             }
         }
         item {
@@ -453,7 +580,7 @@ fun FinanceDashboard() {
                 }
             }
         }
-        item { Text("تراکنش‌ها", style = MaterialTheme.typography.titleLarge) }
+        item { Text("آخرین تراکنش‌ها", style = MaterialTheme.typography.titleLarge) }
         if (accountTransactions.isEmpty()) {
             item {
                 Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp)) {
@@ -463,7 +590,7 @@ fun FinanceDashboard() {
                     ) {
                         Text("در این حساب هنوز تراکنشی ثبت نشده است.", style = MaterialTheme.typography.titleMedium)
                         Text(
-                            "با دکمه «افزودن تراکنش» اولین تراکنش این حساب را ثبت کنید.",
+                            "با دکمه + پایین صفحه اولین تراکنش این حساب را ثبت کنید.",
                             style = MaterialTheme.typography.bodyMedium
                         )
                     }
@@ -523,15 +650,6 @@ fun FinanceDashboard() {
                     }
                 }
             }
-        }
-        item {
-            Button(
-                onClick = { editing = null; error = ""; showDialog = true },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("افزودن تراکنش")
-            }
-            if (error.isNotEmpty()) Text(error, color = MaterialTheme.colorScheme.error)
         }
     }
 
@@ -1150,15 +1268,65 @@ private fun RecurringDialog(
 }
 
 @Composable
-private fun SummaryCard(title: String, amount: String, isIncome: Boolean) {
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(12.dp)) {
-            Text(title)
-            Text(
-                amount,
-                style = MaterialTheme.typography.bodyMedium,
-                color = if (isIncome) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
-            )
+private fun BalanceChart(months: List<String>, balances: List<Long>) {
+    if (balances.isEmpty()) return
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Canvas(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(110.dp)
+        ) {
+            val min = balances.minOrNull() ?: 0L
+            val max = balances.maxOrNull() ?: 0L
+            val span = (max - min).takeIf { it > 0 } ?: 1L
+            val stepX = if (balances.size > 1) size.width / (balances.size - 1) else 0f
+            val points = balances.mapIndexed { index, value ->
+                Offset(
+                    x = stepX * index,
+                    y = size.height - ((value - min).toFloat() / span) * (size.height - 16f) - 8f
+                )
+            }
+            for (index in 0 until points.size - 1) {
+                drawLine(HeroGold, points[index], points[index + 1], strokeWidth = 3f)
+            }
+            points.forEach { drawCircle(HeroGold, radius = 5f, center = it) }
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            months.forEach { month ->
+                Text(
+                    JalaliDate.jalaliMonthDisplay(month).substringBefore(" "),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = HeroMuted
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun QuickTile(
+    modifier: Modifier = Modifier,
+    label: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    onClick: () -> Unit
+) {
+    Card(
+        onClick = onClick,
+        modifier = modifier,
+        shape = RoundedCornerShape(20.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 16.dp, horizontal = 4.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Icon(icon, contentDescription = label)
+            Text(label, style = MaterialTheme.typography.bodySmall)
         }
     }
 }
