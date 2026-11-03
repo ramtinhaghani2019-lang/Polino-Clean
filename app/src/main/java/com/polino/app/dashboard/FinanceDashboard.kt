@@ -131,6 +131,17 @@ fun FinanceDashboard() {
     }
 
     val accountTransactions = transactions.filter { it.accountId == selectedAccountId }
+    // موجودی بعد از هر تراکنش، از روی کل تاریخچه حساب (نه فیلترشده) تا
+    // با فیلتر فعال هم عدد درست بماند؛ مرتب‌سازی با id برای ترتیب قطعی.
+    val runningBalances = remember(accountTransactions) {
+        var balance = 0L
+        accountTransactions
+            .sortedWith(compareBy({ it.dateMillis }, { it.id }))
+            .associate { tx ->
+                balance += if (tx.income) tx.amount else -tx.amount
+                tx.id to balance
+            }
+    }
     val income = accountTransactions.filter { it.income }.sumOf { it.amount }
     val expense = accountTransactions.filterNot { it.income }.sumOf { it.amount }
     // بودجه‌ها سراسریِ ماه جاری‌اند (مثل صفحه گزارش)؛ هشدار هم بر اساس
@@ -427,6 +438,9 @@ fun FinanceDashboard() {
                         }
                         if (transaction.note.isNotBlank()) {
                             Text(transaction.note, style = MaterialTheme.typography.bodySmall)
+                        }
+                        runningBalances[transaction.id]?.let { balance ->
+                            Text("موجودی: ${money(balance)}", style = MaterialTheme.typography.bodySmall)
                         }
                     }
                 }
