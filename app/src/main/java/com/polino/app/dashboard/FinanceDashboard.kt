@@ -160,7 +160,8 @@ fun FinanceDashboard() {
         .filter {
             searchQuery.isBlank() ||
                 it.title.contains(searchQuery.trim(), ignoreCase = true) ||
-                it.note.contains(searchQuery.trim(), ignoreCase = true)
+                it.note.contains(searchQuery.trim(), ignoreCase = true) ||
+                it.category.contains(searchQuery.trim(), ignoreCase = true)
         }
         .sortedByDescending { it.dateMillis }
 
@@ -314,7 +315,7 @@ fun FinanceDashboard() {
             OutlinedTextField(
                 value = searchQuery,
                 onValueChange = { searchQuery = it },
-                label = { Text("جستجو در عنوان و یادداشت") },
+                label = { Text("جستجو در عنوان، یادداشت و دسته") },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()
             )
@@ -877,29 +878,37 @@ private fun RecurringDialog(
                     style = MaterialTheme.typography.bodySmall
                 )
                 recurring.forEach { rule ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text("${rule.title} — روز ${rule.dayOfMonth} هر ماه")
-                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                            TextButton(onClick = {
-                                editingId = rule.id
-                                title = rule.title
-                                amount = rule.amount.toString()
-                                isIncome = rule.income
-                                category = rule.category
-                                accountId = rule.accountId
-                                day = rule.dayOfMonth.toString()
-                                validation = ""
-                            }) { Text("ویرایش") }
-                            TextButton(onClick = {
-                                scope.launch { onDelete(rule.id) }
-                            }) {
-                                Text("حذف", color = MaterialTheme.colorScheme.error)
+                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("${rule.title} — روز ${rule.dayOfMonth} هر ماه")
+                            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                TextButton(onClick = {
+                                    editingId = rule.id
+                                    title = rule.title
+                                    amount = rule.amount.toString()
+                                    isIncome = rule.income
+                                    category = rule.category
+                                    accountId = rule.accountId
+                                    day = rule.dayOfMonth.toString()
+                                    validation = ""
+                                }) { Text("ویرایش") }
+                                TextButton(onClick = {
+                                    scope.launch { onDelete(rule.id) }
+                                }) {
+                                    Text("حذف", color = MaterialTheme.colorScheme.error)
+                                }
                             }
                         }
+                        Text(
+                            rule.lastAppliedYearMonth?.let {
+                                "آخرین اجرا: ${JalaliDate.jalaliMonthDisplay(it)}"
+                            } ?: "هنوز اجرا نشده",
+                            style = MaterialTheme.typography.bodySmall
+                        )
                     }
                 }
                 OutlinedTextField(

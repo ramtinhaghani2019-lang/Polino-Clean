@@ -122,10 +122,14 @@ fun ReportsScreen(onBack: () -> Unit) {
         if (uri != null) {
             scope.launch {
                 runCatching {
+                    val viewed = transactionsInMonth(transactions, selectedYearMonth).filter {
+                        selectedAccountId == "all" || it.accountId == selectedAccountId
+                    }
                     context.contentResolver.openOutputStream(uri)?.use { stream ->
-                        stream.write(transactionsToCsv(transactions).toByteArray(Charsets.UTF_8))
+                        stream.write(transactionsToCsv(viewed).toByteArray(Charsets.UTF_8))
                     } ?: throw IllegalStateException("no output stream")
-                }.onSuccess { info = "خروجی CSV انجام شد." }
+                    viewed.size
+                }.onSuccess { count -> info = "خروجی CSV $count تراکنش انجام شد." }
                     .onFailure { error = "خروجی CSV ناموفق بود. دوباره تلاش کنید." }
             }
         }
