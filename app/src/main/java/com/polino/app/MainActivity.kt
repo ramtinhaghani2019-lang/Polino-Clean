@@ -15,7 +15,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Home
-import androidx.compose.material3.Button
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -94,7 +94,7 @@ private fun PolinoApp() {
                 TopAppBar(
                     title = { Text("پولینو") },
                     actions = {
-                        Button(onClick = { showTestCenter = true }) {
+                        TextButton(onClick = { showTestCenter = true }) {
                             Text("تست‌سنتر")
                         }
                     }
