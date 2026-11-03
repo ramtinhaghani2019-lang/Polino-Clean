@@ -989,7 +989,6 @@ private fun InstallmentDialog(
 }
 
 @Composable
-@Composable
 private fun AccountDialog(
     existingNames: List<String>,
     onDismiss: () -> Unit,
@@ -1168,6 +1167,7 @@ private fun CategoryRenameDialog(
     )
 }
 
+@Composable
 private fun MiniStat(modifier: Modifier = Modifier, label: String, value: String) {
     Card(
         modifier = modifier,
