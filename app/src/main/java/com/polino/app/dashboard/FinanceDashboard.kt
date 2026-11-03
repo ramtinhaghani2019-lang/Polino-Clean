@@ -225,6 +225,37 @@ fun FinanceDashboard() {
                 }
             }
         }
+        item {
+            val currentMonth = JalaliDate.currentJalaliYearMonth()
+            val totals = remember(accountTransactions, currentMonth) {
+                monthTotals(transactionsInMonth(accountTransactions, currentMonth))
+            }
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(20.dp)
+            ) {
+                Column(
+                    Modifier.padding(20.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        "این ماه (${JalaliDate.jalaliMonthDisplay(currentMonth)})",
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                    Text("درآمد: ${money(totals.income)}")
+                    Text("هزینه: ${money(totals.expense)}")
+                    Text(
+                        "مانده: ${money(totals.income - totals.expense)}",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = if (totals.income - totals.expense >= 0) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MaterialTheme.colorScheme.error
+                        }
+                    )
+                }
+            }
+        }
         if (overspent.isNotEmpty() || nearing.isNotEmpty()) {
             item {
                 Card(
