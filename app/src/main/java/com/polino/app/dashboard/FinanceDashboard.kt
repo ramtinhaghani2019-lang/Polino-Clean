@@ -1,13 +1,42 @@
 package com.polino.app.dashboard
 
 import android.content.Context
-import androidx.compose.foundation.layout.*
+import android.icu.util.PersianCalendar
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.RadioButton
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberDatePickerState
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
@@ -16,38 +45,111 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.text.NumberFormat
 import java.util.Locale
+import java.util.UUID
 
-private data class MoneyTransaction(val title: String, val amount: Long, val income: Boolean)
+private data class MoneyTransaction(
+    val id: String,
+    val title: String,
+    val amount: Long,
+    val income: Boolean,
+    val category: String,
+    val dateMillis: Long
+)
+
 private const val PREFS = "polino_finance_v1"
 private const val KEY = "transactions"
+
+private val EXPENSE_CATEGORIES =
+    listOf("خوراک", "مسکن", "حمل‌ونقل", "سلامت", "آموزش", "تفریح", "پوشاک", "سایر")
+private val INCOME_CATEGORIES = listOf("حقوق", "فروش", "هدیه", "سایر")
+
+private val PERSIAN_MONTHS = listOf(
+    "فروردین", "اردیبهشت", "خرداد", "تیر", "مرداد", "شهریور",
+    "مهر", "آبان", "آذر", "دی", "بهمن", "اسفند"
+)
+
+private enum class TypeFilter { ALL, INCOME, EXPENSE }
 
 private fun loadTransactions(context: Context): List<MoneyTransaction> = runCatching {
     val raw = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY, "[]") ?: "[]"
     val array = JSONArray(raw)
     (0 until array.length()).map { index ->
         val item = array.getJSONObject(index)
-        MoneyTransaction(item.getString("title"), item.getLong("amount"), item.getBoolean("income"))
+        val income = item.getBoolean("income")
+        MoneyTransaction(
+            id = item.optString("id").ifBlank { UUID.randomUUID().toString() },
+            title = item.getString("title"),
+            amount = item.getLong("amount"),
+            income = income,
+            category = item.optString("category").ifBlank { "سایر" },
+            dateMillis = item.optLong("dateMillis", 0L)
+        )
     }
 }.getOrDefault(emptyList())
 
 private fun saveTransactions(context: Context, transactions: List<MoneyTransaction>): Boolean {
     val array = JSONArray()
     transactions.forEach { transaction ->
-        array.put(JSONObject().put("title", transaction.title).put("amount", transaction.amount).put("income", transaction.income))
+        array.put(
+            JSONObject()
+                .put("id", transaction.id)
+                .put("title", transaction.title)
+                .put("amount", transaction.amount)
+                .put("income", transaction.income)
+                .put("category", transaction.category)
+                .put("dateMillis", transaction.dateMillis)
+        )
     }
     return context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString(KEY, array.toString()).commit()
 }
 
-private fun money(value: Long): String = NumberFormat.getIntegerInstance(Locale("fa", "IR")).format(value) + " تومان"
+private fun money(value: Long): String =
+    NumberFormat.getIntegerInstance(Locale("fa", "IR")).format(value) + " تومان"
+
+private fun formatJalali(millis: Long): String {
+    if (millis == 0L) return "بدون تاریخ"
+    val calendar = PersianCalendar()
+    calendar.timeInMillis = millis
+    val day = calendar.get(PersianCalendar.DAY_OF_MONTH)
+    val month = calendar.get(PersianCalendar.MONTH)
+    val year = calendar.get(PersianCalendar.YEAR)
+    return "$day ${PERSIAN_MONTHS[month]} $year"
+}
+
+private fun normalizeDigits(input: String): String = input.map { char ->
+    when (char) {
+        in '۰'..'۹' -> ('0'.code + char.code - '۰'.code).toChar()
+        in '٠'..'٩' -> ('0'.code + char.code - '٠'.code).toChar()
+        else -> char
+    }
+}.joinToString("")
 
 @Composable
 fun FinanceDashboard() {
     val context = LocalContext.current
     var transactions by remember { mutableStateOf(loadTransactions(context)) }
     var showDialog by remember { mutableStateOf(false) }
+    var editing by remember { mutableStateOf<MoneyTransaction?>(null) }
     var error by remember { mutableStateOf("") }
+    var searchQuery by remember { mutableStateOf("") }
+    var typeFilter by remember { mutableStateOf(TypeFilter.ALL) }
+    var categoryFilter by remember { mutableStateOf<String?>(null) }
+    var categoryFilterExpanded by remember { mutableStateOf(false) }
+
     val income = transactions.filter { it.income }.sumOf { it.amount }
     val expense = transactions.filterNot { it.income }.sumOf { it.amount }
+
+    val visible = transactions
+        .filter {
+            when (typeFilter) {
+                TypeFilter.ALL -> true
+                TypeFilter.INCOME -> it.income
+                TypeFilter.EXPENSE -> !it.income
+            }
+        }
+        .filter { categoryFilter == null || it.category == categoryFilter }
+        .filter { searchQuery.isBlank() || it.title.contains(searchQuery.trim(), ignoreCase = true) }
+        .sortedByDescending { it.dateMillis }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -80,7 +182,57 @@ fun FinanceDashboard() {
                 Box(Modifier.weight(1f)) { SummaryCard("هزینه", money(expense), false) }
             }
         }
-        item { Text("آخرین تراکنش‌ها", style = MaterialTheme.typography.titleLarge) }
+        item {
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = { searchQuery = it },
+                label = { Text("جستجو در عنوان تراکنش") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+        item {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilterChip(
+                    selected = typeFilter == TypeFilter.ALL,
+                    onClick = { typeFilter = TypeFilter.ALL },
+                    label = { Text("همه") }
+                )
+                FilterChip(
+                    selected = typeFilter == TypeFilter.INCOME,
+                    onClick = { typeFilter = TypeFilter.INCOME },
+                    label = { Text("درآمد") }
+                )
+                FilterChip(
+                    selected = typeFilter == TypeFilter.EXPENSE,
+                    onClick = { typeFilter = TypeFilter.EXPENSE },
+                    label = { Text("هزینه") }
+                )
+            }
+        }
+        item {
+            Box {
+                OutlinedButton(onClick = { categoryFilterExpanded = true }) {
+                    Text(categoryFilter ?: "همه دسته‌ها")
+                }
+                DropdownMenu(
+                    expanded = categoryFilterExpanded,
+                    onDismissRequest = { categoryFilterExpanded = false }
+                ) {
+                    DropdownMenuItem(
+                        text = { Text("همه دسته‌ها") },
+                        onClick = { categoryFilter = null; categoryFilterExpanded = false }
+                    )
+                    (EXPENSE_CATEGORIES + INCOME_CATEGORIES).distinct().forEach { category ->
+                        DropdownMenuItem(
+                            text = { Text(category) },
+                            onClick = { categoryFilter = category; categoryFilterExpanded = false }
+                        )
+                    }
+                }
+            }
+        }
+        item { Text("تراکنش‌ها", style = MaterialTheme.typography.titleLarge) }
         if (transactions.isEmpty()) {
             item {
                 Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp)) {
@@ -96,21 +248,42 @@ fun FinanceDashboard() {
                     }
                 }
             }
+        } else if (visible.isEmpty()) {
+            item { Text("تراکنشی با این فیلتر پیدا نشد.") }
         }
-        items(transactions) { transaction ->
-            Card(Modifier.fillMaxWidth()) {
-                Column(Modifier.padding(16.dp)) {
-                    Text(transaction.title)
-                    Text(
-                        (if (transaction.income) "+" else "−") + money(transaction.amount),
-                        style = MaterialTheme.typography.titleMedium,
-                        color = if (transaction.income) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
-                    )
+        items(visible) { transaction ->
+            Card(
+                onClick = { editing = transaction; showDialog = true },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(
+                    Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(transaction.title)
+                        Text(
+                            (if (transaction.income) "+" else "−") + money(transaction.amount),
+                            style = MaterialTheme.typography.titleMedium,
+                            color = if (transaction.income) MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.error
+                        )
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(transaction.category, style = MaterialTheme.typography.bodySmall)
+                        Text(formatJalali(transaction.dateMillis), style = MaterialTheme.typography.bodySmall)
+                    }
                 }
             }
         }
         item {
-            Button(onClick = { error = ""; showDialog = true }, modifier = Modifier.fillMaxWidth()) {
+            Button(
+                onClick = { editing = null; error = ""; showDialog = true },
+                modifier = Modifier.fillMaxWidth()
+            ) {
                 Text("افزودن تراکنش")
             }
             if (error.isNotEmpty()) Text(error, color = MaterialTheme.colorScheme.error)
@@ -118,58 +291,62 @@ fun FinanceDashboard() {
     }
 
     if (showDialog) {
-        var title by remember { mutableStateOf("") }
-        var amount by remember { mutableStateOf("") }
-        var isIncome by remember { mutableStateOf(false) }
-        var validation by remember { mutableStateOf("") }
-        AlertDialog(
-            onDismissRequest = { showDialog = false },
-            title = { Text("تراکنش جدید") },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    OutlinedTextField(value = title, onValueChange = { title = it }, label = { Text("عنوان") }, singleLine = true)
-                    OutlinedTextField(
-                        value = amount,
-                        onValueChange = { amount = it.filter { char -> char.isDigit() || char in "۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩" } },
-                        label = { Text("مبلغ به تومان") },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        singleLine = true
-                    )
-                    Row {
-                        RadioButton(selected = !isIncome, onClick = { isIncome = false })
-                        Text("هزینه")
-                        Spacer(Modifier.width(16.dp))
-                        RadioButton(selected = isIncome, onClick = { isIncome = true })
-                        Text("درآمد")
+        TransactionDialog(
+            initial = editing,
+            onDismiss = { showDialog = false; editing = null; error = "" },
+            onSave = { title, amount, isIncome, category, dateMillis ->
+                val updated = if (editing == null) {
+                    listOf(
+                        MoneyTransaction(
+                            id = UUID.randomUUID().toString(),
+                            title = title,
+                            amount = amount,
+                            income = isIncome,
+                            category = category,
+                            dateMillis = dateMillis
+                        )
+                    ) + transactions
+                } else {
+                    val target = editing!!
+                    transactions.map { item ->
+                        if (item.id == target.id) {
+                            item.copy(
+                                title = title,
+                                amount = amount,
+                                income = isIncome,
+                                category = category,
+                                dateMillis = dateMillis
+                            )
+                        } else {
+                            item
+                        }
                     }
-                    if (validation.isNotEmpty()) Text(validation, color = MaterialTheme.colorScheme.error)
+                }
+                if (saveTransactions(context, updated)) {
+                    transactions = updated
+                    showDialog = false
+                    editing = null
+                    error = ""
+                    true
+                } else {
+                    error = "ذخیره اطلاعات ناموفق بود. دوباره تلاش کنید."
+                    false
                 }
             },
-            confirmButton = {
-                TextButton(onClick = {
-                    val normalized = amount.map { char ->
-                        when (char) {
-                            in '۰'..'۹' -> ('0'.code + char.code - '۰'.code).toChar()
-                            in '٠'..'٩' -> ('0'.code + char.code - '٠'.code).toChar()
-                            else -> char
-                        }
-                    }.joinToString("")
-                    val value = normalized.toLongOrNull()
-                    if (title.isBlank() || value == null || value <= 0L) {
-                        validation = "عنوان و مبلغ معتبر وارد کنید."
-                    } else {
-                        val updated = listOf(MoneyTransaction(title.trim(), value, isIncome)) + transactions
-                        if (saveTransactions(context, updated)) {
-                            transactions = updated
-                            showDialog = false
-                            error = ""
-                        } else {
-                            validation = "ذخیره اطلاعات ناموفق بود. دوباره تلاش کنید."
-                        }
-                    }
-                }) { Text("ذخیره") }
-            },
-            dismissButton = { TextButton(onClick = { showDialog = false }) { Text("انصراف") } }
+            onDelete = { target ->
+                val updated = transactions.filterNot { it.id == target.id }
+                if (saveTransactions(context, updated)) {
+                    transactions = updated
+                    showDialog = false
+                    editing = null
+                    true
+                } else {
+                    error = "حذف اطلاعات ناموفق بود. دوباره تلاش کنید."
+                    showDialog = false
+                    editing = null
+                    false
+                }
+            }
         )
     }
 }
@@ -186,4 +363,148 @@ private fun SummaryCard(title: String, amount: String, isIncome: Boolean) {
             )
         }
     }
+}
+
+@Composable
+private fun TransactionDialog(
+    initial: MoneyTransaction?,
+    onDismiss: () -> Unit,
+    onSave: (title: String, amount: Long, income: Boolean, category: String, dateMillis: Long) -> Boolean,
+    onDelete: (MoneyTransaction) -> Boolean
+) {
+    var title by remember { mutableStateOf(initial?.title ?: "") }
+    var amount by remember { mutableStateOf(initial?.amount?.toString() ?: "") }
+    var isIncome by remember { mutableStateOf(initial?.income ?: false) }
+    var category by remember {
+        mutableStateOf(initial?.category ?: EXPENSE_CATEGORIES.first())
+    }
+    var dateMillis by remember {
+        mutableStateOf(
+            initial?.dateMillis?.takeIf { it != 0L } ?: System.currentTimeMillis()
+        )
+    }
+    var validation by remember { mutableStateOf("") }
+    var showDeleteConfirm by remember { mutableStateOf(false) }
+    var showDatePicker by remember { mutableStateOf(false) }
+    var categoryExpanded by remember { mutableStateOf(false) }
+
+    val categories = if (isIncome) INCOME_CATEGORIES else EXPENSE_CATEGORIES
+    val datePickerState = rememberDatePickerState(initialSelectedDateMillis = dateMillis)
+
+    if (showDatePicker) {
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    datePickerState.selectedDateMillis?.let { dateMillis = it }
+                    showDatePicker = false
+                }) { Text("تأیید") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) { Text("انصراف") }
+            }
+        ) {
+            DatePicker(state = datePickerState)
+        }
+    }
+
+    if (showDeleteConfirm && initial != null) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirm = false },
+            title = { Text("حذف تراکنش") },
+            text = { Text("«${initial.title}» حذف شود؟ این کار قابل بازگشت نیست.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    showDeleteConfirm = false
+                    onDelete(initial)
+                }) { Text("حذف", color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteConfirm = false }) { Text("انصراف") }
+            }
+        )
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(if (initial == null) "تراکنش جدید" else "ویرایش تراکنش") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                OutlinedTextField(
+                    value = title,
+                    onValueChange = { title = it },
+                    label = { Text("عنوان") },
+                    singleLine = true
+                )
+                OutlinedTextField(
+                    value = amount,
+                    onValueChange = { newAmount ->
+                        amount = newAmount.filter { char ->
+                            char.isDigit() || char in "۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩"
+                        }
+                    },
+                    label = { Text("مبلغ به تومان") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    singleLine = true
+                )
+                Row {
+                    RadioButton(selected = !isIncome, onClick = {
+                        isIncome = false
+                        if (category !in EXPENSE_CATEGORIES) category = EXPENSE_CATEGORIES.first()
+                    })
+                    Text("هزینه")
+                    Spacer(Modifier.width(16.dp))
+                    RadioButton(selected = isIncome, onClick = {
+                        isIncome = true
+                        if (category !in INCOME_CATEGORIES) category = INCOME_CATEGORIES.first()
+                    })
+                    Text("درآمد")
+                }
+                Box {
+                    OutlinedButton(
+                        onClick = { categoryExpanded = true },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(category)
+                    }
+                    DropdownMenu(
+                        expanded = categoryExpanded,
+                        onDismissRequest = { categoryExpanded = false }
+                    ) {
+                        categories.forEach { item ->
+                            DropdownMenuItem(
+                                text = { Text(item) },
+                                onClick = { category = item; categoryExpanded = false }
+                            )
+                        }
+                    }
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("تاریخ: ${formatJalali(dateMillis)}")
+                    TextButton(onClick = { showDatePicker = true }) { Text("تغییر تاریخ") }
+                }
+                if (initial != null) {
+                    TextButton(onClick = { showDeleteConfirm = true }) {
+                        Text("حذف این تراکنش", color = MaterialTheme.colorScheme.error)
+                    }
+                }
+                if (validation.isNotEmpty()) {
+                    Text(validation, color = MaterialTheme.colorScheme.error)
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = {
+                val value = normalizeDigits(amount).toLongOrNull()
+                if (title.isBlank() || value == null || value <= 0L) {
+                    validation = "عنوان و مبلغ معتبر وارد کنید."
+                } else if (!onSave(title.trim(), value, isIncome, category, dateMillis)) {
+                    validation = "ذخیره اطلاعات ناموفق بود. دوباره تلاش کنید."
+                }
+            }) { Text("ذخیره") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("انصراف") }
+        }
+    )
 }
