@@ -13,9 +13,10 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         RecurringEntity::class,
         GoalEntity::class,
         InstallmentEntity::class,
-        DebtEntity::class
+        DebtEntity::class,
+        TaskEntity::class
     ],
-    version = 9,
+    version = 10,
     exportSchema = false
 )
 internal abstract class PolinoDatabase : RoomDatabase() {
@@ -26,6 +27,7 @@ internal abstract class PolinoDatabase : RoomDatabase() {
     abstract fun goalDao(): GoalDao
     abstract fun installmentDao(): InstallmentDao
     abstract fun debtDao(): DebtDao
+    abstract fun taskDao(): TaskDao
 
     companion object {
         /**
@@ -148,6 +150,19 @@ internal abstract class PolinoDatabase : RoomDatabase() {
                         "(id TEXT NOT NULL PRIMARY KEY, personName TEXT NOT NULL, " +
                         "amount INTEGER NOT NULL, isReceivable INTEGER NOT NULL, " +
                         "settled INTEGER NOT NULL, accountId TEXT NOT NULL)"
+                )
+            }
+        }
+        /**
+         * مهاجرت v9→v10: جدول کارها و یادآورها ساخته می‌شود؛
+         * بقیه جدول‌ها دست نمی‌خورند.
+         */
+        val MIGRATION_9_10 = object : Migration(9, 10) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS tasks " +
+                        "(id TEXT NOT NULL PRIMARY KEY, title TEXT NOT NULL, " +
+                        "dueMillis INTEGER NOT NULL, done INTEGER NOT NULL)"
                 )
             }
         }

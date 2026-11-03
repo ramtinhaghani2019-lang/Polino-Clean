@@ -39,7 +39,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.TextField
+import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -55,6 +59,8 @@ import com.polino.app.data.CategoryEntity
 import com.polino.app.data.GoalEntity
 import com.polino.app.data.InstallmentEntity
 import com.polino.app.data.DebtEntity
+import com.polino.app.data.TaskEntity
+import com.polino.app.data.isTaskOverdue
 import com.polino.app.data.unsettledTotals
 import com.polino.app.data.MoneyTransaction
 import com.polino.app.data.installmentMonthlyAmount
@@ -84,8 +90,10 @@ fun ManagementScreen(
     var budgetCount by remember { mutableStateOf(0) }
     var installments by remember { mutableStateOf<List<InstallmentEntity>>(emptyList()) }
     var debts by remember { mutableStateOf<List<DebtEntity>>(emptyList()) }
+    var tasks by remember { mutableStateOf<List<TaskEntity>>(emptyList()) }
     var showInstallmentDialog by remember { mutableStateOf(false) }
     var showDebtDialog by remember { mutableStateOf(false) }
+    var showTaskDialog by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     var smsEnabled by remember { mutableStateOf(false) }
     val smsPermissionLauncher = rememberLauncherForActivityResult(
@@ -107,6 +115,7 @@ fun ManagementScreen(
             goals = repository.getGoals()
             installments = repository.getInstallments()
             debts = repository.getDebts()
+            tasks = repository.getTasks()
             budgetCount = budgetRepository.getBudgets(JalaliDate.currentJalaliYearMonth()).size
         }
         smsEnabled = context.getSharedPreferences(SMS_PREFS_NAME, Context.MODE_PRIVATE)
@@ -423,6 +432,69 @@ fun ManagementScreen(
                 }
             }
         }
+        item { Text("کارها و یادآورها", style = MaterialTheme.typography.titleMedium) }
+        item {
+            Button(onClick = { showTaskDialog = true }) {
+                Text("کار جدید")
+            }
+        }
+        if (tasks.isEmpty()) {
+            item { Text("هنوز کاری ثبت نشده است.") }
+        } else {
+            tasks.forEach { task ->
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(20.dp)
+                    ) {
+                        Column(
+                            Modifier.padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            val overdue = isTaskOverdue(
+                                task.dueMillis, System.currentTimeMillis(), task.done
+                            )
+                            Text(
+                                task.title,
+                                style = MaterialTheme.typography.titleMedium,
+                                color = if (overdue) {
+                                    MaterialTheme.colorScheme.error
+                                } else {
+                                    MaterialTheme.colorScheme.onSurface
+                                }
+                            )
+                            Text(
+                                "سررسید: ${JalaliDate.formatJalali(task.dueMillis)}" +
+                                    if (overdue) " — سررسید گذشته" else "" +
+                                    if (task.done) " — انجام شد" else ""
+                            )
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Button(
+                                    onClick = {
+                                        scope.launch {
+                                            repository.toggleTaskDone(task)
+                                            tasks = repository.getTasks()
+                                        }
+                                    }
+                                ) {
+                                    Text(if (task.done) "باز کردن" else "انجام شد")
+                                }
+                                TextButton(
+                                    onClick = {
+                                        scope.launch {
+                                            repository.deleteTask(task.id)
+                                            tasks = repository.getTasks()
+                                        }
+                                    }
+                                ) {
+                                    Text("حذف")
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 
     if (showInstallmentDialog) {
@@ -469,6 +541,86 @@ fun ManagementScreen(
                 }
             }
         )
+    }
+
+    if (showTaskDialog) {
+        TaskDialog(
+            onDismiss = { showTaskDialog = false },
+            onSave = { title, dueMillis ->
+                scope.launch {
+                    repository.addTask(
+                        TaskEntity(
+                            id = UUID.randomUUID().toString(),
+                            title = title,
+                            dueMillis = dueMillis,
+                            done = false
+                        )
+                    )
+                    tasks = repository.getTasks()
+                    showTaskDialog = false
+                }
+            }
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun TaskDialog(
+    onDismiss: () -> Unit,
+    onSave: (title: String, dueMillis: Long) -> Unit
+) {
+    var title by remember { mutableStateOf("") }
+    var dueMillis by remember { mutableStateOf(System.currentTimeMillis()) }
+    var showDatePicker by remember { mutableStateOf(false) }
+    val datePickerState = rememberDatePickerState(initialSelectedDateMillis = dueMillis)
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("کار جدید") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                TextField(
+                    value = title,
+                    onValueChange = { title = it },
+                    label = { Text("عنوان کار") }
+                )
+                Button(onClick = { showDatePicker = true }) {
+                    Text("سررسید: ${JalaliDate.formatJalali(dueMillis)}")
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    if (title.isNotBlank()) onSave(title.trim(), dueMillis)
+                }
+            ) {
+                Text("ذخیره")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("لغو") }
+        }
+    )
+    if (showDatePicker) {
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        datePickerState.selectedDateMillis?.let { dueMillis = it }
+                        showDatePicker = false
+                    }
+                ) {
+                    Text("تأیید")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) { Text("لغو") }
+            }
+        ) {
+            DatePicker(state = datePickerState)
+        }
     }
 }
 
