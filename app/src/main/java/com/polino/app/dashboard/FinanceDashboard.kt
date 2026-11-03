@@ -619,6 +619,7 @@ fun FinanceDashboard() {
                 repository.deleteCategory(name)
                 categories = repository.getCategories()
                 transactions = repository.getAll()
+                if (categoryFilter == name) categoryFilter = null
             },
             onRename = { oldName, newName ->
                 val ok = repository.renameCategory(oldName, newName)
