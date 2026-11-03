@@ -15,7 +15,8 @@ internal class TransactionRepository(context: Context) {
         PolinoDatabase.MIGRATION_4_5,
         PolinoDatabase.MIGRATION_5_6,
         PolinoDatabase.MIGRATION_6_7,
-        PolinoDatabase.MIGRATION_7_8
+        PolinoDatabase.MIGRATION_7_8,
+        PolinoDatabase.MIGRATION_8_9
     ).build()
     private val dao = database.transactionDao()
     private val accountDao = database.accountDao()
@@ -23,6 +24,7 @@ internal class TransactionRepository(context: Context) {
     private val recurringDao = database.recurringDao()
     private val goalDao = database.goalDao()
     private val installmentDao = database.installmentDao()
+    private val debtDao = database.debtDao()
     private val budgetDao = Room.databaseBuilder(
         appContext, BudgetDatabase::class.java, "polino_budgets_db"
     ).build().budgetDao()
@@ -153,6 +155,33 @@ internal class TransactionRepository(context: Context) {
     suspend fun addInstallment(item: InstallmentEntity) = installmentDao.upsert(item)
 
     suspend fun deleteInstallment(id: String) = installmentDao.deleteById(id)
+
+    suspend fun getDebts(): List<DebtEntity> = debtDao.getAll()
+
+    suspend fun addDebt(item: DebtEntity) = debtDao.upsert(item)
+
+    suspend fun deleteDebt(id: String) = debtDao.deleteById(id)
+
+    /**
+     * تسویه طلب یا بدهی: رکورد تسویه‌شده می‌شود و یک تراکنش واقعی ثبت
+     * می‌شود — درآمد برای طلب، هزینه برای بدهی.
+     */
+    suspend fun settleDebt(item: DebtEntity) {
+        if (item.settled) return
+        debtDao.upsert(item.copy(settled = true))
+        dao.upsert(
+            TransactionEntity(
+                id = UUID.randomUUID().toString(),
+                title = "تسویه: ${item.personName}",
+                amount = item.amount,
+                income = item.isReceivable,
+                category = "سایر",
+                dateMillis = System.currentTimeMillis(),
+                accountId = item.accountId,
+                note = ""
+            )
+        )
+    }
 
     /**
      * پرداخت یک قسط: شمارنده پرداخت یکی زیاد می‌شود و یک تراکنش هزینه

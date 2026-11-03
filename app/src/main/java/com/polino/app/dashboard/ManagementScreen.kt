@@ -54,6 +54,8 @@ import com.polino.app.data.BudgetRepository
 import com.polino.app.data.CategoryEntity
 import com.polino.app.data.GoalEntity
 import com.polino.app.data.InstallmentEntity
+import com.polino.app.data.DebtEntity
+import com.polino.app.data.unsettledTotals
 import com.polino.app.data.MoneyTransaction
 import com.polino.app.data.installmentMonthlyAmount
 import com.polino.app.data.installmentProgressFraction
@@ -81,7 +83,9 @@ fun ManagementScreen(
     var goals by remember { mutableStateOf<List<GoalEntity>>(emptyList()) }
     var budgetCount by remember { mutableStateOf(0) }
     var installments by remember { mutableStateOf<List<InstallmentEntity>>(emptyList()) }
+    var debts by remember { mutableStateOf<List<DebtEntity>>(emptyList()) }
     var showInstallmentDialog by remember { mutableStateOf(false) }
+    var showDebtDialog by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     var smsEnabled by remember { mutableStateOf(false) }
     val smsPermissionLauncher = rememberLauncherForActivityResult(
@@ -102,6 +106,7 @@ fun ManagementScreen(
             recurring = repository.getRecurring()
             goals = repository.getGoals()
             installments = repository.getInstallments()
+            debts = repository.getDebts()
             budgetCount = budgetRepository.getBudgets(JalaliDate.currentJalaliYearMonth()).size
         }
         smsEnabled = context.getSharedPreferences(SMS_PREFS_NAME, Context.MODE_PRIVATE)
@@ -362,6 +367,62 @@ fun ManagementScreen(
                 }
             }
         }
+        item { Text("طلب و بدهی", style = MaterialTheme.typography.titleMedium) }
+        item {
+            val (receivableTotal, payableTotal) = unsettledTotals(debts)
+            Text("طلب‌های باز: ${money(receivableTotal)} — بدهی‌های باز: ${money(payableTotal)}")
+        }
+        item {
+            Button(onClick = { showDebtDialog = true }) {
+                Text("طلب یا بدهی جدید")
+            }
+        }
+        if (debts.isEmpty()) {
+            item { Text("هنوز طلب یا بدهی ثبت نشده است.") }
+        } else {
+            debts.forEach { debt ->
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(20.dp)
+                    ) {
+                        Column(
+                            Modifier.padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text(debt.personName, style = MaterialTheme.typography.titleMedium)
+                            Text(
+                                "${if (debt.isReceivable) "طلب" else "بدهی"}: ${money(debt.amount)}" +
+                                    if (debt.settled) " — تسویه شد" else ""
+                            )
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Button(
+                                    onClick = {
+                                        scope.launch {
+                                            repository.settleDebt(debt)
+                                            debts = repository.getDebts()
+                                        }
+                                    },
+                                    enabled = !debt.settled
+                                ) {
+                                    Text(if (debt.settled) "تسویه شد" else "تسویه")
+                                }
+                                TextButton(
+                                    onClick = {
+                                        scope.launch {
+                                            repository.deleteDebt(debt.id)
+                                            debts = repository.getDebts()
+                                        }
+                                    }
+                                ) {
+                                    Text("حذف")
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 
     if (showInstallmentDialog) {
@@ -386,6 +447,95 @@ fun ManagementScreen(
             }
         )
     }
+
+    if (showDebtDialog) {
+        DebtDialog(
+            accounts = accounts,
+            onDismiss = { showDebtDialog = false },
+            onSave = { person, amount, isReceivable, accountId ->
+                scope.launch {
+                    repository.addDebt(
+                        DebtEntity(
+                            id = UUID.randomUUID().toString(),
+                            personName = person,
+                            amount = amount,
+                            isReceivable = isReceivable,
+                            settled = false,
+                            accountId = accountId
+                        )
+                    )
+                    debts = repository.getDebts()
+                    showDebtDialog = false
+                }
+            }
+        )
+    }
+}
+
+@Composable
+private fun DebtDialog(
+    accounts: List<AccountEntity>,
+    onDismiss: () -> Unit,
+    onSave: (person: String, amount: Long, isReceivable: Boolean, accountId: String) -> Unit
+) {
+    var person by remember { mutableStateOf("") }
+    var amountText by remember { mutableStateOf("") }
+    var isReceivable by remember { mutableStateOf(true) }
+    var selectedAccount by remember { mutableStateOf(accounts.firstOrNull()?.id ?: "main") }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("طلب یا بدهی جدید") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                TextField(
+                    value = person,
+                    onValueChange = { person = it },
+                    label = { Text("نام شخص") }
+                )
+                TextField(
+                    value = amountText,
+                    onValueChange = { amountText = it },
+                    label = { Text("مبلغ (تومان)") }
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilterChip(
+                        selected = isReceivable,
+                        onClick = { isReceivable = true },
+                        label = { Text("طلب") }
+                    )
+                    FilterChip(
+                        selected = !isReceivable,
+                        onClick = { isReceivable = false },
+                        label = { Text("بدهی") }
+                    )
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    accounts.forEach { account ->
+                        FilterChip(
+                            selected = selectedAccount == account.id,
+                            onClick = { selectedAccount = account.id },
+                            label = { Text(account.name) }
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    val amount = normalizeDigits(amountText).toLongOrNull() ?: 0L
+                    if (person.isNotBlank() && amount > 0) {
+                        onSave(person.trim(), amount, isReceivable, selectedAccount)
+                    }
+                }
+            ) {
+                Text("ذخیره")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("لغو") }
+        }
+    )
 }
 
 @Composable

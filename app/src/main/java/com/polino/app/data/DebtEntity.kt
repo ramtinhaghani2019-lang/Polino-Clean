@@ -1,0 +1,44 @@
+package com.polino.app.data
+
+import androidx.room.Dao
+import androidx.room.Entity
+import androidx.room.Insert
+import androidx.room.OnConflictStrategy
+import androidx.room.PrimaryKey
+import androidx.room.Query
+
+/**
+ * طلب و بدهی به ازای هر شخص. تا وقتی تسویه نشده، در درآمد و هزینه واقعی
+ * حساب نمی‌شود؛ با تسویه، یک تراکنش واقعی (درآمد برای طلب، هزینه برای بدهی)
+ * ثبت می‌شود.
+ */
+@Entity(tableName = "debts")
+internal data class DebtEntity(
+    @PrimaryKey val id: String,
+    val personName: String,
+    val amount: Long,
+    val isReceivable: Boolean,
+    val settled: Boolean = false,
+    val accountId: String = "main"
+)
+
+@Dao
+internal interface DebtDao {
+    @Query("SELECT * FROM debts ORDER BY personName")
+    suspend fun getAll(): List<DebtEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsert(item: DebtEntity)
+
+    @Query("DELETE FROM debts WHERE id = :id")
+    suspend fun deleteById(id: String)
+}
+
+/** جمع طلب‌های تسویه‌نشده و بدهی‌های تسویه‌نشده، به ترتیب. */
+internal fun unsettledTotals(debts: List<DebtEntity>): Pair<Long, Long> {
+    val open = debts.filter { !it.settled }
+    return Pair(
+        open.filter { it.isReceivable }.sumOf { it.amount },
+        open.filter { !it.isReceivable }.sumOf { it.amount }
+    )
+}
