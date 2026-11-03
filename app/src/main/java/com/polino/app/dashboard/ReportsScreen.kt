@@ -74,6 +74,7 @@ fun ReportsScreen(onBack: () -> Unit) {
     var error by remember { mutableStateOf("") }
     var info by remember { mutableStateOf("") }
     var showBudgetDialog by remember { mutableStateOf(false) }
+    var pendingImportText by remember { mutableStateOf<String?>(null) }
 
     var selectedYearMonth by remember { mutableStateOf(JalaliDate.currentJalaliYearMonth()) }
 
@@ -145,44 +146,80 @@ fun ReportsScreen(onBack: () -> Unit) {
                         stream.readBytes().toString(Charsets.UTF_8)
                     } ?: ""
                 }.getOrDefault("")
-                val backup = parseBackup(text)
-                if (backup != null) {
-                    runCatching {
-                        backup.accounts.forEach { transactionRepository.upsertAccount(it) }
-                        backup.transactions.forEach { transactionRepository.upsert(it) }
-                        backup.categories.forEach {
-                            transactionRepository.addCategory(it.name, it.isIncome)
-                        }
-                        backup.recurring.forEach { transactionRepository.addRecurring(it) }
-                        backup.goals.forEach { transactionRepository.addGoal(it) }
-                        backup.budgets.forEach {
-                            budgetRepository.setBudget(it.yearMonth, it.category, it.limitAmount)
-                        }
-                        transactions = transactionRepository.getAll()
-                        accounts = transactionRepository.getAccounts()
-                        categories = transactionRepository.getCategories()
-                        goals = transactionRepository.getGoals()
-                        budgets = budgetRepository.getBudgets(selectedYearMonth)
-                    }.onSuccess {
-                        info = "بازیابی کامل انجام شد: ${backup.transactions.size} تراکنش، " +
-                            "${backup.budgets.size} بودجه، ${backup.categories.size} دسته، " +
-                            "${backup.accounts.size} حساب، ${backup.recurring.size} تکرارشونده، " +
-                            "${backup.goals.size} هدف."
-                    }.onFailure { error = "بازیابی ناموفق بود. دوباره تلاش کنید." }
-                } else {
-                    val imported = parseLegacyTransactions(text)
-                if (imported.isEmpty()) {
+                if (parseBackup(text) == null && parseLegacyTransactions(text).isEmpty()) {
                     error = "فایلی برای بازیابی پیدا نشد یا خراب است."
                 } else {
-                    runCatching {
-                        imported.forEach { transactionRepository.upsert(it) }
-                        transactions = transactionRepository.getAll()
-                    }.onSuccess { info = "${imported.size} تراکنش بازیابی شد." }
-                        .onFailure { error = "بازیابی ناموفق بود. دوباره تلاش کنید." }
-                    }
+                    pendingImportText = text
                 }
             }
         }
+    }
+
+    if (pendingImportText != null) {
+        val text = pendingImportText!!
+        val backup = parseBackup(text)
+        AlertDialog(
+            onDismissRequest = { pendingImportText = null },
+            title = { Text("بازیابی از فایل") },
+            text = {
+                Text(
+                    if (backup != null) {
+                        "بازیابی شود؟ ${backup.transactions.size} تراکنش، " +
+                            "${backup.budgets.size} بودجه، ${backup.categories.size} دسته، " +
+                            "${backup.accounts.size} حساب، ${backup.recurring.size} تکرارشونده و " +
+                            "${backup.goals.size} هدف. داده‌های هم‌شناسه با نسخه فایل جایگزین می‌شوند."
+                    } else {
+                        val imported = parseLegacyTransactions(text)
+                        "بازیابی شود؟ ${imported.size} تراکنش. تراکنش‌های هم‌شناسه جایگزین می‌شوند."
+                    }
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    val confirmedText = pendingImportText
+                    pendingImportText = null
+                    if (confirmedText != null) {
+                        scope.launch {
+                            val confirmedBackup = parseBackup(confirmedText)
+                            if (confirmedBackup != null) {
+                                runCatching {
+                                    confirmedBackup.accounts.forEach { transactionRepository.upsertAccount(it) }
+                                    confirmedBackup.transactions.forEach { transactionRepository.upsert(it) }
+                                    confirmedBackup.categories.forEach {
+                                        transactionRepository.addCategory(it.name, it.isIncome)
+                                    }
+                                    confirmedBackup.recurring.forEach { transactionRepository.addRecurring(it) }
+                                    confirmedBackup.goals.forEach { transactionRepository.addGoal(it) }
+                                    confirmedBackup.budgets.forEach {
+                                        budgetRepository.setBudget(it.yearMonth, it.category, it.limitAmount)
+                                    }
+                                    transactions = transactionRepository.getAll()
+                                    accounts = transactionRepository.getAccounts()
+                                    categories = transactionRepository.getCategories()
+                                    goals = transactionRepository.getGoals()
+                                    budgets = budgetRepository.getBudgets(selectedYearMonth)
+                                }.onSuccess {
+                                    info = "بازیابی کامل انجام شد: ${confirmedBackup.transactions.size} تراکنش، " +
+                                        "${confirmedBackup.budgets.size} بودجه، ${confirmedBackup.categories.size} دسته، " +
+                                        "${confirmedBackup.accounts.size} حساب، ${confirmedBackup.recurring.size} تکرارشونده، " +
+                                        "${confirmedBackup.goals.size} هدف."
+                                }.onFailure { error = "بازیابی ناموفق بود. دوباره تلاش کنید." }
+                            } else {
+                                val imported = parseLegacyTransactions(confirmedText)
+                                runCatching {
+                                    imported.forEach { transactionRepository.upsert(it) }
+                                    transactions = transactionRepository.getAll()
+                                }.onSuccess { info = "${imported.size} تراکنش بازیابی شد." }
+                                    .onFailure { error = "بازیابی ناموفق بود. دوباره تلاش کنید." }
+                            }
+                        }
+                    }
+                }) { Text("بازیابی") }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingImportText = null }) { Text("انصراف") }
+            }
+        )
     }
 
     val monthTransactionsAll = transactionsInMonth(transactions, selectedYearMonth)
