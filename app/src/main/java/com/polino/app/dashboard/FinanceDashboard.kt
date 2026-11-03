@@ -74,6 +74,7 @@ fun FinanceDashboard() {
     var selectedAccountId by remember { mutableStateOf("main") }
     var accountExpanded by remember { mutableStateOf(false) }
     var showAccountDialog by remember { mutableStateOf(false) }
+    var showRenameAccountDialog by remember { mutableStateOf(false) }
     var categories by remember { mutableStateOf<List<CategoryEntity>>(emptyList()) }
     var showCategoryDialog by remember { mutableStateOf(false) }
     var recurring by remember { mutableStateOf<List<RecurringEntity>>(emptyList()) }
@@ -178,6 +179,9 @@ fun FinanceDashboard() {
                 }
                 Button(onClick = { showAccountDialog = true }) {
                     Text("حساب جدید")
+                }
+                TextButton(onClick = { showRenameAccountDialog = true }) {
+                    Text("تغییر نام حساب")
                 }
                 if (selectedAccountId != "main") {
                     TextButton(onClick = { showDeleteAccountConfirm = true }) {
@@ -447,6 +451,18 @@ fun FinanceDashboard() {
         )
     }
 
+    if (showRenameAccountDialog) {
+        RenameAccountDialog(
+            currentName = accounts.firstOrNull { it.id == selectedAccountId }?.name ?: "اصلی",
+            onDismiss = { showRenameAccountDialog = false },
+            onSave = { name ->
+                val ok = repository.renameAccount(selectedAccountId, name)
+                if (ok) accounts = repository.getAccounts()
+                ok
+            }
+        )
+    }
+
     if (showDeleteAccountConfirm) {
         AlertDialog(
             onDismissRequest = { showDeleteAccountConfirm = false },
@@ -500,6 +516,49 @@ private fun AccountDialog(
                     validation = "نام حساب را وارد کنید."
                 } else {
                     onSave(name.trim())
+                }
+            }) { Text("ذخیره") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("انصراف") }
+        }
+    )
+}
+
+@Composable
+private fun RenameAccountDialog(
+    currentName: String,
+    onDismiss: () -> Unit,
+    onSave: suspend (String) -> Boolean
+) {
+    var name by remember { mutableStateOf(currentName) }
+    var validation by remember { mutableStateOf("") }
+    val scope = rememberCoroutineScope()
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("تغییر نام حساب") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text("نام حساب") },
+                    singleLine = true
+                )
+                if (validation.isNotEmpty()) {
+                    Text(validation, color = MaterialTheme.colorScheme.error)
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = {
+                if (name.isBlank()) {
+                    validation = "نام حساب را وارد کنید."
+                } else {
+                    scope.launch {
+                        if (onSave(name.trim())) onDismiss()
+                        else validation = "حسابی با این نام از قبل وجود دارد."
+                    }
                 }
             }) { Text("ذخیره") }
         },

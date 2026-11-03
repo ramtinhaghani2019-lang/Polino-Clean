@@ -55,6 +55,21 @@ internal class TransactionRepository(context: Context) {
     }
 
     /**
+     * تغییر نام حساب؛ شناسه حساب ثابت می‌ماند پس همه تراکنش‌ها، بودجه‌ها و
+     * اهدافش سر جایشان می‌مانند. نام تکراری یا خالی رد می‌شود؛ تغییر نام به
+     * همان نام فعلی موفقِ بی‌اثر است.
+     */
+    suspend fun renameAccount(id: String, newName: String): Boolean {
+        if (newName.isBlank()) return false
+        val all = accountDao.getAll()
+        val current = all.firstOrNull { it.id == id } ?: return false
+        if (current.name == newName) return true
+        if (all.any { it.id != id && it.name == newName }) return false
+        accountDao.upsert(AccountEntity(id, newName))
+        return true
+    }
+
+    /**
      * حذف حساب؛ تراکنش‌هایش به «اصلی» منتقل می‌شوند و هیچ تراکنشی از دست
      * نمی‌رود. حساب «اصلی» خودش حذف نمی‌شود.
      */
