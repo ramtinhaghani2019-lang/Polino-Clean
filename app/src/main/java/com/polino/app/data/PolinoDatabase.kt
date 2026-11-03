@@ -6,14 +6,20 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
-    entities = [TransactionEntity::class, AccountEntity::class, CategoryEntity::class],
-    version = 3,
+    entities = [
+        TransactionEntity::class,
+        AccountEntity::class,
+        CategoryEntity::class,
+        RecurringEntity::class
+    ],
+    version = 4,
     exportSchema = false
 )
 internal abstract class PolinoDatabase : RoomDatabase() {
     abstract fun transactionDao(): TransactionDao
     abstract fun accountDao(): AccountDao
     abstract fun categoryDao(): CategoryDao
+    abstract fun recurringDao(): RecurringDao
 
     companion object {
         /**
@@ -58,6 +64,22 @@ internal abstract class PolinoDatabase : RoomDatabase() {
                 db.execSQL("INSERT OR IGNORE INTO categories (name, isIncome) VALUES ('فروش', 1)")
                 db.execSQL("INSERT OR IGNORE INTO categories (name, isIncome) VALUES ('هدیه', 1)")
                 db.execSQL("INSERT OR IGNORE INTO categories (name, isIncome) VALUES ('سایر', 0)")
+            }
+        }
+        /**
+         * مهاجرت v3→v4: جدول تراکنش‌های تکرارشونده ساخته می‌شود؛
+         * تراکنش‌ها، حساب‌ها و دسته‌های موجود دست نمی‌خورند.
+         */
+        val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS recurring " +
+                        "(id TEXT NOT NULL PRIMARY KEY, title TEXT NOT NULL, " +
+                        "amount INTEGER NOT NULL, income INTEGER NOT NULL, " +
+                        "category TEXT NOT NULL, accountId TEXT NOT NULL, " +
+                        "dayOfMonth INTEGER NOT NULL, startYearMonth TEXT NOT NULL, " +
+                        "lastAppliedYearMonth TEXT)"
+                )
             }
         }
     }

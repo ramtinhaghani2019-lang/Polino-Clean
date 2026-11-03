@@ -53,6 +53,40 @@ internal object JalaliDate {
         return "%04d-%02d".format(Locale.US, jy, jm)
     }
 
+    /** تاریخ شمسی را به LocalDate میلادی تبدیل می‌کند. */
+    internal fun jalaliToLocalDate(jy: Int, jm: Int, jd: Int): LocalDate {
+        val (_, gy, march) = jalCal(jy)
+        val jdn1f = gregorianToJulian(gy, 3, march)
+        val offset =
+            if (jm <= 6) (jm - 1) * 31 + (jd - 1)
+            else 186 + (jm - 7) * 30 + (jd - 1)
+        val (gy2, gm2, gd2) = julianToGregorian(jdn1f + offset)
+        return LocalDate.of(gy2, gm2, gd2)
+    }
+
+    /** تاریخ شمسی را به میلی‌ثانیه (شروع روز در منطقه زمانی دستگاه) تبدیل می‌کند. */
+    internal fun jalaliToMillis(jy: Int, jm: Int, jd: Int): Long =
+        jalaliToLocalDate(jy, jm, jd)
+            .atStartOfDay(ZoneId.systemDefault())
+            .toInstant()
+            .toEpochMilli()
+
+    /** سال شمسی کبیسه است؟ از فاصله فروردین امسال تا فروردین سال بعد حساب می‌شود. */
+    internal fun isLeapJalaliYear(jy: Int): Boolean {
+        val start = jalaliToLocalDate(jy, 1, 1)
+        val next = jalaliToLocalDate(jy + 1, 1, 1)
+        return java.time.temporal.ChronoUnit.DAYS.between(start, next) == 366L
+    }
+
+    /** طول ماه شمسی؛ اسفند در سال کبیسه ۳۰ روز وگرنه ۲۹ روز است. */
+    internal fun daysInJalaliMonth(jy: Int, jm: Int): Int =
+        when (jm) {
+            in 1..6 -> 31
+            in 7..11 -> 30
+            12 -> if (isLeapJalaliYear(jy)) 30 else 29
+            else -> 30
+        }
+
     /** «۱۴۰۵-۰۸» را به «آبان ۱۴۰۵» تبدیل می‌کند. */
     internal fun jalaliMonthDisplay(yearMonth: String): String {
         val parts = yearMonth.split("-")

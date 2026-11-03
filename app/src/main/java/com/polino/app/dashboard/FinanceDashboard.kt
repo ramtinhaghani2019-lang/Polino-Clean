@@ -1,6 +1,8 @@
 package com.polino.app.dashboard
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -46,7 +48,9 @@ import androidx.compose.ui.unit.dp
 import com.polino.app.data.AccountEntity
 import com.polino.app.data.CategoryEntity
 import com.polino.app.data.MoneyTransaction
+import com.polino.app.data.RecurringEntity
 import com.polino.app.data.TransactionRepository
+import com.polino.app.data.dueYearMonths
 import com.polino.app.data.expenseCategoryNames
 import com.polino.app.data.incomeCategoryNames
 import kotlinx.coroutines.launch
@@ -72,6 +76,8 @@ fun FinanceDashboard() {
     var showAccountDialog by remember { mutableStateOf(false) }
     var categories by remember { mutableStateOf<List<CategoryEntity>>(emptyList()) }
     var showCategoryDialog by remember { mutableStateOf(false) }
+    var recurring by remember { mutableStateOf<List<RecurringEntity>>(emptyList()) }
+    var showRecurringDialog by remember { mutableStateOf(false) }
     var showDeleteAccountConfirm by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
@@ -81,6 +87,38 @@ fun FinanceDashboard() {
             transactions = repository.getAll()
             accounts = repository.getAccounts()
             categories = repository.getCategories()
+            // اعمال تراکنش‌های تکرارشونده عقب‌افتاده تا ماه جاری؛
+            // هر ماه فقط یک‌بار ساخته می‌شود و تکرار نمی‌شود.
+            val currentYm = JalaliDate.currentJalaliYearMonth()
+            var applied = 0
+            repository.getRecurring().forEach { rule ->
+                var ruleApplied = false
+                dueYearMonths(rule.startYearMonth, rule.lastAppliedYearMonth, currentYm)
+                    .forEach { ym ->
+                        val parts = ym.split("-")
+                        val jy = parts[0].toInt()
+                        val jm = parts[1].toInt()
+                        val day = minOf(rule.dayOfMonth, JalaliDate.daysInJalaliMonth(jy, jm))
+                        repository.upsert(
+                            MoneyTransaction(
+                                id = UUID.randomUUID().toString(),
+                                title = rule.title,
+                                amount = rule.amount,
+                                income = rule.income,
+                                category = rule.category,
+                                dateMillis = JalaliDate.jalaliToMillis(jy, jm, day),
+                                accountId = rule.accountId
+                            )
+                        )
+                        applied++
+                        ruleApplied = true
+                    }
+                if (ruleApplied) {
+                    repository.updateRecurring(rule.copy(lastAppliedYearMonth = currentYm))
+                }
+            }
+            if (applied > 0) transactions = repository.getAll()
+            recurring = repository.getRecurring()
         }.onFailure {
             error = "بارگذاری اطلاعات ناموفق بود. دوباره تلاش کنید."
         }
@@ -219,6 +257,9 @@ fun FinanceDashboard() {
                 }
                 Button(onClick = { showCategoryDialog = true }) {
                     Text("دسته‌ها")
+                }
+                Button(onClick = { showRecurringDialog = true }) {
+                    Text("تکرارشونده‌ها")
                 }
             }
         }
@@ -361,6 +402,24 @@ fun FinanceDashboard() {
             onDelete = { name ->
                 repository.deleteCategory(name)
                 categories = repository.getCategories()
+            }
+        )
+    }
+
+    if (showRecurringDialog) {
+        RecurringDialog(
+            recurring = recurring,
+            accounts = accounts,
+            expenseCategories = expenseCategoryNames(categories),
+            incomeCategories = incomeCategoryNames(categories),
+            onDismiss = { showRecurringDialog = false },
+            onAdd = { rule ->
+                repository.addRecurring(rule)
+                recurring = repository.getRecurring()
+            },
+            onDelete = { id ->
+                repository.deleteRecurring(id)
+                recurring = repository.getRecurring()
             }
         )
     }
@@ -508,6 +567,172 @@ private fun CategoryDialog(
                         } else {
                             validation = "این دسته از قبل هست."
                         }
+                    }
+                }
+            }) { Text("افزودن") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("بستن") }
+        }
+    )
+}
+
+@Composable
+private fun RecurringDialog(
+    recurring: List<RecurringEntity>,
+    accounts: List<AccountEntity>,
+    expenseCategories: List<String>,
+    incomeCategories: List<String>,
+    onDismiss: () -> Unit,
+    onAdd: suspend (RecurringEntity) -> Unit,
+    onDelete: suspend (String) -> Unit
+) {
+    var title by remember { mutableStateOf("") }
+    var amount by remember { mutableStateOf("") }
+    var isIncome by remember { mutableStateOf(false) }
+    var category by remember {
+        mutableStateOf(expenseCategories.firstOrNull() ?: "سایر")
+    }
+    var categoryExpanded by remember { mutableStateOf(false) }
+    var accountId by remember {
+        mutableStateOf(accounts.firstOrNull()?.id ?: "main")
+    }
+    var accountExpanded by remember { mutableStateOf(false) }
+    var day by remember { mutableStateOf("") }
+    var validation by remember { mutableStateOf("") }
+    val scope = rememberCoroutineScope()
+    val categories = if (isIncome) incomeCategories else expenseCategories
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("تراکنش‌های تکرارشونده") },
+        text = {
+            Column(
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Text(
+                    "هر ماه در روز مشخص‌شده، این تراکنش خودکار ساخته می‌شود؛ مثلاً حقوق اول ماه یا اجاره. حذف قاعده، تراکنش‌های ساخته‌شده را پاک نمی‌کند.",
+                    style = MaterialTheme.typography.bodySmall
+                )
+                recurring.forEach { rule ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("${rule.title} — روز ${rule.dayOfMonth} هر ماه")
+                        TextButton(onClick = {
+                            scope.launch { onDelete(rule.id) }
+                        }) {
+                            Text("حذف", color = MaterialTheme.colorScheme.error)
+                        }
+                    }
+                }
+                OutlinedTextField(
+                    value = title,
+                    onValueChange = { title = it },
+                    label = { Text("عنوان") },
+                    singleLine = true
+                )
+                OutlinedTextField(
+                    value = amount,
+                    onValueChange = { amount = it },
+                    label = { Text("مبلغ (تومان)") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    singleLine = true
+                )
+                Row {
+                    RadioButton(selected = !isIncome, onClick = {
+                        isIncome = false
+                        if (category !in expenseCategories) {
+                            category = expenseCategories.firstOrNull() ?: "سایر"
+                        }
+                    })
+                    Text("هزینه")
+                    Spacer(Modifier.width(16.dp))
+                    RadioButton(selected = isIncome, onClick = {
+                        isIncome = true
+                        if (category !in incomeCategories) {
+                            category = incomeCategories.firstOrNull() ?: "سایر"
+                        }
+                    })
+                    Text("درآمد")
+                }
+                Box {
+                    OutlinedButton(onClick = { categoryExpanded = true }) {
+                        Text(category)
+                    }
+                    DropdownMenu(
+                        expanded = categoryExpanded,
+                        onDismissRequest = { categoryExpanded = false }
+                    ) {
+                        categories.forEach { item ->
+                            DropdownMenuItem(
+                                text = { Text(item) },
+                                onClick = { category = item; categoryExpanded = false }
+                            )
+                        }
+                    }
+                }
+                if (accounts.isNotEmpty()) {
+                    Box {
+                        OutlinedButton(onClick = { accountExpanded = true }) {
+                            Text(accounts.firstOrNull { it.id == accountId }?.name ?: "اصلی")
+                        }
+                        DropdownMenu(
+                            expanded = accountExpanded,
+                            onDismissRequest = { accountExpanded = false }
+                        ) {
+                            accounts.forEach { account ->
+                                DropdownMenuItem(
+                                    text = { Text(account.name) },
+                                    onClick = { accountId = account.id; accountExpanded = false }
+                                )
+                            }
+                        }
+                    }
+                }
+                OutlinedTextField(
+                    value = day,
+                    onValueChange = { day = it },
+                    label = { Text("روز ماه (۱ تا ۳۱)") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    singleLine = true
+                )
+                if (validation.isNotEmpty()) {
+                    Text(validation, color = MaterialTheme.colorScheme.error)
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = {
+                val parsedAmount = normalizeDigits(amount).toLongOrNull()
+                val parsedDay = normalizeDigits(day).toIntOrNull()
+                val error = when {
+                    title.isBlank() -> "عنوان را وارد کنید."
+                    parsedAmount == null || parsedAmount <= 0 -> "مبلغ معتبر وارد کنید."
+                    parsedDay == null || parsedDay !in 1..31 -> "روز ماه باید بین ۱ تا ۳۱ باشد."
+                    else -> ""
+                }
+                validation = error
+                if (error.isEmpty() && parsedAmount != null && parsedDay != null) {
+                    val rule = RecurringEntity(
+                        id = UUID.randomUUID().toString(),
+                        title = title.trim(),
+                        amount = parsedAmount,
+                        income = isIncome,
+                        category = category,
+                        accountId = accountId,
+                        dayOfMonth = parsedDay,
+                        startYearMonth = JalaliDate.currentJalaliYearMonth(),
+                        lastAppliedYearMonth = null
+                    )
+                    scope.launch {
+                        onAdd(rule)
+                        title = ""
+                        amount = ""
+                        day = ""
                     }
                 }
             }) { Text("افزودن") }

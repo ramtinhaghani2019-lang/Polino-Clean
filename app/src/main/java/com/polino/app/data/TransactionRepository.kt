@@ -8,10 +8,15 @@ internal class TransactionRepository(context: Context) {
     private val appContext = context.applicationContext
     private val database = Room.databaseBuilder(
         appContext, PolinoDatabase::class.java, "polino_db"
-    ).addMigrations(PolinoDatabase.MIGRATION_1_2, PolinoDatabase.MIGRATION_2_3).build()
+    ).addMigrations(
+        PolinoDatabase.MIGRATION_1_2,
+        PolinoDatabase.MIGRATION_2_3,
+        PolinoDatabase.MIGRATION_3_4
+    ).build()
     private val dao = database.transactionDao()
     private val accountDao = database.accountDao()
     private val categoryDao = database.categoryDao()
+    private val recurringDao = database.recurringDao()
     private val budgetDao = Room.databaseBuilder(
         appContext, BudgetDatabase::class.java, "polino_budgets_db"
     ).build().budgetDao()
@@ -80,6 +85,14 @@ internal class TransactionRepository(context: Context) {
         categoryDao.deleteByName(name)
         return true
     }
+
+    suspend fun getRecurring(): List<RecurringEntity> = recurringDao.getAll()
+
+    suspend fun addRecurring(item: RecurringEntity) = recurringDao.upsert(item)
+
+    suspend fun updateRecurring(item: RecurringEntity) = recurringDao.upsert(item)
+
+    suspend fun deleteRecurring(id: String) = recurringDao.deleteById(id)
 
     /**
      * مهاجرت یک‌بارمصرف از JSON قدیمی SharedPreferences به Room.
