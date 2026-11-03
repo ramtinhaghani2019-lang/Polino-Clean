@@ -15,9 +15,10 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         InstallmentEntity::class,
         DebtEntity::class,
         TaskEntity::class,
-        EventEntity::class
+        EventEntity::class,
+        AssetEntity::class
     ],
-    version = 11,
+    version = 12,
     exportSchema = false
 )
 internal abstract class PolinoDatabase : RoomDatabase() {
@@ -30,6 +31,7 @@ internal abstract class PolinoDatabase : RoomDatabase() {
     abstract fun debtDao(): DebtDao
     abstract fun taskDao(): TaskDao
     abstract fun eventDao(): EventDao
+    abstract fun assetDao(): AssetDao
 
     companion object {
         /**
@@ -178,6 +180,22 @@ internal abstract class PolinoDatabase : RoomDatabase() {
                     "CREATE TABLE IF NOT EXISTS events " +
                         "(id TEXT NOT NULL PRIMARY KEY, title TEXT NOT NULL, " +
                         "dateMillis INTEGER NOT NULL, note TEXT NOT NULL)"
+                )
+            }
+        }
+        /**
+         * مهاجرت v11→v12: جدول دارایی‌های سرمایه‌گذاری ساخته می‌شود؛
+         * بقیه جدول‌ها دست نمی‌خورند.
+         */
+        val MIGRATION_11_12 = object : Migration(11, 12) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS assets " +
+                        "(id TEXT NOT NULL PRIMARY KEY, name TEXT NOT NULL, " +
+                        "type TEXT NOT NULL, unit TEXT NOT NULL, " +
+                        "quantity REAL NOT NULL, buyPrice REAL NOT NULL, " +
+                        "currentPrice REAL, accountId TEXT NOT NULL, " +
+                        "note TEXT NOT NULL)"
                 )
             }
         }

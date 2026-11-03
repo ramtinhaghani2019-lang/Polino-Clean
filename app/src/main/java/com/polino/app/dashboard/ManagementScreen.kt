@@ -62,6 +62,10 @@ import com.polino.app.data.GoalEntity
 import com.polino.app.data.InstallmentEntity
 import com.polino.app.data.DebtEntity
 import com.polino.app.data.TaskEntity
+import com.polino.app.data.AssetEntity
+import com.polino.app.data.assetCurrentValue
+import com.polino.app.data.isValidAssetInput
+import com.polino.app.data.portfolioTotals
 import com.polino.app.data.isTaskOverdue
 import com.polino.app.data.unsettledTotals
 import com.polino.app.data.MoneyTransaction
@@ -94,12 +98,14 @@ fun ManagementScreen(
     var installments by remember { mutableStateOf<List<InstallmentEntity>>(emptyList()) }
     var debts by remember { mutableStateOf<List<DebtEntity>>(emptyList()) }
     var tasks by remember { mutableStateOf<List<TaskEntity>>(emptyList()) }
+    var assets by remember { mutableStateOf<List<AssetEntity>>(emptyList()) }
     var showInstallmentDialog by remember { mutableStateOf(false) }
     var showDebtDialog by remember { mutableStateOf(false) }
     var showTaskDialog by remember { mutableStateOf(false) }
     var showAccountDialog by remember { mutableStateOf(false) }
     var renameAccountTarget by remember { mutableStateOf<AccountEntity?>(null) }
     var showCategoryDialog by remember { mutableStateOf(false) }
+    var showAssetDialog by remember { mutableStateOf(false) }
     var renameCategoryTarget by remember { mutableStateOf<CategoryEntity?>(null) }
     val scope = rememberCoroutineScope()
     var smsEnabled by remember { mutableStateOf(false) }
@@ -123,6 +129,7 @@ fun ManagementScreen(
             installments = repository.getInstallments()
             debts = repository.getDebts()
             tasks = repository.getTasks()
+            assets = repository.getAssets()
             budgetCount = budgetRepository.getBudgets(JalaliDate.currentJalaliYearMonth()).size
         }
         smsEnabled = context.getSharedPreferences(SMS_PREFS_NAME, Context.MODE_PRIVATE)
@@ -671,6 +678,86 @@ fun ManagementScreen(
                 }
             }
         }
+        item { Text("سرمایه‌گذاری و دارایی‌ها", style = MaterialTheme.typography.titleMedium) }
+        item {
+            val totals = portfolioTotals(assets)
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(20.dp),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+            ) {
+                Column(
+                    Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text("ارزش کل پرتفوی: ${money(totals.totalValue.toLong())}")
+                    Text("دارایی‌های فعال: ${assets.size}")
+                    Text("ارزش روز: ${money(totals.totalValue.toLong())}")
+                    val profitLoss = totals.profitLoss
+                    val percent = Math.round(totals.profitLossPercent * 10) / 10.0
+                    Text(
+                        "سود/زیان: ${money(profitLoss.toLong())} ($percent٪)",
+                        color = if (profitLoss >= 0) {
+                            Color(0xFF2E7D32)
+                        } else {
+                            MaterialTheme.colorScheme.error
+                        }
+                    )
+                }
+            }
+        }
+        item {
+            Button(onClick = { showAssetDialog = true }) {
+                Text("افزودن دارایی جدید")
+            }
+        }
+        if (assets.isEmpty()) {
+            item { Text("هنوز دارایی ثبت نشده است.") }
+        } else {
+            assets.forEach { asset ->
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(20.dp),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+                    ) {
+                        Column(
+                            Modifier.padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text(asset.name, style = MaterialTheme.typography.titleMedium)
+                            Text("${asset.type} — ${formatAssetQuantity(asset.quantity)} ${asset.unit}")
+                            Text("ارزش روز: ${money(assetCurrentValue(asset).toLong())}")
+                            val assetProfitLoss =
+                                assetCurrentValue(asset) - asset.quantity * asset.buyPrice
+                            Text(
+                                "سود/زیان: ${money(assetProfitLoss.toLong())}",
+                                color = if (assetProfitLoss >= 0) {
+                                    Color(0xFF2E7D32)
+                                } else {
+                                    MaterialTheme.colorScheme.error
+                                }
+                            )
+                            if (asset.note.isNotBlank()) {
+                                Text(asset.note, style = MaterialTheme.typography.bodySmall)
+                            }
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                TextButton(
+                                    onClick = {
+                                        scope.launch {
+                                            repository.deleteAsset(asset.id)
+                                            assets = repository.getAssets()
+                                        }
+                                    }
+                                ) {
+                                    Text("حذف")
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 
     if (showInstallmentDialog) {
@@ -796,6 +883,32 @@ fun ManagementScreen(
                         categories = repository.getCategories()
                         renameCategoryTarget = null
                     }
+                }
+            }
+        )
+    }
+
+    if (showAssetDialog) {
+        AssetDialog(
+            accounts = accounts,
+            onDismiss = { showAssetDialog = false },
+            onSave = { name, type, unit, quantity, buyPrice, currentPrice, accountId, note ->
+                scope.launch {
+                    repository.addAsset(
+                        AssetEntity(
+                            id = UUID.randomUUID().toString(),
+                            name = name,
+                            type = type,
+                            unit = unit,
+                            quantity = quantity,
+                            buyPrice = buyPrice,
+                            currentPrice = currentPrice,
+                            accountId = accountId,
+                            note = note
+                        )
+                    )
+                    assets = repository.getAssets()
+                    showAssetDialog = false
                 }
             }
         )
@@ -1210,4 +1323,166 @@ private fun ManagementCard(
             Icon(Icons.Default.ChevronLeft, contentDescription = "باز کردن")
         }
     }
+}
+
+@Composable
+private fun AssetDialog(
+    accounts: List<AccountEntity>,
+    onDismiss: () -> Unit,
+    onSave: (name: String, type: String, unit: String, quantity: Double, buyPrice: Double, currentPrice: Double?, accountId: String, note: String) -> Unit
+) {
+    var name by remember { mutableStateOf("") }
+    var type by remember { mutableStateOf("طلا") }
+    var unit by remember { mutableStateOf("گرم") }
+    var quantityText by remember { mutableStateOf("") }
+    var buyPriceText by remember { mutableStateOf("") }
+    var currentPriceText by remember { mutableStateOf("") }
+    var selectedAccount by remember { mutableStateOf(accounts.firstOrNull()?.id ?: "main") }
+    var note by remember { mutableStateOf("") }
+    val types = listOf("طلا", "ارز", "ارز دیجیتال", "سهام و سایر", "سایر")
+    val units = assetUnitsFor(type)
+    val quickPicks = assetQuickPicksFor(type)
+    val quantity = normalizeDigits(quantityText).toDoubleOrNull() ?: 0.0
+    val buyPrice = normalizeDigits(buyPriceText).toDoubleOrNull()
+    val currentPrice = normalizeDigits(currentPriceText).toDoubleOrNull()?.takeIf { it >= 0 }
+    val valid = name.isNotBlank() && buyPrice != null &&
+        isValidAssetInput(quantity, buyPrice)
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("افزودن دارایی جدید") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                TextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text("نام دارایی") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                if (quickPicks.isNotEmpty()) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        quickPicks.forEach { pick ->
+                            FilterChip(
+                                selected = name == pick,
+                                onClick = { name = pick },
+                                label = { Text(pick) }
+                            )
+                        }
+                    }
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    types.take(3).forEach { option ->
+                        FilterChip(
+                            selected = type == option,
+                            onClick = {
+                                type = option
+                                unit = assetUnitsFor(option).first()
+                            },
+                            label = { Text(option) }
+                        )
+                    }
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    types.drop(3).forEach { option ->
+                        FilterChip(
+                            selected = type == option,
+                            onClick = {
+                                type = option
+                                unit = assetUnitsFor(option).first()
+                            },
+                            label = { Text(option) }
+                        )
+                    }
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    units.forEach { option ->
+                        FilterChip(
+                            selected = unit == option,
+                            onClick = { unit = option },
+                            label = { Text(option) }
+                        )
+                    }
+                }
+                TextField(
+                    value = quantityText,
+                    onValueChange = { quantityText = it },
+                    label = { Text("مقدار") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                TextField(
+                    value = buyPriceText,
+                    onValueChange = { buyPriceText = it },
+                    label = { Text("قیمت خرید هر واحد (تومان)") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                TextField(
+                    value = currentPriceText,
+                    onValueChange = { currentPriceText = it },
+                    label = { Text("قیمت روز هر واحد (تومان، اختیاری)") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    accounts.forEach { account ->
+                        FilterChip(
+                            selected = selectedAccount == account.id,
+                            onClick = { selectedAccount = account.id },
+                            label = { Text(account.name) }
+                        )
+                    }
+                }
+                TextField(
+                    value = note,
+                    onValueChange = { note = it },
+                    label = { Text("یادداشت (اختیاری)") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    onSave(
+                        name.trim(), type, unit, quantity, buyPrice ?: 0.0,
+                        currentPrice, selectedAccount, note.trim()
+                    )
+                },
+                enabled = valid
+            ) {
+                Text("ذخیره")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("لغو")
+            }
+        }
+    )
+}
+
+/** واحدهای هر نوع دارایی در فرم افزودن دارایی. */
+private fun assetUnitsFor(type: String): List<String> = when (type) {
+    "طلا" -> listOf("گرم", "سوت", "مثقال", "اونس")
+    "ارز" -> listOf("دلار", "یورو", "درهم", "لیر", "یوان")
+    "ارز دیجیتال" -> listOf("BTC", "ETH", "USDT", "TON", "SOL")
+    "سهام و سایر" -> listOf("سهم", "واحد صندوق", "واحد")
+    else -> listOf("عدد", "واحد", "فقره")
+}
+
+/** پیشنهادهای سریع نام برای هر نوع دارایی. */
+private fun assetQuickPicksFor(type: String): List<String> = when (type) {
+    "طلا" -> listOf("طلای ۱۸ عیار", "سکه امامی", "طلای دست‌دوم")
+    "ارز" -> listOf("دلار آمریکا", "یورو", "درهم امارات")
+    "ارز دیجیتال" -> listOf("بیت‌کوین", "اتریوم", "تتر")
+    "سهام و سایر" -> listOf("سهام بورس", "صندوق سرمایه‌گذاری", "اوراق مشارکت")
+    else -> emptyList()
+}
+
+/** نمایش مقدار دارایی بدون اعشار اضافی. */
+private fun formatAssetQuantity(quantity: Double): String {
+    val whole = quantity.toLong()
+    return if (quantity == whole.toDouble()) whole.toString() else quantity.toString()
 }
