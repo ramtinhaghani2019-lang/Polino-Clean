@@ -524,6 +524,20 @@ fun FinanceDashboard() {
                     editing = null
                 }
                 ok
+            },
+            onDuplicate = { source ->
+                val copy = source.copy(id = UUID.randomUUID().toString())
+                val ok = runCatching {
+                    repository.upsert(copy)
+                    transactions = repository.getAll()
+                }.isSuccess
+                if (ok) {
+                    showDialog = false
+                    editing = null
+                } else {
+                    error = "تکثیر اطلاعات ناموفق بود. دوباره تلاش کنید."
+                }
+                ok
             }
         )
     }
@@ -1087,7 +1101,8 @@ private fun TransactionDialog(
     incomeCategories: List<String>,
     onDismiss: () -> Unit,
     onSave: suspend (title: String, amount: Long, income: Boolean, category: String, dateMillis: Long, note: String, accountId: String) -> Boolean,
-    onDelete: suspend (MoneyTransaction) -> Boolean
+    onDelete: suspend (MoneyTransaction) -> Boolean,
+    onDuplicate: suspend (MoneyTransaction) -> Boolean
 ) {
     var title by remember { mutableStateOf(initial?.title ?: "") }
     var amount by remember { mutableStateOf(initial?.amount?.toString() ?: "") }
@@ -1234,8 +1249,17 @@ private fun TransactionDialog(
                     TextButton(onClick = { showDatePicker = true }) { Text("تغییر تاریخ") }
                 }
                 if (initial != null) {
-                    TextButton(onClick = { showDeleteConfirm = true }) {
-                        Text("حذف این تراکنش", color = MaterialTheme.colorScheme.error)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        TextButton(onClick = { showDeleteConfirm = true }) {
+                            Text("حذف این تراکنش", color = MaterialTheme.colorScheme.error)
+                        }
+                        TextButton(onClick = {
+                            scope.launch {
+                                if (!onDuplicate(initial)) {
+                                    validation = "تکثیر ناموفق بود. دوباره تلاش کنید."
+                                }
+                            }
+                        }) { Text("تکثیر این تراکنش") }
                     }
                 }
                 if (validation.isNotEmpty()) {

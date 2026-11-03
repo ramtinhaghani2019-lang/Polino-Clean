@@ -71,6 +71,7 @@ fun ReportsScreen(onBack: () -> Unit) {
     var goals by remember { mutableStateOf<List<GoalEntity>>(emptyList()) }
     var showGoalDialog by remember { mutableStateOf(false) }
     var goalToDelete by remember { mutableStateOf<GoalEntity?>(null) }
+    var goalToEdit by remember { mutableStateOf<GoalEntity?>(null) }
     var error by remember { mutableStateOf("") }
     var info by remember { mutableStateOf("") }
     var showBudgetDialog by remember { mutableStateOf(false) }
@@ -507,8 +508,11 @@ fun ReportsScreen(onBack: () -> Unit) {
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(goal.name, style = MaterialTheme.typography.titleMedium)
-                                IconButton(onClick = { goalToDelete = goal }) {
-                                    Icon(Icons.Default.Delete, contentDescription = "حذف هدف")
+                                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    TextButton(onClick = { goalToEdit = goal }) { Text("ویرایش") }
+                                    IconButton(onClick = { goalToDelete = goal }) {
+                                        Icon(Icons.Default.Delete, contentDescription = "حذف هدف")
+                                    }
                                 }
                             }
                             Text("حساب: $accountName")
@@ -594,6 +598,23 @@ fun ReportsScreen(onBack: () -> Unit) {
             }
         )
     }
+    if (goalToEdit != null) {
+        val editingGoal = goalToEdit!!
+        GoalDialog(
+            initial = editingGoal,
+            accounts = accounts,
+            onDismiss = { goalToEdit = null },
+            onSave = { name, target, accountId ->
+                scope.launch {
+                    transactionRepository.addGoal(
+                        editingGoal.copy(name = name, target = target, accountId = accountId)
+                    )
+                    goals = transactionRepository.getGoals()
+                    goalToEdit = null
+                }
+            }
+        )
+    }
     if (goalToDelete != null) {
         AlertDialog(
             onDismissRequest = { goalToDelete = null },
@@ -621,18 +642,19 @@ fun ReportsScreen(onBack: () -> Unit) {
 @Composable
 private fun GoalDialog(
     accounts: List<AccountEntity>,
+    initial: GoalEntity? = null,
     onDismiss: () -> Unit,
     onSave: (name: String, target: Long, accountId: String) -> Unit
 ) {
-    var name by remember { mutableStateOf("") }
-    var amount by remember { mutableStateOf("") }
-    var accountId by remember { mutableStateOf(accounts.firstOrNull()?.id ?: "main") }
+    var name by remember { mutableStateOf(initial?.name ?: "") }
+    var amount by remember { mutableStateOf(initial?.target?.toString() ?: "") }
+    var accountId by remember { mutableStateOf(initial?.accountId ?: accounts.firstOrNull()?.id ?: "main") }
     var accountExpanded by remember { mutableStateOf(false) }
     var validation by remember { mutableStateOf("") }
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("هدف پس‌انداز") },
+        title = { Text(if (initial == null) "هدف پس‌انداز" else "ویرایش هدف") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(
