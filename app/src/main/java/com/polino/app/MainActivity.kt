@@ -52,6 +52,7 @@ import com.polino.app.testcenter.TestCenterScreen
 import com.polino.app.security.AppLockScreen
 import com.polino.app.security.LOCK_ENABLED_KEY
 import com.polino.app.security.LOCK_PREFS_NAME
+import com.polino.app.ui.theme.PolinoTheme
 import com.polino.app.ui.theme.THEME_MODE_KEY
 import com.polino.app.ui.theme.THEME_PREFS_NAME
 

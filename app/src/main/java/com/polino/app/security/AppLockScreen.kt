@@ -1,5 +1,6 @@
 package com.polino.app.security
 
+import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricPrompt
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -63,8 +64,8 @@ fun AppLockScreen(onUnlocked: () -> Unit) {
             .setTitle("قفل پولینو")
             .setSubtitle("برای دیدن اطلاعات مالی، احراز هویت کنید")
             .setAllowedAuthenticators(
-                BiometricPrompt.Authenticators.BIOMETRIC_STRONG or
-                    BiometricPrompt.Authenticators.DEVICE_CREDENTIAL
+                BiometricManager.Authenticators.BIOMETRIC_STRONG or
+                    BiometricManager.Authenticators.DEVICE_CREDENTIAL
             )
             .build()
         prompt.authenticate(promptInfo)
