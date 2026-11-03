@@ -45,6 +45,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import com.polino.app.BuildConfig
 import com.polino.app.data.AccountEntity
 import com.polino.app.data.BudgetEntity
 import com.polino.app.data.BudgetRepository
@@ -184,6 +185,7 @@ fun FinanceDashboard() {
         item {
             Text("داشبورد مالی پولینو", style = MaterialTheme.typography.headlineSmall)
             Text("اطلاعات ثبت‌شده روی همین دستگاه", style = MaterialTheme.typography.labelMedium)
+            Text("نسخه ${BuildConfig.VERSION_NAME}", style = MaterialTheme.typography.labelMedium)
         }
         item {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -348,6 +350,13 @@ fun FinanceDashboard() {
                     onClick = { typeFilter = TypeFilter.EXPENSE },
                     label = { Text("هزینه") }
                 )
+                if (searchQuery.isNotBlank() || typeFilter != TypeFilter.ALL || categoryFilter != null) {
+                    TextButton(onClick = {
+                        searchQuery = ""
+                        typeFilter = TypeFilter.ALL
+                        categoryFilter = null
+                    }) { Text("پاک کردن فیلترها") }
+                }
             }
         }
         item {
