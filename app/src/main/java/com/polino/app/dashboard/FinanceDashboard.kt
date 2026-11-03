@@ -59,22 +59,43 @@ fun FinanceDashboard() {
             Text("اطلاعات ثبت‌شده روی همین دستگاه", style = MaterialTheme.typography.labelMedium)
         }
         item {
-            Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp)) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primary)
+            ) {
                 Column(Modifier.padding(20.dp)) {
-                    Text("موجودی کل")
-                    Text(money(income - expense), style = MaterialTheme.typography.headlineMedium)
+                    Text("موجودی کل", color = MaterialTheme.colorScheme.onPrimary)
+                    Text(
+                        money(income - expense),
+                        style = MaterialTheme.typography.headlineMedium,
+                        color = MaterialTheme.colorScheme.onPrimary
+                    )
                 }
             }
         }
         item {
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Box(Modifier.weight(1f)) { SummaryCard("درآمد", money(income)) }
-                Box(Modifier.weight(1f)) { SummaryCard("هزینه", money(expense)) }
+                Box(Modifier.weight(1f)) { SummaryCard("درآمد", money(income), true) }
+                Box(Modifier.weight(1f)) { SummaryCard("هزینه", money(expense), false) }
             }
         }
         item { Text("آخرین تراکنش‌ها", style = MaterialTheme.typography.titleLarge) }
         if (transactions.isEmpty()) {
-            item { Text("هنوز تراکنشی ثبت نشده است.") }
+            item {
+                Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp)) {
+                    Column(
+                        modifier = Modifier.padding(20.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text("هنوز تراکنشی ثبت نشده است.", style = MaterialTheme.typography.titleMedium)
+                        Text(
+                            "با دکمه «افزودن تراکنش» اولین تراکنش را ثبت کنید.",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
+                }
+            }
         }
         items(transactions) { transaction ->
             Card(Modifier.fillMaxWidth()) {
@@ -82,7 +103,8 @@ fun FinanceDashboard() {
                     Text(transaction.title)
                     Text(
                         (if (transaction.income) "+" else "−") + money(transaction.amount),
-                        style = MaterialTheme.typography.titleMedium
+                        style = MaterialTheme.typography.titleMedium,
+                        color = if (transaction.income) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
                     )
                 }
             }
@@ -153,11 +175,15 @@ fun FinanceDashboard() {
 }
 
 @Composable
-private fun SummaryCard(title: String, amount: String) {
+private fun SummaryCard(title: String, amount: String, isIncome: Boolean) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(12.dp)) {
             Text(title)
-            Text(amount, style = MaterialTheme.typography.bodyMedium)
+            Text(
+                amount,
+                style = MaterialTheme.typography.bodyMedium,
+                color = if (isIncome) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+            )
         }
     }
 }
