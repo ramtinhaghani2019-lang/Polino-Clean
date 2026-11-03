@@ -106,7 +106,7 @@ internal fun fullBackupToJson(data: BackupData): String = buildString {
                 "\"accountId\":\"${escapeJsonString(r.accountId)}\"," +
                 "\"dayOfMonth\":${r.dayOfMonth}," +
                 "\"startYearMonth\":\"${escapeJsonString(r.startYearMonth)}\"," +
-                "\"lastAppliedYearMonth\":$lastApplied}"
+                "\"lastAppliedYearMonth\":$lastApplied,\"active\":${r.active}}"
         )
     }
     data.goals.forEach { g ->

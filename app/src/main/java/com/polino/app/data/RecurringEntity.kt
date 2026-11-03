@@ -18,5 +18,6 @@ internal data class RecurringEntity(
     val accountId: String,
     val dayOfMonth: Int,
     val startYearMonth: String,
-    val lastAppliedYearMonth: String?
+    val lastAppliedYearMonth: String?,
+    val active: Boolean = true
 )

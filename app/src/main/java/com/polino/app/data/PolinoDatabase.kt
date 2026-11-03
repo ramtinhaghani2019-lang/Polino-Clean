@@ -13,7 +13,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         RecurringEntity::class,
         GoalEntity::class
     ],
-    version = 6,
+    version = 7,
     exportSchema = false
 )
 internal abstract class PolinoDatabase : RoomDatabase() {
@@ -105,6 +105,17 @@ internal abstract class PolinoDatabase : RoomDatabase() {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL(
                     "ALTER TABLE transactions ADD COLUMN note TEXT NOT NULL DEFAULT ''"
+                )
+            }
+        }
+        /**
+         * مهاجرت v6→v7: ستون فعال بودن به جدول قاعده‌های تکرارشونده اضافه
+         * می‌شود؛ همه قاعده‌های موجود فعال می‌مانند و هیچ ردیفی تغییر نمی‌کند.
+         */
+        val MIGRATION_6_7 = object : Migration(6, 7) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "ALTER TABLE recurring ADD COLUMN active INTEGER NOT NULL DEFAULT 1"
                 )
             }
         }

@@ -95,6 +95,7 @@ private class LegacyJsonParser(private val text: String) {
             var dayOfMonth: Long? = null
             var startYearMonth: String? = null
             var lastAppliedYearMonth: String? = null
+            var active: Boolean? = null
             var target: Long? = null
             skipWs()
             if (peek() != '}') {
@@ -120,6 +121,7 @@ private class LegacyJsonParser(private val text: String) {
                         "dayOfMonth" -> dayOfMonth = parseValueAsLong()
                         "startYearMonth" -> startYearMonth = parseValueAsString()
                         "lastAppliedYearMonth" -> lastAppliedYearMonth = parseValueAsString()
+                        "active" -> active = parseValueAsBoolean()
                         "target" -> target = parseValueAsLong()
                         else -> skipValue()
                     }
@@ -182,7 +184,8 @@ private class LegacyJsonParser(private val text: String) {
                                 accountId = accountId,
                                 dayOfMonth = dayOfMonth.toInt(),
                                 startYearMonth = startYearMonth,
-                                lastAppliedYearMonth = lastAppliedYearMonth
+                                lastAppliedYearMonth = lastAppliedYearMonth,
+                                active = active ?: true
                             )
                         )
                     }

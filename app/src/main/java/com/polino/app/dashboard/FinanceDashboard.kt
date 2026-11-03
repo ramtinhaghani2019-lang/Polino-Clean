@@ -96,7 +96,7 @@ fun FinanceDashboard() {
             // هر ماه فقط یک‌بار ساخته می‌شود و تکرار نمی‌شود.
             val currentYm = JalaliDate.currentJalaliYearMonth()
             var applied = 0
-            repository.getRecurring().forEach { rule ->
+            repository.getRecurring().filter { it.active }.forEach { rule ->
                 var ruleApplied = false
                 dueYearMonths(rule.startYearMonth, rule.lastAppliedYearMonth, currentYm)
                     .forEach { ym ->
@@ -884,8 +884,11 @@ private fun RecurringDialog(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text("${rule.title} — روز ${rule.dayOfMonth} هر ماه")
+                            Text("${rule.title}${if (rule.active) "" else " (متوقف)"} — روز ${rule.dayOfMonth} هر ماه")
                             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                TextButton(onClick = {
+                                    scope.launch { onAdd(rule.copy(active = !rule.active)) }
+                                }) { Text(if (rule.active) "توقف" else "ادامه") }
                                 TextButton(onClick = {
                                     editingId = rule.id
                                     title = rule.title
@@ -1019,7 +1022,8 @@ private fun RecurringDialog(
                         dayOfMonth = parsedDay,
                         startYearMonth = existing?.startYearMonth
                             ?: JalaliDate.currentJalaliYearMonth(),
-                        lastAppliedYearMonth = existing?.lastAppliedYearMonth
+                        lastAppliedYearMonth = existing?.lastAppliedYearMonth,
+                        active = existing?.active ?: true
                     )
                     scope.launch {
                         onAdd(rule)
