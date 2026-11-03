@@ -8,8 +8,10 @@ class RecurringTest {
 
     @Test
     fun jalaliToMillis_roundTripsThroughFormat() {
+        // توجه: formatJalali عددها را لاتین برمی‌گرداند («12 آبان 1405»)؛
+        // این همان قراردادی است که داشبورد و خروجی CSV از قبل دارند.
         assertEquals(
-            "۱۲ آبان ۱۴۰۵",
+            "12 آبان 1405",
             JalaliDate.formatJalali(JalaliDate.jalaliToMillis(1405, 8, 12))
         )
     }
@@ -18,7 +20,7 @@ class RecurringTest {
     fun jalaliToMillis_supportsLeapEsfandDay30() {
         // ۱۴۰۳ کبیسه است؛ ۳۰ اسفند آن روز معتبری است.
         assertEquals(
-            "۳۰ اسفند ۱۴۰۳",
+            "30 اسفند 1403",
             JalaliDate.formatJalali(JalaliDate.jalaliToMillis(1403, 12, 30))
         )
     }
