@@ -37,4 +37,28 @@ class LegacyMigrationTest {
         assertEquals(emptyList<MoneyTransaction>(), parseLegacyTransactions("not json"))
         assertEquals(emptyList<MoneyTransaction>(), parseLegacyTransactions("[]"))
     }
+
+    @Test
+    fun escapedCharactersInTitle_parsedCorrectly() {
+        val raw = """[{"title":"گفت \"سلام\"","amount":100,"income":false}]"""
+        val result = parseLegacyTransactions(raw)
+        assertEquals(1, result.size)
+        assertEquals("گفت \"سلام\"", result[0].title)
+    }
+
+    @Test
+    fun unicodeEscapeInTitle_parsedCorrectly() {
+        val raw = """[{"title":"الف\u0628","amount":100,"income":false}]"""
+        val result = parseLegacyTransactions(raw)
+        assertEquals(1, result.size)
+        assertEquals("الفب", result[0].title)
+    }
+
+    @Test
+    fun oneCorruptEntry_othersAreKept() {
+        val raw = """[{"title":"خوب","amount":100,"income":true},{"amount":200,"income":false}]"""
+        val result = parseLegacyTransactions(raw)
+        assertEquals(1, result.size)
+        assertEquals("خوب", result[0].title)
+    }
 }
