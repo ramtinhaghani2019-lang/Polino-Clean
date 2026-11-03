@@ -74,7 +74,30 @@ private val Vazirmatn = FontFamily(
     Font(R.font.vazirmatn_bold, FontWeight.Bold)
 )
 
-private val PolinoTypography = Typography(defaultFontFamily = Vazirmatn)
+/**
+ * فونت وزیرمتن را روی همه سبک‌های متنی می‌نشاند. (پارامتر defaultFontFamily
+ * مال متریال ۲ است و در متریال ۳ وجود ندارد؛ به همین دلیل بیلد ۳۷ قرمز شد.)
+ */
+private fun withVazirmatn(typography: Typography): Typography = Typography(
+    displayLarge = typography.displayLarge.copy(fontFamily = Vazirmatn),
+    displayMedium = typography.displayMedium.copy(fontFamily = Vazirmatn),
+    displaySmall = typography.displaySmall.copy(fontFamily = Vazirmatn),
+    headlineLarge = typography.headlineLarge.copy(fontFamily = Vazirmatn),
+    headlineMedium = typography.headlineMedium.copy(fontFamily = Vazirmatn),
+    headlineSmall = typography.headlineSmall.copy(fontFamily = Vazirmatn),
+    titleLarge = typography.titleLarge.copy(fontFamily = Vazirmatn),
+    titleMedium = typography.titleMedium.copy(fontFamily = Vazirmatn),
+    titleSmall = typography.titleSmall.copy(fontFamily = Vazirmatn),
+    bodyLarge = typography.bodyLarge.copy(fontFamily = Vazirmatn),
+    bodyMedium = typography.bodyMedium.copy(fontFamily = Vazirmatn),
+    bodySmall = typography.bodySmall.copy(fontFamily = Vazirmatn),
+    labelLarge = typography.labelLarge.copy(fontFamily = Vazirmatn),
+    labelMedium = typography.labelMedium.copy(fontFamily = Vazirmatn),
+    labelSmall = typography.labelSmall.copy(fontFamily = Vazirmatn)
+)
+
+private val PolinoTypography: Typography
+    get() = withVazirmatn(Typography())
 
 @Composable
 fun PolinoTheme(
