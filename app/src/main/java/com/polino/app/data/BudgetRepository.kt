@@ -11,6 +11,8 @@ internal class BudgetRepository(context: Context) {
     suspend fun getBudgets(yearMonth: String): List<BudgetEntity> =
         dao.getForMonth(yearMonth)
 
+    suspend fun getAllBudgets(): List<BudgetEntity> = dao.getAll()
+
     suspend fun setBudget(yearMonth: String, category: String, limitAmount: Long) {
         dao.upsert(BudgetEntity(yearMonth, category, limitAmount))
     }

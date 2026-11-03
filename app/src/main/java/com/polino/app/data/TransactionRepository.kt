@@ -45,6 +45,9 @@ internal class TransactionRepository(context: Context) {
         return listOf(main)
     }
 
+    /** درج یا جایگزینی حساب با شناسه مشخص (برای بازیابی پشتیبان). */
+    suspend fun upsertAccount(account: AccountEntity) = accountDao.upsert(account)
+
     suspend fun addAccount(name: String): AccountEntity {
         val account = AccountEntity(UUID.randomUUID().toString(), name)
         accountDao.upsert(account)

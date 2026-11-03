@@ -11,6 +11,9 @@ internal interface BudgetDao {
     @Query("SELECT * FROM budgets WHERE yearMonth = :yearMonth")
     suspend fun getForMonth(yearMonth: String): List<BudgetEntity>
 
+    @Query("SELECT * FROM budgets")
+    suspend fun getAll(): List<BudgetEntity>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(item: BudgetEntity)
 

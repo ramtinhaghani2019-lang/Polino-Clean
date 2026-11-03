@@ -20,6 +20,21 @@ internal fun parseLegacyTransactions(raw: String): List<MoneyTransaction> {
     }
 }
 
+/**
+ * تجزیه پشتیبان کامل نسخه ۲: آرایه‌ای که عنصر اولش نشانگر
+ * {"backupVersion":2} است و بقیه عناصرش بر اساس "type" به بخش‌های
+ * مختلف (تراکنش، بودجه، دسته، حساب، تکرارشونده، هدف) تقسیم می‌شوند.
+ * آرایه قدیمی (بدون نشانگر) یا ورودی خراب null برمی‌گرداند تا مسیر
+ * قدیمی وارد شود.
+ */
+internal fun parseBackup(raw: String): BackupData? {
+    return try {
+        LegacyJsonParser(raw).parseBackupArray()
+    } catch (_: Exception) {
+        null
+    }
+}
+
 private class LegacyJsonParser(private val text: String) {
     private var i = 0
     private val n = text.length
@@ -43,6 +58,153 @@ private class LegacyJsonParser(private val text: String) {
                 else -> throw IllegalArgumentException("expected , or ]")
             }
         }
+    }
+
+    fun parseBackupArray(): BackupData? {
+        skipWs()
+        if (consume() != '[') return null
+        val transactions = ArrayList<MoneyTransaction>()
+        val budgets = ArrayList<BudgetEntity>()
+        val categories = ArrayList<CategoryEntity>()
+        val accounts = ArrayList<AccountEntity>()
+        val recurring = ArrayList<RecurringEntity>()
+        val goals = ArrayList<GoalEntity>()
+        var isV2 = false
+        skipWs()
+        if (peek() == ']') {
+            i++
+            return null
+        }
+        while (true) {
+            skipWs()
+            if (consume() != '{') throw IllegalArgumentException("not an object")
+            var type: String? = null
+            var backupVersion: Long? = null
+            var id: String? = null
+            var title: String? = null
+            var amount: Long? = null
+            var income: Boolean? = null
+            var category: String? = null
+            var dateMillis: Long? = null
+            var accountId: String? = null
+            var note: String? = null
+            var yearMonth: String? = null
+            var limitAmount: Long? = null
+            var name: String? = null
+            var isIncome: Boolean? = null
+            var dayOfMonth: Long? = null
+            var startYearMonth: String? = null
+            var lastAppliedYearMonth: String? = null
+            var target: Long? = null
+            skipWs()
+            if (peek() != '}') {
+                while (true) {
+                    val key = parseString() ?: throw IllegalArgumentException("bad key")
+                    skipWs()
+                    if (consume() != ':') throw IllegalArgumentException("expected :")
+                    when (key) {
+                        "type" -> type = parseValueAsString()
+                        "backupVersion" -> backupVersion = parseValueAsLong()
+                        "id" -> id = parseValueAsString()
+                        "title" -> title = parseValueAsString()
+                        "amount" -> amount = parseValueAsLong()
+                        "income" -> income = parseValueAsBoolean()
+                        "category" -> category = parseValueAsString()
+                        "dateMillis" -> dateMillis = parseValueAsLong()
+                        "accountId" -> accountId = parseValueAsString()
+                        "note" -> note = parseValueAsString()
+                        "yearMonth" -> yearMonth = parseValueAsString()
+                        "limitAmount" -> limitAmount = parseValueAsLong()
+                        "name" -> name = parseValueAsString()
+                        "isIncome" -> isIncome = parseValueAsBoolean()
+                        "dayOfMonth" -> dayOfMonth = parseValueAsLong()
+                        "startYearMonth" -> startYearMonth = parseValueAsString()
+                        "lastAppliedYearMonth" -> lastAppliedYearMonth = parseValueAsString()
+                        "target" -> target = parseValueAsLong()
+                        else -> skipValue()
+                    }
+                    skipWs()
+                    when (consume()) {
+                        ',' -> continue
+                        '}' -> break
+                        else -> throw IllegalArgumentException("expected , or }")
+                    }
+                }
+            } else {
+                i++
+            }
+            if (backupVersion == 2L) isV2 = true
+            when (type) {
+                "transaction" -> {
+                    if (title != null && amount != null && income != null) {
+                        transactions.add(
+                            MoneyTransaction(
+                                id = id?.ifBlank { UUID.randomUUID().toString() }
+                                    ?: UUID.randomUUID().toString(),
+                                title = title,
+                                amount = amount,
+                                income = income,
+                                category = category?.ifBlank { "سایر" } ?: "سایر",
+                                dateMillis = dateMillis ?: 0L,
+                                accountId = accountId?.ifBlank { "main" } ?: "main",
+                                note = note ?: ""
+                            )
+                        )
+                    }
+                }
+                "budget" -> {
+                    if (yearMonth != null && category != null && limitAmount != null) {
+                        budgets.add(BudgetEntity(yearMonth, category, limitAmount))
+                    }
+                }
+                "category" -> {
+                    if (name != null && isIncome != null) {
+                        categories.add(CategoryEntity(name, isIncome))
+                    }
+                }
+                "account" -> {
+                    if (id != null && name != null) {
+                        accounts.add(AccountEntity(id, name))
+                    }
+                }
+                "recurring" -> {
+                    if (id != null && title != null && amount != null && income != null &&
+                        category != null && accountId != null && dayOfMonth != null &&
+                        startYearMonth != null
+                    ) {
+                        recurring.add(
+                            RecurringEntity(
+                                id = id,
+                                title = title,
+                                amount = amount,
+                                income = income,
+                                category = category,
+                                accountId = accountId,
+                                dayOfMonth = dayOfMonth.toInt(),
+                                startYearMonth = startYearMonth,
+                                lastAppliedYearMonth = lastAppliedYearMonth
+                            )
+                        )
+                    }
+                }
+                "goal" -> {
+                    if (id != null && name != null && target != null && accountId != null) {
+                        goals.add(GoalEntity(id, name, target, accountId))
+                    }
+                }
+                else -> {
+                    // نشانگر نسخه یا نوع ناشناخته: نادیده گرفته می‌شود.
+                }
+            }
+            skipWs()
+            when (consume()) {
+                ',' -> continue
+                ']' -> break
+                else -> throw IllegalArgumentException("expected , or ]")
+            }
+        }
+        if (!isV2) return null
+        return BackupData(transactions, budgets, categories, accounts, recurring, goals)
     }
 
     private fun parseObject(): MoneyTransaction? {

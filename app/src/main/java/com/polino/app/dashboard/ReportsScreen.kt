@@ -48,8 +48,10 @@ import com.polino.app.data.expenseCategoryNames
 import com.polino.app.data.goalProgressFraction
 import com.polino.app.data.MoneyTransaction
 import com.polino.app.data.TransactionRepository
+import com.polino.app.data.BackupData
+import com.polino.app.data.fullBackupToJson
+import com.polino.app.data.parseBackup
 import com.polino.app.data.parseLegacyTransactions
-import com.polino.app.data.transactionsToJson
 import java.util.UUID
 import kotlinx.coroutines.launch
 
@@ -92,10 +94,18 @@ fun ReportsScreen(onBack: () -> Unit) {
         if (uri != null) {
             scope.launch {
                 runCatching {
+                    val data = BackupData(
+                        transactions = transactionRepository.getAll(),
+                        budgets = budgetRepository.getAllBudgets(),
+                        categories = transactionRepository.getCategories(),
+                        accounts = transactionRepository.getAccounts(),
+                        recurring = transactionRepository.getRecurring(),
+                        goals = transactionRepository.getGoals()
+                    )
                     context.contentResolver.openOutputStream(uri)?.use { stream ->
-                        stream.write(transactionsToJson(transactions).toByteArray(Charsets.UTF_8))
+                        stream.write(fullBackupToJson(data).toByteArray(Charsets.UTF_8))
                     } ?: throw IllegalStateException("no output stream")
-                }.onSuccess { info = "پشتیبان‌گیری انجام شد." }
+                }.onSuccess { info = "پشتیبان‌گیری کامل انجام شد." }
                     .onFailure { error = "پشتیبان‌گیری ناموفق بود. دوباره تلاش کنید." }
             }
         }
@@ -126,7 +136,32 @@ fun ReportsScreen(onBack: () -> Unit) {
                         stream.readBytes().toString(Charsets.UTF_8)
                     } ?: ""
                 }.getOrDefault("")
-                val imported = parseLegacyTransactions(text)
+                val backup = parseBackup(text)
+                if (backup != null) {
+                    runCatching {
+                        backup.accounts.forEach { transactionRepository.upsertAccount(it) }
+                        backup.transactions.forEach { transactionRepository.upsert(it) }
+                        backup.categories.forEach {
+                            transactionRepository.addCategory(it.name, it.isIncome)
+                        }
+                        backup.recurring.forEach { transactionRepository.addRecurring(it) }
+                        backup.goals.forEach { transactionRepository.addGoal(it) }
+                        backup.budgets.forEach {
+                            budgetRepository.setBudget(it.yearMonth, it.category, it.limitAmount)
+                        }
+                        transactions = transactionRepository.getAll()
+                        accounts = transactionRepository.getAccounts()
+                        categories = transactionRepository.getCategories()
+                        goals = transactionRepository.getGoals()
+                        budgets = budgetRepository.getBudgets(yearMonth)
+                    }.onSuccess {
+                        info = "بازیابی کامل انجام شد: ${backup.transactions.size} تراکنش، " +
+                            "${backup.budgets.size} بودجه، ${backup.categories.size} دسته، " +
+                            "${backup.accounts.size} حساب، ${backup.recurring.size} تکرارشونده، " +
+                            "${backup.goals.size} هدف."
+                    }.onFailure { error = "بازیابی ناموفق بود. دوباره تلاش کنید." }
+                } else {
+                    val imported = parseLegacyTransactions(text)
                 if (imported.isEmpty()) {
                     error = "فایلی برای بازیابی پیدا نشد یا خراب است."
                 } else {
@@ -135,6 +170,7 @@ fun ReportsScreen(onBack: () -> Unit) {
                         transactions = transactionRepository.getAll()
                     }.onSuccess { info = "${imported.size} تراکنش بازیابی شد." }
                         .onFailure { error = "بازیابی ناموفق بود. دوباره تلاش کنید." }
+                    }
                 }
             }
         }
