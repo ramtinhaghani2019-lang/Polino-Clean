@@ -27,6 +27,9 @@ internal fun spentByCategory(monthTransactions: List<MoneyTransaction>): List<Pa
         .map { (category, items) -> category to items.sumOf { it.amount } }
         .sortedByDescending { it.second }
 
+/** دسته‌ای که هزینه ماه جاری‌اش از بودجه‌اش گذشته است. */
+internal data class OverspentCategory(val category: String, val spent: Long, val limit: Long)
+
 /** دسته‌ای که هزینه ماه جاری‌اش به ۸۰٪ سقف بودجه‌اش رسیده ولی هنوز رد نشده است. */
 internal data class NearingCategory(val category: String, val spent: Long, val limit: Long)
 
