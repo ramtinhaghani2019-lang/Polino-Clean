@@ -1,7 +1,9 @@
 package com.polino.app.dashboard
 
 import java.time.Instant
+import java.time.LocalDate
 import java.time.ZoneId
+import java.util.Locale
 
 /**
  * تبدیل تاریخ میلادی به شمسی بدون وابستگی خارجی.
@@ -34,6 +36,31 @@ internal object JalaliDate {
             .toLocalDate()
         val (jy, jm, jd) = gregorianToJalali(date.year, date.monthValue, date.dayOfMonth)
         return "$jd ${MONTHS[jm - 1]} $jy"
+    }
+
+    /** ماه شمسی یک لحظه، با قالب «۱۴۰۵-۰۸»؛ کلید بودجه‌ها و گزارش ماهانه. */
+    internal fun jalaliYearMonthOf(millis: Long): String {
+        val date = Instant.ofEpochMilli(millis)
+            .atZone(ZoneId.systemDefault())
+            .toLocalDate()
+        val (jy, jm, _) = gregorianToJalali(date.year, date.monthValue, date.dayOfMonth)
+        return "%04d-%02d".format(Locale.US, jy, jm)
+    }
+
+    internal fun currentJalaliYearMonth(): String {
+        val now = LocalDate.now()
+        val (jy, jm, _) = gregorianToJalali(now.year, now.monthValue, now.dayOfMonth)
+        return "%04d-%02d".format(Locale.US, jy, jm)
+    }
+
+    /** «۱۴۰۵-۰۸» را به «آبان ۱۴۰۵» تبدیل می‌کند. */
+    internal fun jalaliMonthDisplay(yearMonth: String): String {
+        val parts = yearMonth.split("-")
+        if (parts.size != 2) return yearMonth
+        val jy = parts[0].toIntOrNull() ?: return yearMonth
+        val jm = parts[1].toIntOrNull() ?: return yearMonth
+        if (jm !in 1..12) return yearMonth
+        return "${MONTHS[jm - 1]} $jy"
     }
 
     /** خروجی: Triple(کبیسه بودن ۰ یا ۱، سال میلادی متناظر، روز مارس آغاز فروردین). */

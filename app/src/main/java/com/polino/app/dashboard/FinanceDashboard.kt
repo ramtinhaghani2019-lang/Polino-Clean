@@ -41,29 +41,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import com.polino.app.data.EXPENSE_CATEGORIES
+import com.polino.app.data.INCOME_CATEGORIES
 import com.polino.app.data.MoneyTransaction
 import com.polino.app.data.TransactionRepository
 import kotlinx.coroutines.launch
-import java.text.NumberFormat
-import java.util.Locale
 import java.util.UUID
 
-private val EXPENSE_CATEGORIES =
-    listOf("خوراک", "مسکن", "حمل‌ونقل", "سلامت", "آموزش", "تفریح", "پوشاک", "سایر")
-private val INCOME_CATEGORIES = listOf("حقوق", "فروش", "هدیه", "سایر")
-
 private enum class TypeFilter { ALL, INCOME, EXPENSE }
-
-private fun money(value: Long): String =
-    NumberFormat.getIntegerInstance(Locale("fa", "IR")).format(value) + " تومان"
-
-private fun normalizeDigits(input: String): String = input.map { char ->
-    when (char) {
-        in '۰'..'۹' -> ('0'.code + char.code - '۰'.code).toChar()
-        in '٠'..'٩' -> ('0'.code + char.code - '٠'.code).toChar()
-        else -> char
-    }
-}.joinToString("")
 
 @Composable
 fun FinanceDashboard() {

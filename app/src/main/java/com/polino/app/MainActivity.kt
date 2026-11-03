@@ -32,6 +32,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import com.polino.app.dashboard.FinanceDashboard
+import com.polino.app.dashboard.ReportsScreen
 import com.polino.app.testcenter.TestCenterScreen
 import com.polino.app.ui.theme.PolinoTheme
 
@@ -48,7 +49,7 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-private enum class Screen { Home, TestCenter }
+private enum class Screen { Home, TestCenter, Reports }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -74,6 +75,9 @@ private fun PolinoApp() {
                         }
                     },
                     actions = {
+                        Button(onClick = { screen = Screen.Reports }) {
+                            Text("گزارش")
+                        }
                         if (BuildConfig.DEBUG) {
                             Button(onClick = { screen = Screen.TestCenter }) {
                                 Text("تست‌سنتر")
@@ -89,5 +93,7 @@ private fun PolinoApp() {
         }
 
         Screen.TestCenter -> TestCenterScreen(onBack = { screen = Screen.Home })
+
+        Screen.Reports -> ReportsScreen(onBack = { screen = Screen.Home })
     }
 }
