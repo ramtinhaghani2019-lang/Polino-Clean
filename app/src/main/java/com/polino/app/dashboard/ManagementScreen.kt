@@ -27,6 +27,7 @@ import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.Savings
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -53,7 +54,9 @@ import com.polino.app.data.TransactionRepository
 @Composable
 fun ManagementScreen(
     onNavigateHome: () -> Unit,
-    onNavigateToReports: () -> Unit
+    onNavigateToReports: () -> Unit,
+    themeMode: String = "system",
+    onThemeModeChange: (String) -> Unit = {}
 ) {
     val context = LocalContext.current
     val repository = remember { TransactionRepository(context) }
@@ -139,6 +142,29 @@ fun ManagementScreen(
                     label = "بودجه‌های این ماه",
                     value = budgetCount.toString()
                 )
+            }
+        }
+        item {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(20.dp)
+            ) {
+                Column(
+                    Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text("تم برنامه", style = MaterialTheme.typography.titleMedium)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        listOf("system" to "سیستم", "light" to "روشن", "dark" to "تیره")
+                            .forEach { (mode, label) ->
+                                FilterChip(
+                                    selected = themeMode == mode,
+                                    onClick = { onThemeModeChange(mode) },
+                                    label = { Text(label) }
+                                )
+                            }
+                    }
+                }
             }
         }
         item { Text("بخش‌ها", style = MaterialTheme.typography.titleMedium) }

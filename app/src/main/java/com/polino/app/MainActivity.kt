@@ -1,5 +1,6 @@
 package com.polino.app
 
+import android.content.Context
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -37,6 +38,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
@@ -48,14 +50,30 @@ import com.polino.app.dashboard.ManagementScreen
 import com.polino.app.dashboard.ReportsScreen
 import com.polino.app.testcenter.TestCenterScreen
 import com.polino.app.ui.theme.PolinoTheme
+import com.polino.app.ui.theme.THEME_MODE_KEY
+import com.polino.app.ui.theme.THEME_PREFS_NAME
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
             CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
-                PolinoTheme {
-                    PolinoApp()
+                val context = LocalContext.current
+                var themeMode by remember {
+                    mutableStateOf(
+                        context.getSharedPreferences(THEME_PREFS_NAME, Context.MODE_PRIVATE)
+                            .getString(THEME_MODE_KEY, "system") ?: "system"
+                    )
+                }
+                PolinoTheme(themeMode = themeMode) {
+                    PolinoApp(
+                        themeMode = themeMode,
+                        onThemeModeChange = { mode ->
+                            themeMode = mode
+                            context.getSharedPreferences(THEME_PREFS_NAME, Context.MODE_PRIVATE)
+                                .edit().putString(THEME_MODE_KEY, mode).apply()
+                        }
+                    )
                 }
             }
         }
@@ -70,7 +88,10 @@ private val NavGray = Color(0xFF8A91A8)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun PolinoApp() {
+private fun PolinoApp(
+    themeMode: String,
+    onThemeModeChange: (String) -> Unit
+) {
     var tab by remember { mutableStateOf(Tab.Home) }
     var entryScreen by remember { mutableStateOf(false) }
     var showTestCenter by remember { mutableStateOf(false) }
@@ -209,7 +230,9 @@ private fun PolinoApp() {
                 Tab.Calendar -> CalendarScreen()
                 Tab.Management -> ManagementScreen(
                     onNavigateHome = { tab = Tab.Home },
-                    onNavigateToReports = { tab = Tab.Reports }
+                    onNavigateToReports = { tab = Tab.Reports },
+                    themeMode = themeMode,
+                    onThemeModeChange = onThemeModeChange
                 )
                 Tab.Reports -> ReportsScreen(onBack = { tab = Tab.Home })
             }

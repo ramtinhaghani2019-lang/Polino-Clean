@@ -99,13 +99,24 @@ private fun withVazirmatn(typography: Typography): Typography = Typography(
 private val PolinoTypography: Typography
     get() = withVazirmatn(Typography())
 
+/** حالت تم ذخیره‌شده: system / light / dark. */
+const val THEME_PREFS_NAME = "polino_prefs"
+const val THEME_MODE_KEY = "theme_mode"
+
+/** نگاشت حالت تم به تیره/روشن؛ system تابع تم دستگاه است. */
+internal fun isDarkThemeForMode(mode: String, systemDark: Boolean): Boolean = when (mode) {
+    "dark" -> true
+    "light" -> false
+    else -> systemDark
+}
+
 @Composable
 fun PolinoTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
+    themeMode: String = "system",
     content: @Composable () -> Unit
 ) {
     MaterialTheme(
-        colorScheme = if (darkTheme) {
+        colorScheme = if (isDarkThemeForMode(themeMode, isSystemInDarkTheme())) {
             DarkColors
         } else {
             LightColors
