@@ -291,6 +291,11 @@ fun ReportsScreen(onBack: () -> Unit) {
         ReportPeriod.YEARLY -> "سال ${jalaliYearOf(nowMillis)}"
     }
 
+    val previousMonthTransactions = transactionsInMonth(
+        transactions, JalaliDate.previousJalaliYearMonth(selectedYearMonth)
+    ).filter { selectedAccountId == "all" || it.accountId == selectedAccountId }
+    val radarInsights = spendingInsights(monthTransactions, previousMonthTransactions)
+
     Column(modifier = Modifier.fillMaxSize()) {
         Row(
             modifier = Modifier.padding(20.dp),
@@ -423,6 +428,26 @@ fun ReportsScreen(onBack: () -> Unit) {
                                     (amount.toFloat() / maxSpent.toFloat()).coerceIn(0f, 1f)
                                 },
                                 modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+                    }
+                }
+            }
+            item { Text("رادار مالی", style = MaterialTheme.typography.titleMedium) }
+            if (radarInsights.isEmpty()) {
+                item { Text("هنوز داده‌ای برای تحلیل رادار نیست.") }
+            } else {
+                radarInsights.forEach { insight ->
+                    item {
+                        Card(modifier = Modifier.fillMaxWidth()) {
+                            Text(
+                                insight.text,
+                                modifier = Modifier.padding(16.dp),
+                                color = when (insight.kind) {
+                                    RadarKind.UP -> MaterialTheme.colorScheme.error
+                                    RadarKind.DOWN -> MaterialTheme.colorScheme.primary
+                                    RadarKind.NEW -> MaterialTheme.colorScheme.secondary
+                                }
                             )
                         }
                     }
