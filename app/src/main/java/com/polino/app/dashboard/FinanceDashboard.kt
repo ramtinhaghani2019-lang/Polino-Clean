@@ -133,17 +133,25 @@ fun FinanceDashboard() {
         }
     }
 
-    val accountTransactions = transactions.filter { it.accountId == selectedAccountId }
+    val accountTransactions = transactions.filter {
+        selectedAccountId == "all" || it.accountId == selectedAccountId
+    }
     // موجودی بعد از هر تراکنش، از روی کل تاریخچه حساب (نه فیلترشده) تا
     // با فیلتر فعال هم عدد درست بماند؛ مرتب‌سازی با id برای ترتیب قطعی.
+    // برای هر حساب جداگانه حساب می‌شود تا در نمای «همه حساب‌ها» هم درست بماند.
     val runningBalances = remember(accountTransactions) {
-        var balance = 0L
         accountTransactions
-            .sortedWith(compareBy({ it.dateMillis }, { it.id }))
-            .associate { tx ->
-                balance += if (tx.income) tx.amount else -tx.amount
-                tx.id to balance
+            .groupBy { it.accountId }
+            .flatMap { (_, group) ->
+                var balance = 0L
+                group
+                    .sortedWith(compareBy({ it.dateMillis }, { it.id }))
+                    .map { tx ->
+                        balance += if (tx.income) tx.amount else -tx.amount
+                        tx.id to balance
+                    }
             }
+            .toMap()
     }
     val income = accountTransactions.filter { it.income }.sumOf { it.amount }
     val expense = accountTransactions.filterNot { it.income }.sumOf { it.amount }
@@ -201,13 +209,21 @@ fun FinanceDashboard() {
                 Box {
                     OutlinedButton(onClick = { accountExpanded = true }) {
                         Text(
-                            accounts.firstOrNull { it.id == selectedAccountId }?.name ?: "اصلی"
+                            if (selectedAccountId == "all") "همه حساب‌ها"
+                            else accounts.firstOrNull { it.id == selectedAccountId }?.name ?: "اصلی"
                         )
                     }
                     DropdownMenu(
                         expanded = accountExpanded,
                         onDismissRequest = { accountExpanded = false }
                     ) {
+                        DropdownMenuItem(
+                            text = { Text("همه حساب‌ها") },
+                            onClick = {
+                                selectedAccountId = "all"
+                                accountExpanded = false
+                            }
+                        )
                         accounts.forEach { account ->
                             DropdownMenuItem(
                                 text = { Text(account.name) },
@@ -222,10 +238,12 @@ fun FinanceDashboard() {
                 Button(onClick = { showAccountDialog = true }) {
                     Text("حساب جدید")
                 }
-                TextButton(onClick = { showRenameAccountDialog = true }) {
-                    Text("تغییر نام حساب")
+                if (selectedAccountId != "all") {
+                    TextButton(onClick = { showRenameAccountDialog = true }) {
+                        Text("تغییر نام حساب")
+                    }
                 }
-                if (selectedAccountId != "main") {
+                if (selectedAccountId != "main" && selectedAccountId != "all") {
                     TextButton(onClick = { showDeleteAccountConfirm = true }) {
                         Text("حذف حساب", color = MaterialTheme.colorScheme.error)
                     }
@@ -515,7 +533,8 @@ fun FinanceDashboard() {
         TransactionDialog(
             initial = editing,
             accounts = accounts,
-            initialAccountId = editing?.accountId ?: selectedAccountId,
+            initialAccountId = editing?.accountId
+                ?: if (selectedAccountId == "all") "main" else selectedAccountId,
             expenseCategories = expenseCategoryNames(categories),
             incomeCategories = incomeCategoryNames(categories),
             onDismiss = { showDialog = false; editing = null; error = "" },
