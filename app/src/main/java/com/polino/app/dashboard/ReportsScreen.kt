@@ -39,6 +39,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import com.polino.app.data.AccountEntity
 import com.polino.app.data.BudgetEntity
 import com.polino.app.data.BudgetRepository
 import com.polino.app.data.EXPENSE_CATEGORIES
@@ -56,6 +57,9 @@ fun ReportsScreen(onBack: () -> Unit) {
     val scope = rememberCoroutineScope()
     var transactions by remember { mutableStateOf<List<MoneyTransaction>>(emptyList()) }
     var budgets by remember { mutableStateOf<List<BudgetEntity>>(emptyList()) }
+    var accounts by remember { mutableStateOf<List<AccountEntity>>(emptyList()) }
+    var selectedAccountId by remember { mutableStateOf("all") }
+    var accountExpanded by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf("") }
     var info by remember { mutableStateOf("") }
     var showBudgetDialog by remember { mutableStateOf(false) }
@@ -66,6 +70,7 @@ fun ReportsScreen(onBack: () -> Unit) {
         runCatching {
             transactionRepository.migrateIfNeeded()
             transactions = transactionRepository.getAll()
+            accounts = transactionRepository.getAccounts()
             budgets = budgetRepository.getBudgets(yearMonth)
         }.onFailure {
             error = "بارگذاری اطلاعات ناموفق بود. دوباره تلاش کنید."
@@ -111,9 +116,14 @@ fun ReportsScreen(onBack: () -> Unit) {
         }
     }
 
-    val monthTransactions = transactionsInMonth(transactions, yearMonth)
+    val monthTransactionsAll = transactionsInMonth(transactions, yearMonth)
+    val monthTransactions = monthTransactionsAll.filter {
+        selectedAccountId == "all" || it.accountId == selectedAccountId
+    }
     val totals = monthTotals(monthTransactions)
     val spent = spentByCategory(monthTransactions)
+    /** پیشرفت بودجه همیشه نسبت به کل ماه سنجیده می‌شود، نه حساب فیلترشده. */
+    val spentAll = spentByCategory(monthTransactionsAll)
 
     Column(modifier = Modifier.fillMaxSize()) {
         Row(
@@ -129,6 +139,32 @@ fun ReportsScreen(onBack: () -> Unit) {
             contentPadding = PaddingValues(20.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            item {
+                Box {
+                    OutlinedButton(onClick = { accountExpanded = true }) {
+                        Text(
+                            if (selectedAccountId == "all") "همه حساب‌ها"
+                            else accounts.firstOrNull { it.id == selectedAccountId }?.name
+                                ?: "همه حساب‌ها"
+                        )
+                    }
+                    DropdownMenu(
+                        expanded = accountExpanded,
+                        onDismissRequest = { accountExpanded = false }
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("همه حساب‌ها") },
+                            onClick = { selectedAccountId = "all"; accountExpanded = false }
+                        )
+                        accounts.forEach { account ->
+                            DropdownMenuItem(
+                                text = { Text(account.name) },
+                                onClick = { selectedAccountId = account.id; accountExpanded = false }
+                            )
+                        }
+                    }
+                }
+            }
             item {
                 Card(modifier = Modifier.fillMaxWidth()) {
                     Column(
@@ -154,17 +190,26 @@ fun ReportsScreen(onBack: () -> Unit) {
                 }
             }
             item { Text("هزینه‌ها به تفکیک دسته", style = MaterialTheme.typography.titleMedium) }
+            val maxSpent = spent.maxOfOrNull { it.second } ?: 1L
             if (spent.isEmpty()) {
                 item { Text("در این ماه هزینه‌ای ثبت نشده است.") }
             } else {
                 spent.forEach { (category, amount) ->
                     item {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text(category)
-                            Text(money(amount))
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(category)
+                                Text(money(amount))
+                            }
+                            LinearProgressIndicator(
+                                progress = {
+                                    (amount.toFloat() / maxSpent.toFloat()).coerceIn(0f, 1f)
+                                },
+                                modifier = Modifier.fillMaxWidth()
+                            )
                         }
                     }
                 }
@@ -174,7 +219,7 @@ fun ReportsScreen(onBack: () -> Unit) {
                 item { Text("هنوز بودجه‌ای تعیین نشده است.") }
             }
             budgets.forEach { budget ->
-                val spentAmount = spent.firstOrNull { it.first == budget.category }?.second ?: 0L
+                val spentAmount = spentAll.firstOrNull { it.first == budget.category }?.second ?: 0L
                 val remaining = budget.limitAmount - spentAmount
                 item {
                     Card(modifier = Modifier.fillMaxWidth()) {

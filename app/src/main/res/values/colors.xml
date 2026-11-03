@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- پس‌زمینه آیکون لانچر؛ لوگو خودش پس‌زمینه مشکی دارد، پس مشکی یکدست می‌ماند. -->
+    <color name="ic_launcher_background">#FF000000</color>
+</resources>
