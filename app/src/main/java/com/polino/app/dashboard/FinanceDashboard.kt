@@ -44,10 +44,11 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.polino.app.data.AccountEntity
-import com.polino.app.data.EXPENSE_CATEGORIES
-import com.polino.app.data.INCOME_CATEGORIES
+import com.polino.app.data.CategoryEntity
 import com.polino.app.data.MoneyTransaction
 import com.polino.app.data.TransactionRepository
+import com.polino.app.data.expenseCategoryNames
+import com.polino.app.data.incomeCategoryNames
 import kotlinx.coroutines.launch
 import java.util.UUID
 
@@ -69,6 +70,8 @@ fun FinanceDashboard() {
     var selectedAccountId by remember { mutableStateOf("main") }
     var accountExpanded by remember { mutableStateOf(false) }
     var showAccountDialog by remember { mutableStateOf(false) }
+    var categories by remember { mutableStateOf<List<CategoryEntity>>(emptyList()) }
+    var showCategoryDialog by remember { mutableStateOf(false) }
     var showDeleteAccountConfirm by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
@@ -77,6 +80,7 @@ fun FinanceDashboard() {
             repository.migrateIfNeeded()
             transactions = repository.getAll()
             accounts = repository.getAccounts()
+            categories = repository.getCategories()
         }.onFailure {
             error = "بارگذاری اطلاعات ناموفق بود. دوباره تلاش کنید."
         }
@@ -191,24 +195,30 @@ fun FinanceDashboard() {
             }
         }
         item {
-            Box {
-                OutlinedButton(onClick = { categoryFilterExpanded = true }) {
-                    Text(categoryFilter ?: "همه دسته‌ها")
-                }
-                DropdownMenu(
-                    expanded = categoryFilterExpanded,
-                    onDismissRequest = { categoryFilterExpanded = false }
-                ) {
-                    DropdownMenuItem(
-                        text = { Text("همه دسته‌ها") },
-                        onClick = { categoryFilter = null; categoryFilterExpanded = false }
-                    )
-                    (EXPENSE_CATEGORIES + INCOME_CATEGORIES).distinct().forEach { category ->
-                        DropdownMenuItem(
-                            text = { Text(category) },
-                            onClick = { categoryFilter = category; categoryFilterExpanded = false }
-                        )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Box {
+                    OutlinedButton(onClick = { categoryFilterExpanded = true }) {
+                        Text(categoryFilter ?: "همه دسته‌ها")
                     }
+                    DropdownMenu(
+                        expanded = categoryFilterExpanded,
+                        onDismissRequest = { categoryFilterExpanded = false }
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("همه دسته‌ها") },
+                            onClick = { categoryFilter = null; categoryFilterExpanded = false }
+                        )
+                        (expenseCategoryNames(categories) + incomeCategoryNames(categories))
+                            .distinct().forEach { category ->
+                                DropdownMenuItem(
+                                    text = { Text(category) },
+                                    onClick = { categoryFilter = category; categoryFilterExpanded = false }
+                                )
+                            }
+                    }
+                }
+                Button(onClick = { showCategoryDialog = true }) {
+                    Text("دسته‌ها")
                 }
             }
         }
@@ -285,6 +295,8 @@ fun FinanceDashboard() {
     if (showDialog) {
         TransactionDialog(
             initial = editing,
+            expenseCategories = expenseCategoryNames(categories),
+            incomeCategories = incomeCategoryNames(categories),
             onDismiss = { showDialog = false; editing = null; error = "" },
             onSave = { title, amount, isIncome, category, dateMillis ->
                 val transaction = if (editing == null) {
@@ -333,6 +345,22 @@ fun FinanceDashboard() {
                     editing = null
                 }
                 ok
+            }
+        )
+    }
+
+    if (showCategoryDialog) {
+        CategoryDialog(
+            categories = categories,
+            onDismiss = { showCategoryDialog = false },
+            onAdd = { name, isIncome ->
+                val ok = repository.addCategory(name, isIncome)
+                if (ok) categories = repository.getCategories()
+                ok
+            },
+            onDelete = { name ->
+                repository.deleteCategory(name)
+                categories = repository.getCategories()
             }
         )
     }
@@ -414,6 +442,83 @@ private fun AccountDialog(
 }
 
 @Composable
+private fun CategoryDialog(
+    categories: List<CategoryEntity>,
+    onDismiss: () -> Unit,
+    onAdd: suspend (String, Boolean) -> Boolean,
+    onDelete: suspend (String) -> Unit
+) {
+    var name by remember { mutableStateOf("") }
+    var isIncome by remember { mutableStateOf(false) }
+    var validation by remember { mutableStateOf("") }
+    val scope = rememberCoroutineScope()
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("دسته‌ها") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(
+                    "حذف یک دسته، تراکنش‌هایش را به «سایر» می‌برد و بودجه‌هایش را پاک می‌کند. «سایر» قابل حذف نیست.",
+                    style = MaterialTheme.typography.bodySmall
+                )
+                categories.forEach { category ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(category.name + if (category.isIncome) " (درآمد)" else " (هزینه)")
+                        if (category.name != "سایر") {
+                            TextButton(onClick = {
+                                scope.launch { onDelete(category.name) }
+                            }) {
+                                Text("حذف", color = MaterialTheme.colorScheme.error)
+                            }
+                        }
+                    }
+                }
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text("دسته جدید") },
+                    singleLine = true
+                )
+                Row {
+                    RadioButton(selected = !isIncome, onClick = { isIncome = false })
+                    Text("هزینه")
+                    Spacer(Modifier.width(16.dp))
+                    RadioButton(selected = isIncome, onClick = { isIncome = true })
+                    Text("درآمد")
+                }
+                if (validation.isNotEmpty()) {
+                    Text(validation, color = MaterialTheme.colorScheme.error)
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = {
+                if (name.isBlank()) {
+                    validation = "نام دسته را وارد کنید."
+                } else {
+                    scope.launch {
+                        if (onAdd(name.trim(), isIncome)) {
+                            name = ""
+                            validation = ""
+                        } else {
+                            validation = "این دسته از قبل هست."
+                        }
+                    }
+                }
+            }) { Text("افزودن") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("بستن") }
+        }
+    )
+}
+
+@Composable
 private fun SummaryCard(title: String, amount: String, isIncome: Boolean) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(12.dp)) {
@@ -430,6 +535,8 @@ private fun SummaryCard(title: String, amount: String, isIncome: Boolean) {
 @Composable
 private fun TransactionDialog(
     initial: MoneyTransaction?,
+    expenseCategories: List<String>,
+    incomeCategories: List<String>,
     onDismiss: () -> Unit,
     onSave: suspend (title: String, amount: Long, income: Boolean, category: String, dateMillis: Long) -> Boolean,
     onDelete: suspend (MoneyTransaction) -> Boolean
@@ -438,7 +545,7 @@ private fun TransactionDialog(
     var amount by remember { mutableStateOf(initial?.amount?.toString() ?: "") }
     var isIncome by remember { mutableStateOf(initial?.income ?: false) }
     var category by remember {
-        mutableStateOf(initial?.category ?: EXPENSE_CATEGORIES.first())
+        mutableStateOf(initial?.category ?: expenseCategories.firstOrNull() ?: "سایر")
     }
     var dateMillis by remember {
         mutableStateOf(
@@ -451,7 +558,7 @@ private fun TransactionDialog(
     var categoryExpanded by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
-    val categories = if (isIncome) INCOME_CATEGORIES else EXPENSE_CATEGORIES
+    val categories = if (isIncome) incomeCategories else expenseCategories
     val datePickerState = rememberDatePickerState(initialSelectedDateMillis = dateMillis)
 
     if (showDatePicker) {
@@ -513,13 +620,17 @@ private fun TransactionDialog(
                 Row {
                     RadioButton(selected = !isIncome, onClick = {
                         isIncome = false
-                        if (category !in EXPENSE_CATEGORIES) category = EXPENSE_CATEGORIES.first()
+                        if (category !in expenseCategories) {
+                            category = expenseCategories.firstOrNull() ?: "سایر"
+                        }
                     })
                     Text("هزینه")
                     Spacer(Modifier.width(16.dp))
                     RadioButton(selected = isIncome, onClick = {
                         isIncome = true
-                        if (category !in INCOME_CATEGORIES) category = INCOME_CATEGORIES.first()
+                        if (category !in incomeCategories) {
+                            category = incomeCategories.firstOrNull() ?: "سایر"
+                        }
                     })
                     Text("درآمد")
                 }

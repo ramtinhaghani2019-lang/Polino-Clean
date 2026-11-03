@@ -19,4 +19,8 @@ internal interface TransactionDao {
 
     @Query("DELETE FROM transactions WHERE id = :id")
     suspend fun deleteById(id: String)
+
+    /** انتقال همه تراکنش‌های یک دسته به دسته‌ای دیگر (برای حذف دسته). */
+    @Query("UPDATE transactions SET category = :newCategory WHERE category = :oldCategory")
+    suspend fun reassignCategory(oldCategory: String, newCategory: String)
 }

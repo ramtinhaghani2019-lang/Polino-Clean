@@ -8,9 +8,13 @@ internal class TransactionRepository(context: Context) {
     private val appContext = context.applicationContext
     private val database = Room.databaseBuilder(
         appContext, PolinoDatabase::class.java, "polino_db"
-    ).addMigrations(PolinoDatabase.MIGRATION_1_2).build()
+    ).addMigrations(PolinoDatabase.MIGRATION_1_2, PolinoDatabase.MIGRATION_2_3).build()
     private val dao = database.transactionDao()
     private val accountDao = database.accountDao()
+    private val categoryDao = database.categoryDao()
+    private val budgetDao = Room.databaseBuilder(
+        appContext, BudgetDatabase::class.java, "polino_budgets_db"
+    ).build().budgetDao()
     private val prefs = appContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
     suspend fun getAll(): List<MoneyTransaction> =
@@ -47,6 +51,33 @@ internal class TransactionRepository(context: Context) {
         if (id == "main") return false
         accountDao.reassignTransactions(id, "main")
         accountDao.deleteById(id)
+        return true
+    }
+
+    /** دسته‌ها؛ اگر جدول خالی باشد دسته‌های پیش‌فرض ساخته می‌شوند. */
+    suspend fun getCategories(): List<CategoryEntity> {
+        val existing = categoryDao.getAll()
+        if (existing.isNotEmpty()) return existing
+        DEFAULT_CATEGORIES.forEach { categoryDao.upsert(it) }
+        return categoryDao.getAll()
+    }
+
+    /** افزودن دسته؛ نام تکراری رد می‌شود. */
+    suspend fun addCategory(name: String, isIncome: Boolean): Boolean {
+        if (categoryDao.getAll().any { it.name == name }) return false
+        categoryDao.upsert(CategoryEntity(name, isIncome))
+        return true
+    }
+
+    /**
+     * حذف دسته؛ تراکنش‌هایش به «سایر» منتقل و بودجه‌هایش حذف می‌شوند.
+     * «سایر» خودش حذف نمی‌شود.
+     */
+    suspend fun deleteCategory(name: String): Boolean {
+        if (!canDeleteCategory(name)) return false
+        dao.reassignCategory(name, FALLBACK_CATEGORY)
+        budgetDao.deleteForCategory(name)
+        categoryDao.deleteByName(name)
         return true
     }
 

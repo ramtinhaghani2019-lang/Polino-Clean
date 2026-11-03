@@ -42,7 +42,8 @@ import androidx.compose.ui.unit.dp
 import com.polino.app.data.AccountEntity
 import com.polino.app.data.BudgetEntity
 import com.polino.app.data.BudgetRepository
-import com.polino.app.data.EXPENSE_CATEGORIES
+import com.polino.app.data.CategoryEntity
+import com.polino.app.data.expenseCategoryNames
 import com.polino.app.data.MoneyTransaction
 import com.polino.app.data.TransactionRepository
 import com.polino.app.data.parseLegacyTransactions
@@ -60,6 +61,7 @@ fun ReportsScreen(onBack: () -> Unit) {
     var accounts by remember { mutableStateOf<List<AccountEntity>>(emptyList()) }
     var selectedAccountId by remember { mutableStateOf("all") }
     var accountExpanded by remember { mutableStateOf(false) }
+    var categories by remember { mutableStateOf<List<CategoryEntity>>(emptyList()) }
     var error by remember { mutableStateOf("") }
     var info by remember { mutableStateOf("") }
     var showBudgetDialog by remember { mutableStateOf(false) }
@@ -71,6 +73,7 @@ fun ReportsScreen(onBack: () -> Unit) {
             transactionRepository.migrateIfNeeded()
             transactions = transactionRepository.getAll()
             accounts = transactionRepository.getAccounts()
+            categories = transactionRepository.getCategories()
             budgets = budgetRepository.getBudgets(yearMonth)
         }.onFailure {
             error = "بارگذاری اطلاعات ناموفق بود. دوباره تلاش کنید."
@@ -357,6 +360,7 @@ fun ReportsScreen(onBack: () -> Unit) {
 
     if (showBudgetDialog) {
         BudgetDialog(
+            expenseCategories = expenseCategoryNames(categories),
             onDismiss = { showBudgetDialog = false },
             onSave = { category, limit ->
                 scope.launch {
@@ -371,10 +375,11 @@ fun ReportsScreen(onBack: () -> Unit) {
 
 @Composable
 private fun BudgetDialog(
+    expenseCategories: List<String>,
     onDismiss: () -> Unit,
     onSave: (category: String, limit: Long) -> Unit
 ) {
-    var category by remember { mutableStateOf(EXPENSE_CATEGORIES.first()) }
+    var category by remember { mutableStateOf(expenseCategories.firstOrNull() ?: "سایر") }
     var amount by remember { mutableStateOf("") }
     var categoryExpanded by remember { mutableStateOf(false) }
     var validation by remember { mutableStateOf("") }
@@ -395,7 +400,7 @@ private fun BudgetDialog(
                         expanded = categoryExpanded,
                         onDismissRequest = { categoryExpanded = false }
                     ) {
-                        EXPENSE_CATEGORIES.forEach { item ->
+                        expenseCategories.forEach { item ->
                             DropdownMenuItem(
                                 text = { Text(item) },
                                 onClick = { category = item; categoryExpanded = false }
