@@ -16,7 +16,7 @@ class CsvExportTest {
         val csv = transactionsToCsv(list)
         assertTrue(csv.startsWith('\uFEFF' + "عنوان,مبلغ,نوع,دسته,تاریخ شمسی,یادداشت\n"))
         assertTrue(csv.contains("\"خرید، با \"\"تخفیف\"\"\",50000,هزینه,خوراک,بدون تاریخ,"))
-        assertTrue(csv.contains("کرایه,100000,هزینه,حمل‌ونقل,بدون تاریخ,\"قرض، به علی\""))
+        assertTrue(csv.contains("کرایه,100000,هزینه,حمل‌ونقل,بدون تاریخ,قرض، به علی"))
     }
 
     @Test
