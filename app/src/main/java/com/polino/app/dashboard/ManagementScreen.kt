@@ -65,6 +65,7 @@ import com.polino.app.data.TaskEntity
 import com.polino.app.data.isTaskOverdue
 import com.polino.app.data.unsettledTotals
 import com.polino.app.data.MoneyTransaction
+import com.polino.app.data.dongiShares
 import com.polino.app.data.installmentMonthlyAmount
 import com.polino.app.data.installmentProgressFraction
 import com.polino.app.data.RecurringEntity
@@ -494,6 +495,91 @@ fun ManagementScreen(
                                 }
                             }
                         }
+                    }
+                }
+            }
+        }
+        item { Text("محاسبه دنگی", style = MaterialTheme.typography.titleMedium) }
+        item {
+            var dongiAmountText by remember { mutableStateOf("") }
+            var dongiPeople by remember { mutableStateOf(2) }
+            var dongiSaved by remember { mutableStateOf(false) }
+            val dongiTotal = normalizeDigits(dongiAmountText).toLongOrNull() ?: 0L
+            val shares = dongiShares(dongiTotal, dongiPeople)
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(20.dp),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+            ) {
+                Column(
+                    Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Text(
+                        "هزینه مشترک را بین نفرات تقسیم کنید؛ باقیمانده یکی‌یکی به نفرات اول می‌رسد.",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                    TextField(
+                        value = dongiAmountText,
+                        onValueChange = { dongiAmountText = it; dongiSaved = false },
+                        label = { Text("مبلغ کل (تومان)") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text("تعداد نفرات:")
+                        Button(
+                            onClick = {
+                                if (dongiPeople > 1) dongiPeople--
+                                dongiSaved = false
+                            }
+                        ) { Text("−") }
+                        Text("$dongiPeople نفر", style = MaterialTheme.typography.titleMedium)
+                        Button(
+                            onClick = {
+                                if (dongiPeople < 50) dongiPeople++
+                                dongiSaved = false
+                            }
+                        ) { Text("+") }
+                    }
+                    if (dongiTotal > 0 && shares.isNotEmpty()) {
+                        val minShare = shares.min()
+                        val maxShare = shares.max()
+                        Text(
+                            if (minShare == maxShare) {
+                                "سهم هر نفر: ${money(minShare)}"
+                            } else {
+                                "سهم هر نفر: ${money(minShare)} تا ${money(maxShare)}"
+                            },
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                        Button(
+                            onClick = {
+                                scope.launch {
+                                    repository.upsert(
+                                        MoneyTransaction(
+                                            id = UUID.randomUUID().toString(),
+                                            title = "سهم دنگی",
+                                            amount = shares.first(),
+                                            income = false,
+                                            category = "سایر",
+                                            dateMillis = System.currentTimeMillis(),
+                                            accountId = "main",
+                                            note = "محاسبه دنگی: ${money(dongiTotal)} بین $dongiPeople نفر"
+                                        )
+                                    )
+                                    dongiSaved = true
+                                }
+                            }
+                        ) {
+                            Text("ثبت سهم من به‌عنوان هزینه")
+                        }
+                    }
+                    if (dongiSaved) {
+                        Text("سهم شما ثبت شد.", color = MaterialTheme.colorScheme.primary)
                     }
                 }
             }
