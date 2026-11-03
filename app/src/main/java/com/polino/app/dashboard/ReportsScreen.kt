@@ -69,6 +69,7 @@ fun ReportsScreen(onBack: () -> Unit) {
     var categories by remember { mutableStateOf<List<CategoryEntity>>(emptyList()) }
     var goals by remember { mutableStateOf<List<GoalEntity>>(emptyList()) }
     var showGoalDialog by remember { mutableStateOf(false) }
+    var goalToDelete by remember { mutableStateOf<GoalEntity?>(null) }
     var error by remember { mutableStateOf("") }
     var info by remember { mutableStateOf("") }
     var showBudgetDialog by remember { mutableStateOf(false) }
@@ -400,12 +401,7 @@ fun ReportsScreen(onBack: () -> Unit) {
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(goal.name, style = MaterialTheme.typography.titleMedium)
-                                IconButton(onClick = {
-                                    scope.launch {
-                                        transactionRepository.deleteGoal(goal.id)
-                                        goals = transactionRepository.getGoals()
-                                    }
-                                }) {
+                                IconButton(onClick = { goalToDelete = goal }) {
                                     Icon(Icons.Default.Delete, contentDescription = "حذف هدف")
                                 }
                             }
@@ -484,6 +480,28 @@ fun ReportsScreen(onBack: () -> Unit) {
                     goals = transactionRepository.getGoals()
                     showGoalDialog = false
                 }
+            }
+        )
+    }
+    if (goalToDelete != null) {
+        AlertDialog(
+            onDismissRequest = { goalToDelete = null },
+            title = { Text("حذف هدف") },
+            text = { Text("هدف «${goalToDelete!!.name}» حذف شود؟") },
+            confirmButton = {
+                TextButton(onClick = {
+                    val target = goalToDelete
+                    goalToDelete = null
+                    scope.launch {
+                        if (target != null) {
+                            transactionRepository.deleteGoal(target.id)
+                            goals = transactionRepository.getGoals()
+                        }
+                    }
+                }) { Text("حذف", color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = {
+                TextButton(onClick = { goalToDelete = null }) { Text("انصراف") }
             }
         )
     }

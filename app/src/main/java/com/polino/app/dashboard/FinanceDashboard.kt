@@ -256,7 +256,7 @@ fun FinanceDashboard() {
             OutlinedTextField(
                 value = searchQuery,
                 onValueChange = { searchQuery = it },
-                label = { Text("جستجو در عنوان تراکنش") },
+                label = { Text("جستجو در عنوان و یادداشت") },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()
             )
@@ -708,6 +708,7 @@ private fun RecurringDialog(
     var accountExpanded by remember { mutableStateOf(false) }
     var day by remember { mutableStateOf("") }
     var validation by remember { mutableStateOf("") }
+    var editingId by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
     val categories = if (isIncome) incomeCategories else expenseCategories
 
@@ -730,10 +731,22 @@ private fun RecurringDialog(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text("${rule.title} — روز ${rule.dayOfMonth} هر ماه")
-                        TextButton(onClick = {
-                            scope.launch { onDelete(rule.id) }
-                        }) {
-                            Text("حذف", color = MaterialTheme.colorScheme.error)
+                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            TextButton(onClick = {
+                                editingId = rule.id
+                                title = rule.title
+                                amount = rule.amount.toString()
+                                isIncome = rule.income
+                                category = rule.category
+                                accountId = rule.accountId
+                                day = rule.dayOfMonth.toString()
+                                validation = ""
+                            }) { Text("ویرایش") }
+                            TextButton(onClick = {
+                                scope.launch { onDelete(rule.id) }
+                            }) {
+                                Text("حذف", color = MaterialTheme.colorScheme.error)
+                            }
                         }
                     }
                 }
@@ -811,6 +824,15 @@ private fun RecurringDialog(
                 if (validation.isNotEmpty()) {
                     Text(validation, color = MaterialTheme.colorScheme.error)
                 }
+                if (editingId != null) {
+                    TextButton(onClick = {
+                        editingId = null
+                        title = ""
+                        amount = ""
+                        day = ""
+                        validation = ""
+                    }) { Text("لغو ویرایش") }
+                }
             }
         },
         confirmButton = {
@@ -825,25 +847,28 @@ private fun RecurringDialog(
                 }
                 validation = error
                 if (error.isEmpty() && parsedAmount != null && parsedDay != null) {
+                    val existing = recurring.firstOrNull { it.id == editingId }
                     val rule = RecurringEntity(
-                        id = UUID.randomUUID().toString(),
+                        id = existing?.id ?: UUID.randomUUID().toString(),
                         title = title.trim(),
                         amount = parsedAmount,
                         income = isIncome,
                         category = category,
                         accountId = accountId,
                         dayOfMonth = parsedDay,
-                        startYearMonth = JalaliDate.currentJalaliYearMonth(),
-                        lastAppliedYearMonth = null
+                        startYearMonth = existing?.startYearMonth
+                            ?: JalaliDate.currentJalaliYearMonth(),
+                        lastAppliedYearMonth = existing?.lastAppliedYearMonth
                     )
                     scope.launch {
                         onAdd(rule)
                         title = ""
                         amount = ""
                         day = ""
+                        editingId = null
                     }
                 }
-            }) { Text("افزودن") }
+            }) { Text(if (editingId != null) "ذخیره" else "افزودن") }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) { Text("بستن") }
