@@ -136,6 +136,46 @@ fun ReportsScreen(onBack: () -> Unit) {
         }
     }
 
+    val pdfExportLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/pdf")
+    ) { uri ->
+        if (uri != null) {
+            scope.launch {
+                runCatching {
+                    val viewed = transactionsInMonth(transactions, selectedYearMonth).filter {
+                        selectedAccountId == "all" || it.accountId == selectedAccountId
+                    }
+                    val totals = monthTotals(viewed)
+                    val spent = spentByCategory(viewed)
+                    val spentAll = spentByCategory(transactionsInMonth(transactions, selectedYearMonth))
+                    val accountLabel = if (selectedAccountId == "all") "همه حساب‌ها"
+                    else accounts.firstOrNull { it.id == selectedAccountId }?.name ?: "همه حساب‌ها"
+                    val lines = buildList {
+                        add("گزارش ماه ${JalaliDate.jalaliMonthDisplay(selectedYearMonth)} ($accountLabel)")
+                        add("درآمد: ${money(totals.income)} تومان")
+                        add("هزینه: ${money(totals.expense)} تومان")
+                        add("مانده: ${money(totals.income - totals.expense)} تومان")
+                        add("")
+                        add("هزینه‌ها به تفکیک دسته:")
+                        spent.forEach { (category, amount) ->
+                            add("$category: ${money(amount)} تومان")
+                        }
+                        add("")
+                        add("بودجه‌ها:")
+                        budgets.forEach { budget ->
+                            val spentAmount = spentAll.firstOrNull { it.first == budget.category }?.second ?: 0L
+                            add("${budget.category}: ${money(spentAmount)} از ${money(budget.limitAmount)} تومان")
+                        }
+                    }
+                    context.contentResolver.openOutputStream(uri)?.use { stream ->
+                        writePdfReport(stream, lines)
+                    } ?: throw IllegalStateException("no output stream")
+                }.onSuccess { info = "خروجی PDF انجام شد." }
+                    .onFailure { error = "خروجی PDF ناموفق بود. دوباره تلاش کنید." }
+            }
+        }
+    }
+
     val importLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocument()
     ) { uri ->
@@ -504,8 +544,13 @@ fun ReportsScreen(onBack: () -> Unit) {
                 }
             }
             item {
-                Button(onClick = { csvExportLauncher.launch("polino-transactions.csv") }) {
-                    Text("خروجی CSV (اکسل)")
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Button(onClick = { csvExportLauncher.launch("polino-transactions.csv") }) {
+                        Text("خروجی CSV (اکسل)")
+                    }
+                    Button(onClick = { pdfExportLauncher.launch("polino-report.pdf") }) {
+                        Text("خروجی PDF گزارش ماه")
+                    }
                 }
             }
             item {
