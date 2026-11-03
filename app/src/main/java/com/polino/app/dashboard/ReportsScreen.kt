@@ -2,6 +2,7 @@ package com.polino.app.dashboard
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -10,6 +11,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -19,6 +21,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -78,6 +81,7 @@ fun ReportsScreen(onBack: () -> Unit) {
     var pendingImportText by remember { mutableStateOf<String?>(null) }
 
     var selectedYearMonth by remember { mutableStateOf(JalaliDate.currentJalaliYearMonth()) }
+    var period by remember { mutableStateOf(ReportPeriod.MONTHLY) }
 
     LaunchedEffect(Unit) {
         runCatching {
@@ -267,10 +271,25 @@ fun ReportsScreen(onBack: () -> Unit) {
     val monthTransactions = monthTransactionsAll.filter {
         selectedAccountId == "all" || it.accountId == selectedAccountId
     }
-    val totals = monthTotals(monthTransactions)
-    val spent = spentByCategory(monthTransactions)
     /** پیشرفت بودجه همیشه نسبت به کل ماه سنجیده می‌شود، نه حساب فیلترشده. */
     val spentAll = spentByCategory(monthTransactionsAll)
+
+    val nowMillis = System.currentTimeMillis()
+    val periodTransactions = transactionsInPeriod(
+        transactions, period, nowMillis, selectedYearMonth
+    ).filter { selectedAccountId == "all" || it.accountId == selectedAccountId }
+    val periodTotals = monthTotals(periodTransactions)
+    val periodSpent = spentByCategory(periodTransactions)
+    val periodTitle = when (period) {
+        ReportPeriod.DAILY -> "امروز ${JalaliDate.formatJalali(nowMillis)}"
+        ReportPeriod.WEEKLY -> {
+            val start = jalaliWeekStartMillis(nowMillis)
+            "هفته ${JalaliDate.formatJalali(start)} تا " +
+                JalaliDate.formatJalali(start + 6L * 24 * 60 * 60 * 1000)
+        }
+        ReportPeriod.MONTHLY -> "ماه ${JalaliDate.jalaliMonthDisplay(selectedYearMonth)}"
+        ReportPeriod.YEARLY -> "سال ${jalaliYearOf(nowMillis)}"
+    }
 
     Column(modifier = Modifier.fillMaxSize()) {
         Row(
@@ -314,23 +333,50 @@ fun ReportsScreen(onBack: () -> Unit) {
             }
             item {
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                    modifier = Modifier.horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    OutlinedButton(onClick = {
-                        selectedYearMonth = JalaliDate.previousJalaliYearMonth(selectedYearMonth)
-                    }) { Text("ماه قبل") }
-                    Text(
-                        JalaliDate.jalaliMonthDisplay(selectedYearMonth),
-                        style = MaterialTheme.typography.titleMedium
-                    )
-                    OutlinedButton(
-                        onClick = {
-                            selectedYearMonth = nextJalaliYearMonth(selectedYearMonth)
-                        },
-                        enabled = selectedYearMonth != JalaliDate.currentJalaliYearMonth()
-                    ) { Text("ماه بعد") }
+                    ReportPeriod.entries.forEach { entry ->
+                        FilterChip(
+                            selected = period == entry,
+                            onClick = { period = entry },
+                            label = {
+                                Text(
+                                    when (entry) {
+                                        ReportPeriod.DAILY -> "روزانه"
+                                        ReportPeriod.WEEKLY -> "هفتگی"
+                                        ReportPeriod.MONTHLY -> "ماهانه"
+                                        ReportPeriod.YEARLY -> "سالانه"
+                                    }
+                                )
+                            }
+                        )
+                    }
+                }
+            }
+            item {
+                if (period == ReportPeriod.MONTHLY) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        OutlinedButton(onClick = {
+                            selectedYearMonth = JalaliDate.previousJalaliYearMonth(selectedYearMonth)
+                        }) { Text("ماه قبل") }
+                        Text(
+                            JalaliDate.jalaliMonthDisplay(selectedYearMonth),
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                        OutlinedButton(
+                            onClick = {
+                                selectedYearMonth = nextJalaliYearMonth(selectedYearMonth)
+                            },
+                            enabled = selectedYearMonth != JalaliDate.currentJalaliYearMonth()
+                        ) { Text("ماه بعد") }
+                    }
+                } else {
+                    Text(periodTitle, style = MaterialTheme.typography.titleMedium)
                 }
             }
             item {
@@ -340,15 +386,15 @@ fun ReportsScreen(onBack: () -> Unit) {
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Text(
-                            "گزارش ماه ${JalaliDate.jalaliMonthDisplay(selectedYearMonth)}",
+                            "گزارش $periodTitle",
                             style = MaterialTheme.typography.titleMedium
                         )
-                        Text("درآمد: ${money(totals.income)}")
-                        Text("هزینه: ${money(totals.expense)}")
+                        Text("درآمد: ${money(periodTotals.income)}")
+                        Text("هزینه: ${money(periodTotals.expense)}")
                         Text(
-                            "مانده: ${money(totals.income - totals.expense)}",
+                            "مانده: ${money(periodTotals.income - periodTotals.expense)}",
                             style = MaterialTheme.typography.titleMedium,
-                            color = if (totals.income - totals.expense >= 0) {
+                            color = if (periodTotals.income - periodTotals.expense >= 0) {
                                 MaterialTheme.colorScheme.primary
                             } else {
                                 MaterialTheme.colorScheme.error
@@ -358,11 +404,11 @@ fun ReportsScreen(onBack: () -> Unit) {
                 }
             }
             item { Text("هزینه‌ها به تفکیک دسته", style = MaterialTheme.typography.titleMedium) }
-            val maxSpent = spent.maxOfOrNull { it.second } ?: 1L
-            if (spent.isEmpty()) {
-                item { Text("در این ماه هزینه‌ای ثبت نشده است.") }
+            val maxSpent = periodSpent.maxOfOrNull { it.second } ?: 1L
+            if (periodSpent.isEmpty()) {
+                item { Text("در این بازه هزینه‌ای ثبت نشده است.") }
             } else {
-                spent.forEach { (category, amount) ->
+                periodSpent.forEach { (category, amount) ->
                     item {
                         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             Row(

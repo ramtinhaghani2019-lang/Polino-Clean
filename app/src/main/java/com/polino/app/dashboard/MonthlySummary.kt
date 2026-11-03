@@ -2,6 +2,8 @@ package com.polino.app.dashboard
 
 import com.polino.app.data.BudgetEntity
 import com.polino.app.data.MoneyTransaction
+import java.time.Instant
+import java.time.ZoneId
 
 internal data class MonthTotals(val income: Long, val expense: Long)
 
@@ -82,4 +84,52 @@ internal fun monthlyTrend(
 ): List<MonthTrend> = yearMonths.map { yearMonth ->
     val totals = monthTotals(transactionsInMonth(transactions, yearMonth))
     MonthTrend(yearMonth, totals.income, totals.expense)
+}
+
+internal enum class ReportPeriod { DAILY, WEEKLY, MONTHLY, YEARLY }
+
+/** سه‌تایی شمسی یک لحظه: (سال، ماه ۱ تا ۱۲، روز). */
+internal fun jalaliTripleOf(millis: Long): Triple<Int, Int, Int> {
+    val date = Instant.ofEpochMilli(millis).atZone(ZoneId.systemDefault()).toLocalDate()
+    return JalaliDate.gregorianToJalali(date.year, date.monthValue, date.dayOfMonth)
+}
+
+/** آیا دو لحظه در یک روز شمسی هستند؟ */
+internal fun isSameJalaliDay(aMillis: Long, bMillis: Long): Boolean =
+    jalaliTripleOf(aMillis) == jalaliTripleOf(bMillis)
+
+/** سال شمسی یک لحظه. */
+internal fun jalaliYearOf(millis: Long): Int = jalaliTripleOf(millis).first
+
+/**
+ * شروع هفته شمسی (شنبه) شامل این لحظه، به‌صورت میلی‌ثانیه ابتدای روز.
+ * شنبه در تقویم ISO مقدار ۶ دارد؛ فاصله تا شنبه با (value + 1) % ۷ به دست می‌آید.
+ */
+internal fun jalaliWeekStartMillis(millis: Long): Long {
+    val date = Instant.ofEpochMilli(millis).atZone(ZoneId.systemDefault()).toLocalDate()
+    val offset = (date.dayOfWeek.value + 1) % 7
+    return date.minusDays(offset.toLong()).atStartOfDay(ZoneId.systemDefault())
+        .toInstant().toEpochMilli()
+}
+
+/** تراکنش‌های یک بازه گزارشی نسبت به لحظه مرجع؛ ماه از مسیر جداگانه می‌آید. */
+internal fun transactionsInPeriod(
+    transactions: List<MoneyTransaction>,
+    period: ReportPeriod,
+    nowMillis: Long,
+    yearMonth: String
+): List<MoneyTransaction> = when (period) {
+    ReportPeriod.DAILY -> transactions.filter {
+        it.dateMillis != 0L && isSameJalaliDay(it.dateMillis, nowMillis)
+    }
+    ReportPeriod.WEEKLY -> {
+        val start = jalaliWeekStartMillis(nowMillis)
+        val end = start + 7L * 24 * 60 * 60 * 1000
+        transactions.filter { it.dateMillis in start until end }
+    }
+    ReportPeriod.YEARLY -> {
+        val year = jalaliYearOf(nowMillis)
+        transactions.filter { it.dateMillis != 0L && jalaliYearOf(it.dateMillis) == year }
+    }
+    ReportPeriod.MONTHLY -> transactionsInMonth(transactions, yearMonth)
 }
