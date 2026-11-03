@@ -181,6 +181,25 @@ fun ReportsScreen(onBack: () -> Unit) {
         }
     }
 
+    val xlsxExportLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    ) { uri ->
+        if (uri != null) {
+            scope.launch {
+                runCatching {
+                    val viewed = transactionsInMonth(transactions, selectedYearMonth).filter {
+                        selectedAccountId == "all" || it.accountId == selectedAccountId
+                    }
+                    context.contentResolver.openOutputStream(uri)?.use { stream ->
+                        stream.write(transactionsToXlsx(viewed))
+                    } ?: throw IllegalStateException("no output stream")
+                    viewed.size
+                }.onSuccess { count -> info = "خروجی اکسل $count تراکنش انجام شد." }
+                    .onFailure { error = "خروجی اکسل ناموفق بود. دوباره تلاش کنید." }
+            }
+        }
+    }
+
     val importLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocument()
     ) { uri ->
@@ -625,6 +644,13 @@ fun ReportsScreen(onBack: () -> Unit) {
                     }
                     Button(onClick = { pdfExportLauncher.launch("polino-report.pdf") }) {
                         Text("خروجی PDF گزارش ماه")
+                    }
+                }
+            }
+            item {
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Button(onClick = { xlsxExportLauncher.launch("polino-transactions.xlsx") }) {
+                        Text("خروجی اکسل (.xlsx)")
                     }
                 }
             }
