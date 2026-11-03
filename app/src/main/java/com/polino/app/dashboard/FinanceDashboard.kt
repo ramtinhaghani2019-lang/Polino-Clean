@@ -1,7 +1,6 @@
 package com.polino.app.dashboard
 
 import android.content.Context
-import android.icu.util.PersianCalendar
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -63,11 +62,6 @@ private val EXPENSE_CATEGORIES =
     listOf("خوراک", "مسکن", "حمل‌ونقل", "سلامت", "آموزش", "تفریح", "پوشاک", "سایر")
 private val INCOME_CATEGORIES = listOf("حقوق", "فروش", "هدیه", "سایر")
 
-private val PERSIAN_MONTHS = listOf(
-    "فروردین", "اردیبهشت", "خرداد", "تیر", "مرداد", "شهریور",
-    "مهر", "آبان", "آذر", "دی", "بهمن", "اسفند"
-)
-
 private enum class TypeFilter { ALL, INCOME, EXPENSE }
 
 private fun loadTransactions(context: Context): List<MoneyTransaction> = runCatching {
@@ -105,16 +99,6 @@ private fun saveTransactions(context: Context, transactions: List<MoneyTransacti
 
 private fun money(value: Long): String =
     NumberFormat.getIntegerInstance(Locale("fa", "IR")).format(value) + " تومان"
-
-private fun formatJalali(millis: Long): String {
-    if (millis == 0L) return "بدون تاریخ"
-    val calendar = PersianCalendar()
-    calendar.timeInMillis = millis
-    val day = calendar.get(PersianCalendar.DAY_OF_MONTH)
-    val month = calendar.get(PersianCalendar.MONTH)
-    val year = calendar.get(PersianCalendar.YEAR)
-    return "$day ${PERSIAN_MONTHS[month]} $year"
-}
 
 private fun normalizeDigits(input: String): String = input.map { char ->
     when (char) {
@@ -274,7 +258,7 @@ fun FinanceDashboard() {
                     }
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(transaction.category, style = MaterialTheme.typography.bodySmall)
-                        Text(formatJalali(transaction.dateMillis), style = MaterialTheme.typography.bodySmall)
+                        Text(JalaliDate.formatJalali(transaction.dateMillis), style = MaterialTheme.typography.bodySmall)
                     }
                 }
             }
@@ -480,7 +464,7 @@ private fun TransactionDialog(
                     }
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("تاریخ: ${formatJalali(dateMillis)}")
+                    Text("تاریخ: ${JalaliDate.formatJalali(dateMillis)}")
                     TextButton(onClick = { showDatePicker = true }) { Text("تغییر تاریخ") }
                 }
                 if (initial != null) {
