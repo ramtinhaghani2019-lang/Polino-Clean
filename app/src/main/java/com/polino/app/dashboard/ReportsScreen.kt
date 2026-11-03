@@ -92,6 +92,21 @@ fun ReportsScreen(onBack: () -> Unit) {
         }
     }
 
+    val csvExportLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("text/csv")
+    ) { uri ->
+        if (uri != null) {
+            scope.launch {
+                runCatching {
+                    context.contentResolver.openOutputStream(uri)?.use { stream ->
+                        stream.write(transactionsToCsv(transactions).toByteArray(Charsets.UTF_8))
+                    } ?: throw IllegalStateException("no output stream")
+                }.onSuccess { info = "خروجی CSV انجام شد." }
+                    .onFailure { error = "خروجی CSV ناموفق بود. دوباره تلاش کنید." }
+            }
+        }
+    }
+
     val importLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocument()
     ) { uri ->
@@ -214,6 +229,49 @@ fun ReportsScreen(onBack: () -> Unit) {
                     }
                 }
             }
+            item { Text("روند ۶ ماه اخیر", style = MaterialTheme.typography.titleMedium) }
+            val trendBase = if (selectedAccountId == "all") transactions
+            else transactions.filter { it.accountId == selectedAccountId }
+            val trend = monthlyTrend(trendBase, JalaliDate.lastJalaliYearMonths(6))
+            val maxTrend = (trend.maxOfOrNull { maxOf(it.income, it.expense) } ?: 0L)
+                .takeIf { it > 0 } ?: 1L
+            trend.forEach { month ->
+                item {
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(
+                            JalaliDate.jalaliMonthDisplay(month.yearMonth),
+                            style = MaterialTheme.typography.titleSmall
+                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text("درآمد")
+                            LinearProgressIndicator(
+                                progress = {
+                                    (month.income.toFloat() / maxTrend.toFloat()).coerceIn(0f, 1f)
+                                },
+                                modifier = Modifier.weight(1f)
+                            )
+                            Text(money(month.income))
+                        }
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text("هزینه")
+                            LinearProgressIndicator(
+                                progress = {
+                                    (month.expense.toFloat() / maxTrend.toFloat()).coerceIn(0f, 1f)
+                                },
+                                color = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.weight(1f)
+                            )
+                            Text(money(month.expense))
+                        }
+                    }
+                }
+            }
             item { Text("بودجه‌های ماه جاری", style = MaterialTheme.typography.titleMedium) }
             if (budgets.isEmpty()) {
                 item { Text("هنوز بودجه‌ای تعیین نشده است.") }
@@ -283,6 +341,11 @@ fun ReportsScreen(onBack: () -> Unit) {
                     Button(onClick = { importLauncher.launch(arrayOf("application/json")) }) {
                         Text("بازیابی از فایل")
                     }
+                }
+            }
+            item {
+                Button(onClick = { csvExportLauncher.launch("polino-transactions.csv") }) {
+                    Text("خروجی CSV (اکسل)")
                 }
             }
             item {

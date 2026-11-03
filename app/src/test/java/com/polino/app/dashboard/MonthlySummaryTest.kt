@@ -37,4 +37,24 @@ class MonthlySummaryTest {
         val spent = spentByCategory(month)
         assertEquals(listOf("خوراک" to 100000L, "مسکن" to 50000L), spent)
     }
+
+    @Test
+    fun monthlyTrend_ordersOldestFirstWithCorrectTotals() {
+        // ۲۰۲۶-۰۹-۱۵ = شهریور ۱۴۰۵، ۲۰۲۶-۱۰-۱۰ = مهر ۱۴۰۵، ۲۰۲۶-۱۱-۰۳ = آبان ۱۴۰۵
+        val list = listOf(
+            tx("a", 100000, false, "خوراک", millis(2026, 11, 3)),
+            tx("b", 50000, false, "مسکن", millis(2026, 10, 10)),
+            tx("c", 2000000, true, "حقوق", millis(2026, 11, 3)),
+            tx("d", 70000, false, "سایر", millis(2026, 9, 15))
+        )
+        val trend = monthlyTrend(list, listOf("1405-06", "1405-07", "1405-08"))
+        assertEquals(
+            listOf(
+                MonthTrend("1405-06", 0L, 70000L),
+                MonthTrend("1405-07", 0L, 50000L),
+                MonthTrend("1405-08", 2000000L, 100000L)
+            ),
+            trend
+        )
+    }
 }

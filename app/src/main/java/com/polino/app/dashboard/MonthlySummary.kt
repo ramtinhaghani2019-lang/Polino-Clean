@@ -25,3 +25,14 @@ internal fun spentByCategory(monthTransactions: List<MoneyTransaction>): List<Pa
         .groupBy { it.category }
         .map { (category, items) -> category to items.sumOf { it.amount } }
         .sortedByDescending { it.second }
+
+internal data class MonthTrend(val yearMonth: String, val income: Long, val expense: Long)
+
+/** مجموع درآمد و هزینه هر ماه از فهرست داده‌شده، به همان ترتیب ورودی. */
+internal fun monthlyTrend(
+    transactions: List<MoneyTransaction>,
+    yearMonths: List<String>
+): List<MonthTrend> = yearMonths.map { yearMonth ->
+    val totals = monthTotals(transactionsInMonth(transactions, yearMonth))
+    MonthTrend(yearMonth, totals.income, totals.expense)
+}

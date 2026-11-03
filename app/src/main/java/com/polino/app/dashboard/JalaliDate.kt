@@ -63,6 +63,31 @@ internal object JalaliDate {
         return "${MONTHS[jm - 1]} $jy"
     }
 
+    /** ماه شمسی قبل از ماه داده‌شده؛ «۱۴۰۵-۰۱» → «۱۴۰۴-۱۲». */
+    internal fun previousJalaliYearMonth(yearMonth: String): String {
+        val parts = yearMonth.split("-")
+        if (parts.size != 2) return yearMonth
+        var jy = parts[0].toIntOrNull() ?: return yearMonth
+        var jm = parts[1].toIntOrNull() ?: return yearMonth
+        jm--
+        if (jm < 1) {
+            jm = 12
+            jy--
+        }
+        return "%04d-%02d".format(Locale.US, jy, jm)
+    }
+
+    /** فهرست n ماه اخیر شمسی، از قدیمی به جدید، شامل ماه جاری. */
+    internal fun lastJalaliYearMonths(count: Int): List<String> {
+        val months = ArrayList<String>()
+        var current = currentJalaliYearMonth()
+        repeat(count) {
+            months.add(0, current)
+            current = previousJalaliYearMonth(current)
+        }
+        return months
+    }
+
     /** خروجی: Triple(کبیسه بودن ۰ یا ۱، سال میلادی متناظر، روز مارس آغاز فروردین). */
     private fun jalCal(jy: Int): Triple<Int, Int, Int> {
         var leapJ = -14

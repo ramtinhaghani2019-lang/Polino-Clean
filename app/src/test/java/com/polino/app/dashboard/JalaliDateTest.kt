@@ -26,4 +26,11 @@ class JalaliDateTest {
     fun legacyEntryWithoutDate_showsNoDate() {
         assertEquals("بدون تاریخ", JalaliDate.formatJalali(0L))
     }
+
+    @Test
+    fun previousMonth_rollsOverYear() {
+        assertEquals("1405-07", JalaliDate.previousJalaliYearMonth("1405-08"))
+        assertEquals("1404-12", JalaliDate.previousJalaliYearMonth("1405-01"))
+        assertEquals("1405-08", JalaliDate.previousJalaliYearMonth("1405-09"))
+    }
 }
