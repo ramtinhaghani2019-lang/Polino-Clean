@@ -10,6 +10,7 @@ import androidx.compose.material3.Switch
 import androidx.core.content.ContextCompat
 import com.polino.app.sms.SMS_ENABLED_KEY
 import com.polino.app.sms.SMS_PREFS_NAME
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
