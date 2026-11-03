@@ -10,12 +10,25 @@ android {
     namespace = "com.polino.app"
     compileSdk = 37
 
+    // کلید امضای ثابت اشکال‌زدایی: همه بیلدهای CI با همین کی‌استور امضا
+    // می‌شوند تا هر نسخه روی نسخه قبلی نصب شود (کلید موقت رانرها هر بار
+    // عوض می‌شد و امضاها با هم نمی‌خواند).
+    signingConfigs {
+        getByName("debug") {
+            storeFile = file("debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+            storeType = "PKCS12"
+        }
+    }
+
     defaultConfig {
         applicationId = "com.polino.app"
         minSdk = 26
         targetSdk = 36
-        versionCode = 6
-        versionName = "0.6.0"
+        versionCode = 7
+        versionName = "0.7.0"
 
     }
 
