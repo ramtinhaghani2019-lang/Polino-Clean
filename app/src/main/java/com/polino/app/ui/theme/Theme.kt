@@ -12,61 +12,84 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import com.polino.app.R
 
-private val Emerald = Color(0xFF0B6B57)
-private val DeepGreen = Color(0xFF083F35)
-private val Gold = Color(0xFFE3B04B)
-private val Cream = Color(0xFFF7F4EA)
-
-// سطوح گرمِ هم‌خانواده کرم؛ جایگزین تناژهای پیش‌فرض بنفش‌مایه متریال که کارت‌ها را خاکستری‌-بنفش نشان می‌داد.
-private val WarmSand = Color(0xFFEDE7DA)
-private val WarmCard = Color(0xFFF5F0E6)
-private val WarmHigh = Color(0xFFE3DCCB)
-private val WarmHighest = Color(0xFFD8D0BC)
-private val WarmMuted = Color(0xFF6F6A5E)
-
-// پالت لوکس مرحله ۳۳: نیمه‌شب + طلایی + زمرد روشن؛ متفاوت از بنفش پرگار و در عین حال هم‌خانواده هویت پولینو.
-private val Midnight = Color(0xFF0A0E1D)
-private val MidnightSurface = Color(0xFF141B31)
-private val MidnightVariant = Color(0xFF1E2747)
-private val MintEmerald = Color(0xFF34C89E)
-private val PremiumGold = Color(0xFFE3B04B)
-private val SoftWhite = Color(0xFFF2F4F8)
-private val MutedGray = Color(0xFF9AA3B8)
-private val SoftRed = Color(0xFFFF6B6B)
+// مرحله ۴۷: زبان طراحی پرگار با بنفش — انتخاب خود کاربر (۱۲ آبان ۱۴۰۵).
+// تیره: بنفش-سرمه‌ای عمیق با کارت‌های بوردر‌دار؛ روشن: همان زبان با سطوح روشنِ بنفش‌مایه.
+private val PurplePrimary = Color(0xFFA855F7)
+private val PurpleLight = Color(0xFFC084FC)
+private val PurpleDarkBg = Color(0xFF130F28)
+private val PurpleDarkLowest = Color(0xFF0F0B22)
+private val PurpleDarkLow = Color(0xFF171233)
+private val PurpleDarkSurface = Color(0xFF1E1838)
+private val PurpleDarkHigh = Color(0xFF2A2150)
+private val PurpleDarkHighest = Color(0xFF372A63)
+private val PurpleDarkContainer = Color(0xFF2E1A5E)
+private val PurpleDarkOnContainer = Color(0xFFE9D5FF)
+private val PurpleDarkMuted = Color(0xFFB3ACD6)
+private val PurpleDarkOutline = Color(0xFF3D3368)
+private val PurpleSoftWhite = Color(0xFFF4F2FF)
+private val PurpleLightBg = Color(0xFFFAF8FF)
+private val PurpleLightVariant = Color(0xFFEDE9FE)
+private val PurpleLightLow = Color(0xFFF5F3FF)
+private val PurpleLightHigh = Color(0xFFDDD6FE)
+private val PurpleLightHighest = Color(0xFFC4B5FD)
+private val PurpleDeep = Color(0xFF7C3AED)
+private val PurpleMid = Color(0xFF8B5CF6)
+private val PurpleInk = Color(0xFF1E1B36)
+private val PurpleLightMuted = Color(0xFF6B6584)
+private val PurpleLightOutline = Color(0xFFD8D0F5)
+private val PurpleLightOnContainer = Color(0xFF4C1D95)
+private val SoftRed = Color(0xFFFB7185)
+private val StrongRed = Color(0xFFDC2626)
 
 private val LightColors = lightColorScheme(
-    primary = Emerald,
-    secondary = Gold,
-    background = Cream,
+    primary = PurpleDeep,
+    secondary = PurpleMid,
+    background = PurpleLightBg,
     surface = Color.White,
-    surfaceVariant = WarmSand,
+    surfaceVariant = PurpleLightVariant,
     surfaceContainerLowest = Color.White,
-    surfaceContainerLow = WarmCard,
-    surfaceContainer = WarmSand,
-    surfaceContainerHigh = WarmHigh,
-    surfaceContainerHighest = WarmHighest,
-    surfaceTint = WarmSand,
-    outline = WarmHighest,
-    outlineVariant = WarmSand,
+    surfaceContainerLow = PurpleLightLow,
+    surfaceContainer = PurpleLightVariant,
+    surfaceContainerHigh = PurpleLightHigh,
+    surfaceContainerHighest = PurpleLightHighest,
+    surfaceTint = PurpleLightVariant,
+    primaryContainer = PurpleLightVariant,
+    onPrimaryContainer = PurpleLightOnContainer,
+    outline = PurpleLightOutline,
+    outlineVariant = PurpleLightVariant,
     onPrimary = Color.White,
-    onSecondary = DeepGreen,
-    onBackground = DeepGreen,
-    onSurface = DeepGreen,
-    onSurfaceVariant = WarmMuted
+    onSecondary = Color.White,
+    onBackground = PurpleInk,
+    onSurface = PurpleInk,
+    onSurfaceVariant = PurpleLightMuted,
+    error = StrongRed,
+    errorContainer = Color(0xFFFEE2E2),
+    onErrorContainer = Color(0xFF7F1D1D)
 )
 
 private val DarkColors = darkColorScheme(
-    primary = MintEmerald,
-    secondary = PremiumGold,
-    background = Midnight,
-    surface = MidnightSurface,
-    surfaceVariant = MidnightVariant,
-    onPrimary = Color.Black,
+    primary = PurplePrimary,
+    secondary = PurpleLight,
+    background = PurpleDarkBg,
+    surface = PurpleDarkSurface,
+    surfaceVariant = PurpleDarkHigh,
+    surfaceContainerLowest = PurpleDarkLowest,
+    surfaceContainerLow = PurpleDarkLow,
+    surfaceContainer = PurpleDarkSurface,
+    surfaceContainerHigh = PurpleDarkHigh,
+    surfaceContainerHighest = PurpleDarkHighest,
+    primaryContainer = PurpleDarkContainer,
+    onPrimaryContainer = PurpleDarkOnContainer,
+    outline = PurpleDarkOutline,
+    outlineVariant = PurpleDarkHigh,
+    onPrimary = Color.White,
     onSecondary = Color.Black,
-    onBackground = SoftWhite,
-    onSurface = SoftWhite,
-    onSurfaceVariant = MutedGray,
-    error = SoftRed
+    onBackground = PurpleSoftWhite,
+    onSurface = PurpleSoftWhite,
+    onSurfaceVariant = PurpleDarkMuted,
+    error = SoftRed,
+    errorContainer = Color(0xFF3F1015),
+    onErrorContainer = Color(0xFFFECDD3)
 )
 
 private val Vazirmatn = FontFamily(

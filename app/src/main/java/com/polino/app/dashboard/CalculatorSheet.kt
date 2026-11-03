@@ -146,8 +146,8 @@ fun CalculatorSheet(
                 },
                 modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFFE3B04B),
-                    contentColor = Color.Black
+                    containerColor = Color(0xFFA855F7),
+                    contentColor = Color.White
                 )
             ) {
                 Text("استفاده در ثبت", style = MaterialTheme.typography.titleMedium)

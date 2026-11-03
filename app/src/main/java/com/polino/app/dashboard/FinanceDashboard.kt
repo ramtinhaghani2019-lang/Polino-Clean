@@ -1,5 +1,6 @@
 package com.polino.app.dashboard
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
@@ -58,6 +59,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.polino.app.BuildConfig
@@ -77,11 +79,12 @@ import java.util.UUID
 private enum class TypeFilter { ALL, INCOME, EXPENSE }
 private enum class SortOrder { NEWEST, OLDEST, AMOUNT_DESC, AMOUNT_ASC }
 
-private val MidnightHero = Color(0xFF0F1730)
-private val HeroGold = Color(0xFFE3B04B)
-private val HeroIncome = Color(0xFF34C89E)
-private val HeroExpense = Color(0xFFFF6B6B)
-private val HeroMuted = Color(0xFF9AA3B8)
+private val PurpleHero = Color(0xFF1E1438)
+private val HeroChart = Color(0xFFC084FC)
+private val HeroIncome = Color(0xFF16A34A)
+private val HeroExpense = Color(0xFFDC2626)
+private val HeroMuted = Color(0xFFB3ACD6)
+private val HeroBorder = Color(0xFF3D3368)
 
 private fun ymKey(yearMonth: String): Int {
     val parts = yearMonth.split("-")
@@ -317,7 +320,8 @@ fun FinanceDashboard(
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(28.dp),
-                colors = CardDefaults.cardColors(containerColor = MidnightHero)
+                colors = CardDefaults.cardColors(containerColor = PurpleHero),
+                border = BorderStroke(1.dp, HeroBorder)
             ) {
                 Column(
                     Modifier.padding(20.dp),
@@ -330,8 +334,8 @@ fun FinanceDashboard(
                     )
                     Text(
                         money(income - expense),
-                        style = MaterialTheme.typography.displaySmall,
-                        color = HeroGold
+                        style = MaterialTheme.typography.displayMedium.copy(fontWeight = FontWeight.Bold),
+                        color = Color.White
                     )
                     BalanceChart(months = heroMonths, balances = heroBalances)
                 }
@@ -341,7 +345,8 @@ fun FinanceDashboard(
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Card(
                     modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(20.dp)
+                    shape = RoundedCornerShape(20.dp),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
                 ) {
                     Column(
                         Modifier.padding(16.dp),
@@ -365,7 +370,8 @@ fun FinanceDashboard(
                 }
                 Card(
                     modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(20.dp)
+                    shape = RoundedCornerShape(20.dp),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
                 ) {
                     Column(
                         Modifier.padding(16.dp),
@@ -591,7 +597,9 @@ fun FinanceDashboard(
         items(visible) { transaction ->
             Card(
                 onClick = { editing = transaction; showDialog = true },
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(20.dp),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
             ) {
                 Row(
                     Modifier.padding(16.dp),
@@ -601,7 +609,7 @@ fun FinanceDashboard(
                     Icon(
                         categoryIcon(transaction.category),
                         contentDescription = transaction.category,
-                        tint = if (transaction.income) MaterialTheme.colorScheme.primary
+                        tint = if (transaction.income) HeroIncome
                         else MaterialTheme.colorScheme.error
                     )
                     Column(
@@ -616,7 +624,7 @@ fun FinanceDashboard(
                             Text(
                                 (if (transaction.income) "+" else "−") + money(transaction.amount),
                                 style = MaterialTheme.typography.titleMedium,
-                                color = if (transaction.income) MaterialTheme.colorScheme.primary
+                                color = if (transaction.income) HeroIncome
                                 else MaterialTheme.colorScheme.error
                             )
                         }
@@ -1276,9 +1284,9 @@ private fun BalanceChart(months: List<String>, balances: List<Long>) {
                 )
             }
             for (index in 0 until points.size - 1) {
-                drawLine(HeroGold, points[index], points[index + 1], strokeWidth = 3f)
+                drawLine(HeroChart, points[index], points[index + 1], strokeWidth = 3f)
             }
-            points.forEach { drawCircle(HeroGold, radius = 5f, center = it) }
+            points.forEach { drawCircle(HeroChart, radius = 5f, center = it) }
         }
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -1305,7 +1313,8 @@ private fun QuickTile(
     Card(
         onClick = onClick,
         modifier = modifier,
-        shape = RoundedCornerShape(20.dp)
+        shape = RoundedCornerShape(20.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
     ) {
         Column(
             modifier = Modifier

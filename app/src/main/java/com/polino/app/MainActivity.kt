@@ -85,9 +85,9 @@ class MainActivity : FragmentActivity() {
 
 private enum class Tab { Home, Calendar, Management, Reports }
 
-private val NavBarColor = Color(0xFF101830)
-private val NavGold = Color(0xFFE3B04B)
-private val NavGray = Color(0xFF8A91A8)
+private val NavBarColor = Color(0xFF150F2E)
+private val NavPurple = Color(0xFFA855F7)
+private val NavGray = Color(0xFF9A93B8)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -163,8 +163,8 @@ private fun PolinoApp(
             if (tab == Tab.Home) {
                 FloatingActionButton(
                     onClick = { showCalculator = true },
-                    containerColor = NavGold,
-                    contentColor = Color.Black
+                    containerColor = NavPurple,
+                    contentColor = Color.White
                 ) {
                     Icon(
                         Icons.Default.Calculate,
@@ -181,11 +181,11 @@ private fun PolinoApp(
             ) {
                 NavigationBar(containerColor = NavBarColor) {
                     val itemColors = NavigationBarItemDefaults.colors(
-                        selectedIconColor = NavGold,
-                        selectedTextColor = NavGold,
+                        selectedIconColor = Color.White,
+                        selectedTextColor = Color.White,
                         unselectedIconColor = NavGray,
                         unselectedTextColor = NavGray,
-                        indicatorColor = NavGold.copy(alpha = 0.18f)
+                        indicatorColor = NavPurple
                     )
                     NavigationBarItem(
                         selected = tab == Tab.Home,
@@ -208,13 +208,13 @@ private fun PolinoApp(
                             Box(
                                 modifier = Modifier
                                     .size(48.dp)
-                                    .background(NavGold, CircleShape),
+                                    .background(NavPurple, CircleShape),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
                                     Icons.Default.Add,
                                     contentDescription = "افزودن تراکنش",
-                                    tint = Color.Black
+                                    tint = Color.White
                                 )
                             }
                         },

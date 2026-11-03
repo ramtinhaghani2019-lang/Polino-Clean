@@ -1,5 +1,6 @@
 package com.polino.app.dashboard
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -180,7 +181,7 @@ fun CalendarScreen() {
                                         modifier = Modifier
                                             .clip(RoundedCornerShape(12.dp))
                                             .background(
-                                                if (isSelected) Color(0xFFE3B04B)
+                                                if (isSelected) Color(0xFFA855F7)
                                                 else Color.Transparent
                                             )
                                             .clickable { selectedDay = day }
@@ -191,13 +192,13 @@ fun CalendarScreen() {
                                         Text(
                                             day.toString(),
                                             style = MaterialTheme.typography.bodyMedium,
-                                            color = if (isSelected) Color.Black
+                                            color = if (isSelected) Color.White
                                             else MaterialTheme.colorScheme.onSurface
                                         )
                                         Text(
                                             JalaliDate.jalaliToLocalDate(jy, jm, day).dayOfMonth.toString(),
                                             style = MaterialTheme.typography.bodySmall,
-                                            color = if (isSelected) Color.Black
+                                            color = if (isSelected) Color.White
                                             else MaterialTheme.colorScheme.onSurfaceVariant
                                         )
                                         Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -228,7 +229,8 @@ fun CalendarScreen() {
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFF0F1730))
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF1E1438)),
+                border = BorderStroke(1.dp, Color(0xFF3D3368))
             ) {
                 Column(
                     Modifier.padding(20.dp),
@@ -263,7 +265,8 @@ fun CalendarScreen() {
         items(dayTransactions.sortedByDescending { it.dateMillis }) { transaction ->
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(20.dp)
+                shape = RoundedCornerShape(20.dp),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
             ) {
                 Row(
                     Modifier.padding(16.dp),
@@ -273,7 +276,7 @@ fun CalendarScreen() {
                     Icon(
                         categoryIcon(transaction.category),
                         contentDescription = transaction.category,
-                        tint = if (transaction.income) MaterialTheme.colorScheme.primary
+                        tint = if (transaction.income) Color(0xFF16A34A)
                         else MaterialTheme.colorScheme.error
                     )
                     Column(
@@ -286,7 +289,7 @@ fun CalendarScreen() {
                     Text(
                         (if (transaction.income) "+" else "−") + money(transaction.amount),
                         style = MaterialTheme.typography.titleMedium,
-                        color = if (transaction.income) MaterialTheme.colorScheme.primary
+                        color = if (transaction.income) Color(0xFF16A34A)
                         else MaterialTheme.colorScheme.error
                     )
                 }

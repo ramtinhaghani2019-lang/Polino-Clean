@@ -60,10 +60,10 @@ import com.polino.app.voice.parseSpokenAmount
 import java.util.UUID
 import kotlinx.coroutines.launch
 
-private val EntryGold = Color(0xFFE3B04B)
+private val EntryGold = Color(0xFFA855F7)
 private val EntryGreen = Color(0xFF34C89E)
 private val EntryRed = Color(0xFFFF6B6B)
-private val EntryDark = Color(0xFF0F1730)
+private val EntryDark = Color(0xFF1E1438)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -250,16 +250,19 @@ fun EntryScreen(
                 listOf("۷" to "7", "۸" to "8", "۹" to "9"),
                 listOf("۰۰۰" to "000", "۰" to "0", null)
             )
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 keys.forEach { row ->
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         row.forEach { key ->
                             if (key == null) {
                                 OutlinedButton(
                                     onClick = { amountText = amountText.dropLast(1) },
                                     modifier = Modifier
                                         .weight(1f)
-                                        .height(56.dp)
+                                        .height(64.dp),
+                                    colors = ButtonDefaults.outlinedButtonColors(
+                                        contentColor = MaterialTheme.colorScheme.error
+                                    )
                                 ) {
                                     Icon(
                                         Icons.Default.Backspace,
@@ -271,7 +274,7 @@ fun EntryScreen(
                                     onClick = { appendDigits(key.second) },
                                     modifier = Modifier
                                         .weight(1f)
-                                        .height(56.dp)
+                                        .height(64.dp)
                                 ) {
                                     Text(key.first, style = MaterialTheme.typography.titleMedium)
                                 }
@@ -377,7 +380,7 @@ fun EntryScreen(
                 modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = EntryGold,
-                    contentColor = Color.Black
+                    contentColor = Color.White
                 )
             ) {
                 Text("ثبت و ذخیره تراکنش ✓", style = MaterialTheme.typography.titleMedium)
