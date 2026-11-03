@@ -60,6 +60,7 @@ import kotlinx.coroutines.launch
 import java.util.UUID
 
 private enum class TypeFilter { ALL, INCOME, EXPENSE }
+private enum class SortOrder { NEWEST, OLDEST, AMOUNT_DESC, AMOUNT_ASC }
 
 @Composable
 fun FinanceDashboard() {
@@ -74,6 +75,7 @@ fun FinanceDashboard() {
     var typeFilter by remember { mutableStateOf(TypeFilter.ALL) }
     var categoryFilter by remember { mutableStateOf<String?>(null) }
     var categoryFilterExpanded by remember { mutableStateOf(false) }
+    var sortOrder by remember { mutableStateOf(SortOrder.NEWEST) }
     var accounts by remember { mutableStateOf<List<AccountEntity>>(emptyList()) }
     var selectedAccountId by remember { mutableStateOf("main") }
     var accountExpanded by remember { mutableStateOf(false) }
@@ -160,7 +162,7 @@ fun FinanceDashboard() {
         )
     }
 
-    val visible = accountTransactions
+    val filtered = accountTransactions
         .filter {
             when (typeFilter) {
                 TypeFilter.ALL -> true
@@ -170,12 +172,19 @@ fun FinanceDashboard() {
         }
         .filter { categoryFilter == null || it.category == categoryFilter }
         .filter {
-            searchQuery.isBlank() ||
-                it.title.contains(searchQuery.trim(), ignoreCase = true) ||
-                it.note.contains(searchQuery.trim(), ignoreCase = true) ||
-                it.category.contains(searchQuery.trim(), ignoreCase = true)
+            val query = searchQuery.trim()
+            query.isBlank() ||
+                it.title.contains(query, ignoreCase = true) ||
+                it.note.contains(query, ignoreCase = true) ||
+                it.category.contains(query, ignoreCase = true) ||
+                normalizeDigits(query).toLongOrNull()?.let { amount -> it.amount == amount } == true
         }
-        .sortedByDescending { it.dateMillis }
+    val visible = when (sortOrder) {
+        SortOrder.NEWEST -> filtered.sortedByDescending { it.dateMillis }
+        SortOrder.OLDEST -> filtered.sortedBy { it.dateMillis }
+        SortOrder.AMOUNT_DESC -> filtered.sortedByDescending { it.amount }
+        SortOrder.AMOUNT_ASC -> filtered.sortedBy { it.amount }
+    }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -356,6 +365,42 @@ fun FinanceDashboard() {
                         typeFilter = TypeFilter.ALL
                         categoryFilter = null
                     }) { Text("پاک کردن فیلترها") }
+                }
+            }
+        }
+        item {
+            var sortExpanded by remember { mutableStateOf(false) }
+            Box {
+                OutlinedButton(onClick = { sortExpanded = true }) {
+                    Text(
+                        when (sortOrder) {
+                            SortOrder.NEWEST -> "مرتب‌سازی: جدیدترین"
+                            SortOrder.OLDEST -> "مرتب‌سازی: قدیمی‌ترین"
+                            SortOrder.AMOUNT_DESC -> "مرتب‌سازی: بیشترین مبلغ"
+                            SortOrder.AMOUNT_ASC -> "مرتب‌سازی: کمترین مبلغ"
+                        }
+                    )
+                }
+                DropdownMenu(
+                    expanded = sortExpanded,
+                    onDismissRequest = { sortExpanded = false }
+                ) {
+                    DropdownMenuItem(
+                        text = { Text("جدیدترین") },
+                        onClick = { sortOrder = SortOrder.NEWEST; sortExpanded = false }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("قدیمی‌ترین") },
+                        onClick = { sortOrder = SortOrder.OLDEST; sortExpanded = false }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("بیشترین مبلغ") },
+                        onClick = { sortOrder = SortOrder.AMOUNT_DESC; sortExpanded = false }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("کمترین مبلغ") },
+                        onClick = { sortOrder = SortOrder.AMOUNT_ASC; sortExpanded = false }
+                    )
                 }
             }
         }
