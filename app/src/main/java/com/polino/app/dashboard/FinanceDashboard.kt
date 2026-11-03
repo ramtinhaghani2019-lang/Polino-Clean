@@ -46,6 +46,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.polino.app.data.AccountEntity
+import com.polino.app.data.BudgetEntity
+import com.polino.app.data.BudgetRepository
 import com.polino.app.data.CategoryEntity
 import com.polino.app.data.MoneyTransaction
 import com.polino.app.data.RecurringEntity
@@ -62,6 +64,7 @@ private enum class TypeFilter { ALL, INCOME, EXPENSE }
 fun FinanceDashboard() {
     val context = LocalContext.current
     val repository = remember { TransactionRepository(context) }
+    val budgetRepository = remember { BudgetRepository(context) }
     var transactions by remember { mutableStateOf<List<MoneyTransaction>>(emptyList()) }
     var showDialog by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf<MoneyTransaction?>(null) }
@@ -76,6 +79,7 @@ fun FinanceDashboard() {
     var showAccountDialog by remember { mutableStateOf(false) }
     var showRenameAccountDialog by remember { mutableStateOf(false) }
     var categories by remember { mutableStateOf<List<CategoryEntity>>(emptyList()) }
+    var budgets by remember { mutableStateOf<List<BudgetEntity>>(emptyList()) }
     var showCategoryDialog by remember { mutableStateOf(false) }
     var recurring by remember { mutableStateOf<List<RecurringEntity>>(emptyList()) }
     var showRecurringDialog by remember { mutableStateOf(false) }
@@ -120,6 +124,7 @@ fun FinanceDashboard() {
             }
             if (applied > 0) transactions = repository.getAll()
             recurring = repository.getRecurring()
+            budgets = budgetRepository.getBudgets(JalaliDate.currentJalaliYearMonth())
         }.onFailure {
             error = "بارگذاری اطلاعات ناموفق بود. دوباره تلاش کنید."
         }
@@ -128,6 +133,14 @@ fun FinanceDashboard() {
     val accountTransactions = transactions.filter { it.accountId == selectedAccountId }
     val income = accountTransactions.filter { it.income }.sumOf { it.amount }
     val expense = accountTransactions.filterNot { it.income }.sumOf { it.amount }
+    // بودجه‌ها سراسریِ ماه جاری‌اند (مثل صفحه گزارش)؛ هشدار هم بر اساس
+    // همه حساب‌ها محاسبه می‌شود تا با همان بودجه‌ها هم‌خوان باشد.
+    val overspent = remember(transactions, budgets) {
+        overspentCategories(
+            transactionsInMonth(transactions, JalaliDate.currentJalaliYearMonth()),
+            budgets
+        )
+    }
 
     val visible = accountTransactions
         .filter {
@@ -203,6 +216,33 @@ fun FinanceDashboard() {
                         style = MaterialTheme.typography.headlineMedium,
                         color = MaterialTheme.colorScheme.onPrimary
                     )
+                }
+            }
+        }
+        if (overspent.isNotEmpty()) {
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(20.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)
+                ) {
+                    Column(
+                        Modifier.padding(20.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Text(
+                            "⚠ رد شدن از بودجه ماه جاری",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onErrorContainer
+                        )
+                        overspent.forEach { entry ->
+                            Text(
+                                "${entry.category}: ${money(entry.spent)} از ${money(entry.limit)} تومان",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onErrorContainer
+                            )
+                        }
+                    }
                 }
             }
         }
