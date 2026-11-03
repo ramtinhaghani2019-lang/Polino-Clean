@@ -2,13 +2,15 @@ package com.polino.app.data
 
 import android.content.Context
 import androidx.room.Room
+import java.util.UUID
 
 internal class TransactionRepository(context: Context) {
     private val appContext = context.applicationContext
     private val database = Room.databaseBuilder(
         appContext, PolinoDatabase::class.java, "polino_db"
-    ).build()
+    ).addMigrations(PolinoDatabase.MIGRATION_1_2).build()
     private val dao = database.transactionDao()
+    private val accountDao = database.accountDao()
     private val prefs = appContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
     suspend fun getAll(): List<MoneyTransaction> =
@@ -20,6 +22,32 @@ internal class TransactionRepository(context: Context) {
 
     suspend fun delete(id: String) {
         dao.deleteById(id)
+    }
+
+    /** حساب‌ها؛ اگر جدول خالی باشد حساب «اصلی» ساخته می‌شود. */
+    suspend fun getAccounts(): List<AccountEntity> {
+        val existing = accountDao.getAll()
+        if (existing.isNotEmpty()) return existing
+        val main = AccountEntity("main", "اصلی")
+        accountDao.upsert(main)
+        return listOf(main)
+    }
+
+    suspend fun addAccount(name: String): AccountEntity {
+        val account = AccountEntity(UUID.randomUUID().toString(), name)
+        accountDao.upsert(account)
+        return account
+    }
+
+    /**
+     * حذف حساب؛ تراکنش‌هایش به «اصلی» منتقل می‌شوند و هیچ تراکنشی از دست
+     * نمی‌رود. حساب «اصلی» خودش حذف نمی‌شود.
+     */
+    suspend fun deleteAccount(id: String): Boolean {
+        if (id == "main") return false
+        accountDao.reassignTransactions(id, "main")
+        accountDao.deleteById(id)
+        return true
     }
 
     /**

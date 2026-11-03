@@ -41,6 +41,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import com.polino.app.data.AccountEntity
 import com.polino.app.data.EXPENSE_CATEGORIES
 import com.polino.app.data.INCOME_CATEGORIES
 import com.polino.app.data.MoneyTransaction
@@ -62,20 +63,28 @@ fun FinanceDashboard() {
     var typeFilter by remember { mutableStateOf(TypeFilter.ALL) }
     var categoryFilter by remember { mutableStateOf<String?>(null) }
     var categoryFilterExpanded by remember { mutableStateOf(false) }
+    var accounts by remember { mutableStateOf<List<AccountEntity>>(emptyList()) }
+    var selectedAccountId by remember { mutableStateOf("main") }
+    var accountExpanded by remember { mutableStateOf(false) }
+    var showAccountDialog by remember { mutableStateOf(false) }
+    var showDeleteAccountConfirm by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
 
     LaunchedEffect(Unit) {
         runCatching {
             repository.migrateIfNeeded()
             transactions = repository.getAll()
+            accounts = repository.getAccounts()
         }.onFailure {
             error = "بارگذاری اطلاعات ناموفق بود. دوباره تلاش کنید."
         }
     }
 
-    val income = transactions.filter { it.income }.sumOf { it.amount }
-    val expense = transactions.filterNot { it.income }.sumOf { it.amount }
+    val accountTransactions = transactions.filter { it.accountId == selectedAccountId }
+    val income = accountTransactions.filter { it.income }.sumOf { it.amount }
+    val expense = accountTransactions.filterNot { it.income }.sumOf { it.amount }
 
-    val visible = transactions
+    val visible = accountTransactions
         .filter {
             when (typeFilter) {
                 TypeFilter.ALL -> true
@@ -95,6 +104,39 @@ fun FinanceDashboard() {
         item {
             Text("داشبورد مالی پولینو", style = MaterialTheme.typography.headlineSmall)
             Text("اطلاعات ثبت‌شده روی همین دستگاه", style = MaterialTheme.typography.labelMedium)
+        }
+        item {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Box {
+                    OutlinedButton(onClick = { accountExpanded = true }) {
+                        Text(
+                            accounts.firstOrNull { it.id == selectedAccountId }?.name ?: "اصلی"
+                        )
+                    }
+                    DropdownMenu(
+                        expanded = accountExpanded,
+                        onDismissRequest = { accountExpanded = false }
+                    ) {
+                        accounts.forEach { account ->
+                            DropdownMenuItem(
+                                text = { Text(account.name) },
+                                onClick = {
+                                    selectedAccountId = account.id
+                                    accountExpanded = false
+                                }
+                            )
+                        }
+                    }
+                }
+                Button(onClick = { showAccountDialog = true }) {
+                    Text("حساب جدید")
+                }
+                if (selectedAccountId != "main") {
+                    TextButton(onClick = { showDeleteAccountConfirm = true }) {
+                        Text("حذف حساب", color = MaterialTheme.colorScheme.error)
+                    }
+                }
+            }
         }
         item {
             Card(
@@ -169,16 +211,16 @@ fun FinanceDashboard() {
             }
         }
         item { Text("تراکنش‌ها", style = MaterialTheme.typography.titleLarge) }
-        if (transactions.isEmpty()) {
+        if (accountTransactions.isEmpty()) {
             item {
                 Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp)) {
                     Column(
                         modifier = Modifier.padding(20.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Text("هنوز تراکنشی ثبت نشده است.", style = MaterialTheme.typography.titleMedium)
+                        Text("در این حساب هنوز تراکنشی ثبت نشده است.", style = MaterialTheme.typography.titleMedium)
                         Text(
-                            "با دکمه «افزودن تراکنش» اولین تراکنش را ثبت کنید.",
+                            "با دکمه «افزودن تراکنش» اولین تراکنش این حساب را ثبت کنید.",
                             style = MaterialTheme.typography.bodyMedium
                         )
                     }
@@ -238,7 +280,8 @@ fun FinanceDashboard() {
                         amount = amount,
                         income = isIncome,
                         category = category,
-                        dateMillis = dateMillis
+                        dateMillis = dateMillis,
+                        accountId = selectedAccountId
                     )
                 } else {
                     editing!!.copy(
@@ -279,6 +322,81 @@ fun FinanceDashboard() {
             }
         )
     }
+
+    if (showAccountDialog) {
+        AccountDialog(
+            onDismiss = { showAccountDialog = false },
+            onSave = { name ->
+                scope.launch {
+                    val created = repository.addAccount(name)
+                    accounts = repository.getAccounts()
+                    selectedAccountId = created.id
+                    showAccountDialog = false
+                }
+            }
+        )
+    }
+
+    if (showDeleteAccountConfirm) {
+        AlertDialog(
+            onDismissRequest = { showDeleteAccountConfirm = false },
+            title = { Text("حذف حساب") },
+            text = {
+                Text("تراکنش‌های این حساب به حساب «اصلی» منتقل می‌شوند و حساب حذف می‌شود.")
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    showDeleteAccountConfirm = false
+                    scope.launch {
+                        repository.deleteAccount(selectedAccountId)
+                        accounts = repository.getAccounts()
+                        selectedAccountId = "main"
+                    }
+                }) { Text("حذف", color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteAccountConfirm = false }) { Text("انصراف") }
+            }
+        )
+    }
+}
+
+@Composable
+private fun AccountDialog(
+    onDismiss: () -> Unit,
+    onSave: (String) -> Unit
+) {
+    var name by remember { mutableStateOf("") }
+    var validation by remember { mutableStateOf("") }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("حساب جدید") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text("نام حساب") },
+                    singleLine = true
+                )
+                if (validation.isNotEmpty()) {
+                    Text(validation, color = MaterialTheme.colorScheme.error)
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = {
+                if (name.isBlank()) {
+                    validation = "نام حساب را وارد کنید."
+                } else {
+                    onSave(name.trim())
+                }
+            }) { Text("ذخیره") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("انصراف") }
+        }
+    )
 }
 
 @Composable

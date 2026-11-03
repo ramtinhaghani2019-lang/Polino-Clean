@@ -7,5 +7,7 @@ internal data class MoneyTransaction(
     val amount: Long,
     val income: Boolean,
     val category: String,
-    val dateMillis: Long
+    val dateMillis: Long,
+    /** حساب مالک تراکنش؛ پیش‌فرض «اصلی» است تا تراکنش‌های قدیمی همین‌جا بنشینند. */
+    val accountId: String = "main"
 )

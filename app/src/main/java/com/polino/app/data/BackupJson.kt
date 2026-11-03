@@ -16,7 +16,8 @@ internal fun transactionsToJson(transactions: List<MoneyTransaction>): String = 
                 "\"amount\":${t.amount}," +
                 "\"income\":${t.income}," +
                 "\"category\":\"${escapeJsonString(t.category)}\"," +
-                "\"dateMillis\":${t.dateMillis}}"
+                "\"dateMillis\":${t.dateMillis}," +
+                "\"accountId\":\"${escapeJsonString(t.accountId)}\"}"
         )
     }
     append(']')

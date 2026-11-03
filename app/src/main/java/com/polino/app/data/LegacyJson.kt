@@ -54,6 +54,7 @@ private class LegacyJsonParser(private val text: String) {
         var income: Boolean? = null
         var category: String? = null
         var dateMillis: Long? = null
+        var accountId: String? = null
         skipWs()
         if (peek() == '}') {
             i++
@@ -70,6 +71,7 @@ private class LegacyJsonParser(private val text: String) {
                 "income" -> income = parseValueAsBoolean()
                 "category" -> category = parseValueAsString()
                 "dateMillis" -> dateMillis = parseValueAsLong()
+                "accountId" -> accountId = parseValueAsString()
                 else -> skipValue()
             }
             skipWs()
@@ -86,7 +88,8 @@ private class LegacyJsonParser(private val text: String) {
             amount = amount,
             income = income,
             category = category?.ifBlank { "سایر" } ?: "سایر",
-            dateMillis = dateMillis ?: 0L
+            dateMillis = dateMillis ?: 0L,
+            accountId = accountId?.ifBlank { "main" } ?: "main"
         )
     }
 
