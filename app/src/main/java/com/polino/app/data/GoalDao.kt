@@ -16,4 +16,8 @@ internal interface GoalDao {
 
     @Query("DELETE FROM goals WHERE id = :id")
     suspend fun deleteById(id: String)
+
+    /** انتقال هدف‌های یک حساب به حسابی دیگر (برای حذف حساب). */
+    @Query("UPDATE goals SET accountId = :newId WHERE accountId = :oldId")
+    suspend fun reassignAccounts(oldId: String, newId: String)
 }

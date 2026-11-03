@@ -8,7 +8,7 @@ import com.polino.app.data.MoneyTransaction
  */
 internal fun transactionsToCsv(transactions: List<MoneyTransaction>): String = buildString {
     append('\uFEFF')
-    append("عنوان,مبلغ,نوع,دسته,تاریخ شمسی\n")
+    append("عنوان,مبلغ,نوع,دسته,تاریخ شمسی,یادداشت\n")
     transactions.forEach { t ->
         append(csvCell(t.title))
         append(',')
@@ -19,6 +19,8 @@ internal fun transactionsToCsv(transactions: List<MoneyTransaction>): String = b
         append(csvCell(t.category))
         append(',')
         append(csvCell(JalaliDate.formatJalali(t.dateMillis)))
+        append(',')
+        append(csvCell(t.note))
         append('\n')
     }
 }

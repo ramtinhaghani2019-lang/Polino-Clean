@@ -70,12 +70,15 @@ internal class TransactionRepository(context: Context) {
     }
 
     /**
-     * حذف حساب؛ تراکنش‌هایش به «اصلی» منتقل می‌شوند و هیچ تراکنشی از دست
-     * نمی‌رود. حساب «اصلی» خودش حذف نمی‌شود.
+     * حذف حساب؛ تراکنش‌ها، هدف‌ها و قاعده‌های تکرارشونده‌اش به «اصلی»
+     * منتقل می‌شوند و هیچ تراکنشی از دست نمی‌رود. حساب «اصلی» خودش
+     * حذف نمی‌شود.
      */
     suspend fun deleteAccount(id: String): Boolean {
         if (id == "main") return false
         accountDao.reassignTransactions(id, "main")
+        goalDao.reassignAccounts(id, "main")
+        recurringDao.reassignAccounts(id, "main")
         accountDao.deleteById(id)
         return true
     }

@@ -387,7 +387,7 @@ fun ReportsScreen(onBack: () -> Unit) {
                 val balance = transactions.filter { it.accountId == goal.accountId }
                     .sumOf { if (it.income) it.amount else -it.amount }
                 val fraction = goalProgressFraction(balance, goal.target)
-                val accountName = accounts.firstOrNull { it.id == goal.accountId }?.name
+                val accountName = accounts.firstOrNull { it.id == goal.accountId }?.name ?: "اصلی"
                     ?: "اصلی"
                 item {
                     Card(modifier = Modifier.fillMaxWidth()) {
