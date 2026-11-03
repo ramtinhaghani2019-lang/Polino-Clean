@@ -16,9 +16,10 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         DebtEntity::class,
         TaskEntity::class,
         EventEntity::class,
-        AssetEntity::class
+        AssetEntity::class,
+        SmsPatternEntity::class
     ],
-    version = 12,
+    version = 13,
     exportSchema = false
 )
 internal abstract class PolinoDatabase : RoomDatabase() {
@@ -32,6 +33,7 @@ internal abstract class PolinoDatabase : RoomDatabase() {
     abstract fun taskDao(): TaskDao
     abstract fun eventDao(): EventDao
     abstract fun assetDao(): AssetDao
+    abstract fun smsPatternDao(): SmsPatternDao
 
     companion object {
         /**
@@ -196,6 +198,20 @@ internal abstract class PolinoDatabase : RoomDatabase() {
                         "quantity REAL NOT NULL, buyPrice REAL NOT NULL, " +
                         "currentPrice REAL, accountId TEXT NOT NULL, " +
                         "note TEXT NOT NULL)"
+                )
+            }
+        }
+        /**
+         * مهاجرت v12→v13: جدول الگوهای پیامک ساخته می‌شود؛
+         * بقیه جدول‌ها دست نمی‌خورند.
+         */
+        val MIGRATION_12_13 = object : Migration(12, 13) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS sms_patterns " +
+                        "(id TEXT NOT NULL PRIMARY KEY, sender TEXT NOT NULL, " +
+                        "keywords TEXT NOT NULL, isFinancial INTEGER NOT NULL, " +
+                        "isIncome INTEGER NOT NULL)"
                 )
             }
         }

@@ -25,14 +25,12 @@ private val EXPENSE_WORDS = listOf("برداشت", "خرید", "پرداخت", "
 private val INCOME_WORDS = listOf("واریز", "دریافت")
 
 /**
- * پیامک بانکی را به مبلغ (تومان) و جهت تبدیل می‌کند؛ اگر مبلغ یا جهت
- * قابل تشخیص نباشد null برمی‌گرداند تا چیزی حدسی ثبت نشود.
- *
- * - مبلغ: اولین عدد همراه با «تومان»/«ریال» که بعد از «مانده»/«موجودی» نیامده باشد.
- * - ریال به تومان تبدیل می‌شود (تقسیم بر ۱۰).
- * - جهت: کلمات هزینه اول بررسی می‌شوند، بعد کلمات درآمد.
+ * فقط مبلغ تراکنش از متن پیامک (تومان)؛ بدون تشخیص جهت. همان قواعد
+ * parseBankSms: اولین عدد همراه با «تومان»/«ریال» که موجودی نباشد،
+ * و ریال به تومان تبدیل می‌شود. وقتی الگوی پیامک جهت را تعیین می‌کند،
+ * مبلغ از همین‌جا خوانده می‌شود.
  */
-fun parseBankSms(sender: String, body: String): ParsedSms? {
+fun parseSmsAmount(body: String): Long? {
     val normalized = normalizeSmsDigits(body)
     val balanceIndex = listOf("مانده", "موجودی")
         .mapNotNull { word -> normalized.indexOf(word).takeIf { it >= 0 } }
@@ -50,6 +48,20 @@ fun parseBankSms(sender: String, body: String): ParsedSms? {
     if (rawAmount <= 0L) return null
     val amount = if (amountMatch.groupValues[2] == "ریال") rawAmount / 10 else rawAmount
     if (amount <= 0L) return null
+    return amount
+}
+
+/**
+ * پیامک بانکی را به مبلغ (تومان) و جهت تبدیل می‌کند؛ اگر مبلغ یا جهت
+ * قابل تشخیص نباشد null برمی‌گرداند تا چیزی حدسی ثبت نشود.
+ *
+ * - مبلغ: اولین عدد همراه با «تومان»/«ریال» که بعد از «مانده»/«موجودی» نیامده باشد.
+ * - ریال به تومان تبدیل می‌شود (تقسیم بر ۱۰).
+ * - جهت: کلمات هزینه اول بررسی می‌شوند، بعد کلمات درآمد.
+ */
+fun parseBankSms(sender: String, body: String): ParsedSms? {
+    val normalized = normalizeSmsDigits(body)
+    val amount = parseSmsAmount(body) ?: return null
     val income = when {
         EXPENSE_WORDS.any { normalized.contains(it) } -> false
         INCOME_WORDS.any { normalized.contains(it) } -> true

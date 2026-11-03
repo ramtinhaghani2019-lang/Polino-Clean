@@ -63,6 +63,7 @@ import com.polino.app.data.InstallmentEntity
 import com.polino.app.data.DebtEntity
 import com.polino.app.data.TaskEntity
 import com.polino.app.data.AssetEntity
+import com.polino.app.data.SmsPatternEntity
 import com.polino.app.data.assetCurrentValue
 import com.polino.app.data.isValidAssetInput
 import com.polino.app.data.portfolioTotals
@@ -99,6 +100,8 @@ fun ManagementScreen(
     var debts by remember { mutableStateOf<List<DebtEntity>>(emptyList()) }
     var tasks by remember { mutableStateOf<List<TaskEntity>>(emptyList()) }
     var assets by remember { mutableStateOf<List<AssetEntity>>(emptyList()) }
+    var patterns by remember { mutableStateOf<List<SmsPatternEntity>>(emptyList()) }
+    var showPatternDialog by remember { mutableStateOf(false) }
     var showInstallmentDialog by remember { mutableStateOf(false) }
     var showDebtDialog by remember { mutableStateOf(false) }
     var showTaskDialog by remember { mutableStateOf(false) }
@@ -130,6 +133,7 @@ fun ManagementScreen(
             debts = repository.getDebts()
             tasks = repository.getTasks()
             assets = repository.getAssets()
+            patterns = repository.getPatterns()
             budgetCount = budgetRepository.getBudgets(JalaliDate.currentJalaliYearMonth()).size
         }
         smsEnabled = context.getSharedPreferences(SMS_PREFS_NAME, Context.MODE_PRIVATE)
@@ -282,6 +286,57 @@ fun ManagementScreen(
                             }
                         }
                     )
+                }
+            }
+        }
+        item { Text("مدیریت الگوهای پیامک", style = MaterialTheme.typography.titleMedium) }
+        item {
+            Text(
+                "تعیین فرستنده‌ها، کلمات کلیدی و قوانین تراکنش",
+                style = MaterialTheme.typography.bodySmall
+            )
+        }
+        item {
+            Button(onClick = { showPatternDialog = true }) {
+                Text("افزودن الگوی جدید")
+            }
+        }
+        if (patterns.isEmpty()) {
+            item { Text("الگوی سفارشی هنوز ثبت نشده است.") }
+        } else {
+            patterns.forEach { pattern ->
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(20.dp),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+                    ) {
+                        Column(
+                            Modifier.padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text(pattern.sender, style = MaterialTheme.typography.titleMedium)
+                            if (pattern.keywords.isNotBlank()) {
+                                Text("کلمات کلیدی: ${pattern.keywords}")
+                            }
+                            Text(if (pattern.isIncome) "درآمد" else "هزینه")
+                            if (!pattern.isFinancial) {
+                                Text("غیرمالی — ثبت خودکار نمی‌شود")
+                            }
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                TextButton(
+                                    onClick = {
+                                        scope.launch {
+                                            repository.deletePattern(pattern.id)
+                                            patterns = repository.getPatterns()
+                                        }
+                                    }
+                                ) {
+                                    Text("حذف")
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -913,6 +968,26 @@ fun ManagementScreen(
             }
         )
     }
+    if (showPatternDialog) {
+        SmsPatternDialog(
+            onDismiss = { showPatternDialog = false },
+            onSave = { sender, keywords, isFinancial, isIncome ->
+                scope.launch {
+                    repository.addPattern(
+                        SmsPatternEntity(
+                            id = UUID.randomUUID().toString(),
+                            sender = sender,
+                            keywords = keywords,
+                            isFinancial = isFinancial,
+                            isIncome = isIncome
+                        )
+                    )
+                    patterns = repository.getPatterns()
+                    showPatternDialog = false
+                }
+            }
+        )
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -1458,6 +1533,73 @@ private fun AssetDialog(
         dismissButton = {
             TextButton(onClick = onDismiss) {
                 Text("لغو")
+            }
+        }
+    )
+}
+
+@Composable
+private fun SmsPatternDialog(
+    onDismiss: () -> Unit,
+    onSave: (sender: String, keywords: String, isFinancial: Boolean, isIncome: Boolean) -> Unit
+) {
+    var sender by remember { mutableStateOf("") }
+    var keywords by remember { mutableStateOf("") }
+    var isFinancial by remember { mutableStateOf(true) }
+    var isIncome by remember { mutableStateOf(false) }
+    val valid = sender.isNotBlank()
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("تعریف الگوی جدید") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                TextField(
+                    value = sender,
+                    onValueChange = { sender = it },
+                    label = { Text("نام فرستنده یا سرشماره") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                TextField(
+                    value = keywords,
+                    onValueChange = { keywords = it },
+                    label = { Text("کلمات کلیدی (با کاما جدا کنید)") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Text("مثل: برداشت، خرید", style = MaterialTheme.typography.bodySmall)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Switch(checked = isFinancial, onCheckedChange = { isFinancial = it })
+                    Text("آیا این پیامک تراکنش مالی است؟")
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilterChip(
+                        selected = !isIncome,
+                        onClick = { isIncome = false },
+                        label = { Text("هزینه") }
+                    )
+                    FilterChip(
+                        selected = isIncome,
+                        onClick = { isIncome = true },
+                        label = { Text("درآمد") }
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { onSave(sender.trim(), keywords.trim(), isFinancial, isIncome) },
+                enabled = valid
+            ) {
+                Text("ذخیره الگو")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("انصراف")
             }
         }
     )

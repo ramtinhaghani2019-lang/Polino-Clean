@@ -26,13 +26,21 @@ class SmsReceiver : BroadcastReceiver() {
             try {
                 val repository = TransactionRepository(context)
                 val existing = runCatching { repository.getAll() }.getOrDefault(emptyList())
+                val patterns = runCatching { repository.getPatterns() }.getOrDefault(emptyList())
                 Telephony.Sms.Intents.getMessagesFromIntent(intent).forEach { sms ->
                     val body = sms.messageBody ?: return@forEach
-                    val parsed = parseBankSms(sms.originatingAddress ?: "", body)
+                    val originator = sms.originatingAddress ?: ""
+                    // الگوها اول بررسی می‌شوند: الگوی غیرمالی جلوی ثبت را
+                    // می‌گیرد و الگوی مالی جهت را تعیین می‌کند.
+                    val pattern = findMatchingPattern(patterns, originator, body)
+                    if (!shouldRecordSms(pattern)) return@forEach
+                    val parsed = parseBankSms(originator, body)
+                    val amount = (if (pattern != null) parseSmsAmount(body) else parsed?.amount)
                         ?: return@forEach
+                    val income = resolveSmsIncome(pattern, parsed?.income ?: false)
                     val duplicate = existing.any {
                         it.title == "تراکنش بانکی" &&
-                            it.amount == parsed.amount &&
+                            it.amount == amount &&
                             it.dateMillis == sms.timestampMillis
                     }
                     if (duplicate) return@forEach
@@ -40,8 +48,8 @@ class SmsReceiver : BroadcastReceiver() {
                         MoneyTransaction(
                             id = UUID.randomUUID().toString(),
                             title = "تراکنش بانکی",
-                            amount = parsed.amount,
-                            income = parsed.income,
+                            amount = amount,
+                            income = income,
                             category = "سایر",
                             dateMillis = sms.timestampMillis,
                             accountId = "main",
