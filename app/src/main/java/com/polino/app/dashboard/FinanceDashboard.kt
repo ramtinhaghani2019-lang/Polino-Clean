@@ -91,7 +91,6 @@ private fun ymKey(yearMonth: String): Int {
 
 @Composable
 fun FinanceDashboard(
-    addRequest: Int = 0,
     onNavigateToReports: () -> Unit = {}
 ) {
     val context = LocalContext.current
@@ -118,16 +117,6 @@ fun FinanceDashboard(
     var showRecurringDialog by remember { mutableStateOf(false) }
     var showDeleteAccountConfirm by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
-
-    // درخواست افزودن از دکمه + ناوبری پایین؛ هر بار که شمارنده عوض شود،
-    // دیالوگ افزودن تراکنش باز می‌شود.
-    LaunchedEffect(addRequest) {
-        if (addRequest > 0) {
-            editing = null
-            error = ""
-            showDialog = true
-        }
-    }
 
     LaunchedEffect(Unit) {
         runCatching {

@@ -39,6 +39,7 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import com.polino.app.dashboard.CalendarScreen
+import com.polino.app.dashboard.EntryScreen
 import com.polino.app.dashboard.FinanceDashboard
 import com.polino.app.dashboard.ManagementScreen
 import com.polino.app.dashboard.ReportsScreen
@@ -68,11 +69,22 @@ private val NavGray = Color(0xFF8A91A8)
 @Composable
 private fun PolinoApp() {
     var tab by remember { mutableStateOf(Tab.Home) }
-    var addRequest by remember { mutableStateOf(0) }
+    var entryScreen by remember { mutableStateOf(false) }
     var showTestCenter by remember { mutableStateOf(false) }
 
     if (showTestCenter) {
         TestCenterScreen(onBack = { showTestCenter = false })
+        return
+    }
+
+    if (entryScreen) {
+        EntryScreen(
+            onBack = { entryScreen = false },
+            onSaved = {
+                entryScreen = false
+                tab = Tab.Home
+            }
+        )
         return
     }
 
@@ -119,10 +131,7 @@ private fun PolinoApp() {
                     )
                     NavigationBarItem(
                         selected = false,
-                        onClick = {
-                            tab = Tab.Home
-                            addRequest++
-                        },
+                        onClick = { entryScreen = true },
                         icon = {
                             Box(
                                 modifier = Modifier
@@ -160,7 +169,6 @@ private fun PolinoApp() {
         Box(modifier = Modifier.padding(padding)) {
             when (tab) {
                 Tab.Home -> FinanceDashboard(
-                    addRequest = addRequest,
                     onNavigateToReports = { tab = Tab.Reports }
                 )
                 Tab.Calendar -> CalendarScreen()
