@@ -10,9 +10,10 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         TransactionEntity::class,
         AccountEntity::class,
         CategoryEntity::class,
-        RecurringEntity::class
+        RecurringEntity::class,
+        GoalEntity::class
     ],
-    version = 4,
+    version = 5,
     exportSchema = false
 )
 internal abstract class PolinoDatabase : RoomDatabase() {
@@ -20,6 +21,7 @@ internal abstract class PolinoDatabase : RoomDatabase() {
     abstract fun accountDao(): AccountDao
     abstract fun categoryDao(): CategoryDao
     abstract fun recurringDao(): RecurringDao
+    abstract fun goalDao(): GoalDao
 
     companion object {
         /**
@@ -79,6 +81,19 @@ internal abstract class PolinoDatabase : RoomDatabase() {
                         "category TEXT NOT NULL, accountId TEXT NOT NULL, " +
                         "dayOfMonth INTEGER NOT NULL, startYearMonth TEXT NOT NULL, " +
                         "lastAppliedYearMonth TEXT)"
+                )
+            }
+        }
+        /**
+         * مهاجرت v4→v5: جدول اهداف پس‌انداز ساخته می‌شود؛
+         * بقیه جدول‌ها دست نمی‌خورند.
+         */
+        val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS goals " +
+                        "(id TEXT NOT NULL PRIMARY KEY, name TEXT NOT NULL, " +
+                        "target INTEGER NOT NULL, accountId TEXT NOT NULL)"
                 )
             }
         }

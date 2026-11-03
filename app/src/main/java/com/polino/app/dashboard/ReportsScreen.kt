@@ -43,11 +43,14 @@ import com.polino.app.data.AccountEntity
 import com.polino.app.data.BudgetEntity
 import com.polino.app.data.BudgetRepository
 import com.polino.app.data.CategoryEntity
+import com.polino.app.data.GoalEntity
 import com.polino.app.data.expenseCategoryNames
+import com.polino.app.data.goalProgressFraction
 import com.polino.app.data.MoneyTransaction
 import com.polino.app.data.TransactionRepository
 import com.polino.app.data.parseLegacyTransactions
 import com.polino.app.data.transactionsToJson
+import java.util.UUID
 import kotlinx.coroutines.launch
 
 @Composable
@@ -62,6 +65,8 @@ fun ReportsScreen(onBack: () -> Unit) {
     var selectedAccountId by remember { mutableStateOf("all") }
     var accountExpanded by remember { mutableStateOf(false) }
     var categories by remember { mutableStateOf<List<CategoryEntity>>(emptyList()) }
+    var goals by remember { mutableStateOf<List<GoalEntity>>(emptyList()) }
+    var showGoalDialog by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf("") }
     var info by remember { mutableStateOf("") }
     var showBudgetDialog by remember { mutableStateOf(false) }
@@ -74,6 +79,7 @@ fun ReportsScreen(onBack: () -> Unit) {
             transactions = transactionRepository.getAll()
             accounts = transactionRepository.getAccounts()
             categories = transactionRepository.getCategories()
+            goals = transactionRepository.getGoals()
             budgets = budgetRepository.getBudgets(yearMonth)
         }.onFailure {
             error = "بارگذاری اطلاعات ناموفق بود. دوباره تلاش کنید."
@@ -335,6 +341,59 @@ fun ReportsScreen(onBack: () -> Unit) {
                     Text("تعیین بودجه")
                 }
             }
+            item { Text("اهداف پس‌انداز", style = MaterialTheme.typography.titleMedium) }
+            if (goals.isEmpty()) {
+                item { Text("هنوز هدفی تعیین نشده است.") }
+            }
+            goals.forEach { goal ->
+                // پیشرفت هدف از روی موجودی کل حساب حساب می‌شود، نه فقط ماه جاری.
+                val balance = transactions.filter { it.accountId == goal.accountId }
+                    .sumOf { if (it.income) it.amount else -it.amount }
+                val fraction = goalProgressFraction(balance, goal.target)
+                val accountName = accounts.firstOrNull { it.id == goal.accountId }?.name
+                    ?: "اصلی"
+                item {
+                    Card(modifier = Modifier.fillMaxWidth()) {
+                        Column(
+                            Modifier.padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(goal.name, style = MaterialTheme.typography.titleMedium)
+                                IconButton(onClick = {
+                                    scope.launch {
+                                        transactionRepository.deleteGoal(goal.id)
+                                        goals = transactionRepository.getGoals()
+                                    }
+                                }) {
+                                    Icon(Icons.Default.Delete, contentDescription = "حذف هدف")
+                                }
+                            }
+                            Text("حساب: $accountName")
+                            Text("${money(balance)} از ${money(goal.target)}")
+                            LinearProgressIndicator(
+                                progress = { fraction },
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            if (fraction >= 1f) {
+                                Text("تکمیل شد", color = MaterialTheme.colorScheme.primary)
+                            }
+                        }
+                    }
+                }
+            }
+            item {
+                Button(
+                    onClick = { showGoalDialog = true },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("هدف جدید")
+                }
+            }
             item { Text("پشتیبان‌گیری", style = MaterialTheme.typography.titleMedium) }
             item {
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -371,6 +430,111 @@ fun ReportsScreen(onBack: () -> Unit) {
             }
         )
     }
+
+    if (showGoalDialog) {
+        GoalDialog(
+            accounts = accounts,
+            onDismiss = { showGoalDialog = false },
+            onSave = { name, target, accountId ->
+                scope.launch {
+                    transactionRepository.addGoal(
+                        GoalEntity(
+                            id = UUID.randomUUID().toString(),
+                            name = name,
+                            target = target,
+                            accountId = accountId
+                        )
+                    )
+                    goals = transactionRepository.getGoals()
+                    showGoalDialog = false
+                }
+            }
+        )
+    }
+}
+
+@Composable
+private fun GoalDialog(
+    accounts: List<AccountEntity>,
+    onDismiss: () -> Unit,
+    onSave: (name: String, target: Long, accountId: String) -> Unit
+) {
+    var name by remember { mutableStateOf("") }
+    var amount by remember { mutableStateOf("") }
+    var accountId by remember { mutableStateOf(accounts.firstOrNull()?.id ?: "main") }
+    var accountExpanded by remember { mutableStateOf(false) }
+    var validation by remember { mutableStateOf("") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("هدف پس‌انداز") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(
+                    "پیشرفت هدف از روی موجودی حساب انتخاب‌شده حساب می‌شود.",
+                    style = MaterialTheme.typography.bodySmall
+                )
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text("نام هدف") },
+                    singleLine = true
+                )
+                OutlinedTextField(
+                    value = amount,
+                    onValueChange = { newAmount ->
+                        amount = newAmount.filter { char ->
+                            char.isDigit() || char in "۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩"
+                        }
+                    },
+                    label = { Text("مبلغ هدف به تومان") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    singleLine = true
+                )
+                if (accounts.isNotEmpty()) {
+                    Box {
+                        OutlinedButton(
+                            onClick = { accountExpanded = true },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(accounts.firstOrNull { it.id == accountId }?.name ?: "اصلی")
+                        }
+                        DropdownMenu(
+                            expanded = accountExpanded,
+                            onDismissRequest = { accountExpanded = false }
+                        ) {
+                            accounts.forEach { account ->
+                                DropdownMenuItem(
+                                    text = { Text(account.name) },
+                                    onClick = { accountId = account.id; accountExpanded = false }
+                                )
+                            }
+                        }
+                    }
+                }
+                if (validation.isNotEmpty()) {
+                    Text(validation, color = MaterialTheme.colorScheme.error)
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = {
+                val parsed = normalizeDigits(amount).toLongOrNull()
+                val error = when {
+                    name.isBlank() -> "نام هدف را وارد کنید."
+                    parsed == null || parsed <= 0 -> "مبلغ معتبر وارد کنید."
+                    else -> ""
+                }
+                validation = error
+                if (error.isEmpty() && parsed != null) {
+                    onSave(name.trim(), parsed, accountId)
+                }
+            }) { Text("ثبت") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("انصراف") }
+        }
+    )
 }
 
 @Composable
