@@ -97,6 +97,10 @@ fun ManagementScreen(
     var showInstallmentDialog by remember { mutableStateOf(false) }
     var showDebtDialog by remember { mutableStateOf(false) }
     var showTaskDialog by remember { mutableStateOf(false) }
+    var showAccountDialog by remember { mutableStateOf(false) }
+    var renameAccountTarget by remember { mutableStateOf<AccountEntity?>(null) }
+    var showCategoryDialog by remember { mutableStateOf(false) }
+    var renameCategoryTarget by remember { mutableStateOf<CategoryEntity?>(null) }
     val scope = rememberCoroutineScope()
     var smsEnabled by remember { mutableStateOf(false) }
     val smsPermissionLauncher = rememberLauncherForActivityResult(
@@ -584,6 +588,89 @@ fun ManagementScreen(
                 }
             }
         }
+        item { Text("مدیریت حساب‌ها", style = MaterialTheme.typography.titleMedium) }
+        item {
+            Button(onClick = { showAccountDialog = true }) {
+                Text("حساب جدید")
+            }
+        }
+        accounts.forEach { account ->
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(20.dp),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+                ) {
+                    Column(
+                        Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(account.name, style = MaterialTheme.typography.titleMedium)
+                        val balance = transactions.filter { it.accountId == account.id }
+                            .sumOf { if (it.income) it.amount else -it.amount }
+                        Text("مانده: ${money(balance)}")
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Button(onClick = { renameAccountTarget = account }) {
+                                Text("تغییر نام")
+                            }
+                            if (account.id != "main") {
+                                TextButton(
+                                    onClick = {
+                                        scope.launch {
+                                            repository.deleteAccount(account.id)
+                                            accounts = repository.getAccounts()
+                                            transactions = repository.getAll()
+                                        }
+                                    }
+                                ) {
+                                    Text("حذف")
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        item { Text("مدیریت دسته‌ها", style = MaterialTheme.typography.titleMedium) }
+        item {
+            Button(onClick = { showCategoryDialog = true }) {
+                Text("دسته جدید")
+            }
+        }
+        categories.forEach { category ->
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(20.dp),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+                ) {
+                    Column(
+                        Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(category.name, style = MaterialTheme.typography.titleMedium)
+                        Text(if (category.isIncome) "درآمد" else "هزینه")
+                        if (category.name != "سایر") {
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Button(onClick = { renameCategoryTarget = category }) {
+                                    Text("تغییر نام")
+                                }
+                                TextButton(
+                                    onClick = {
+                                        scope.launch {
+                                            repository.deleteCategory(category.name)
+                                            categories = repository.getCategories()
+                                        }
+                                    }
+                                ) {
+                                    Text("حذف")
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 
     if (showInstallmentDialog) {
@@ -647,6 +734,68 @@ fun ManagementScreen(
                     )
                     tasks = repository.getTasks()
                     showTaskDialog = false
+                }
+            }
+        )
+    }
+
+    if (showAccountDialog) {
+        AccountDialog(
+            existingNames = accounts.map { it.name },
+            onDismiss = { showAccountDialog = false },
+            onSave = { name ->
+                scope.launch {
+                    repository.addAccount(name)
+                    accounts = repository.getAccounts()
+                    showAccountDialog = false
+                }
+            }
+        )
+    }
+
+    val accountToRename = renameAccountTarget
+    if (accountToRename != null) {
+        AccountRenameDialog(
+            currentName = accountToRename.name,
+            existingNames = accounts.map { it.name },
+            onDismiss = { renameAccountTarget = null },
+            onSave = { name ->
+                scope.launch {
+                    if (repository.renameAccount(accountToRename.id, name)) {
+                        accounts = repository.getAccounts()
+                        renameAccountTarget = null
+                    }
+                }
+            }
+        )
+    }
+
+    if (showCategoryDialog) {
+        CategoryDialog(
+            existingNames = categories.map { it.name },
+            onDismiss = { showCategoryDialog = false },
+            onSave = { name, isIncome ->
+                scope.launch {
+                    repository.addCategory(name, isIncome)
+                    categories = repository.getCategories()
+                    showCategoryDialog = false
+                }
+            }
+        )
+    }
+
+    val categoryToRename = renameCategoryTarget
+    if (categoryToRename != null) {
+        CategoryRenameDialog(
+            currentName = categoryToRename.name,
+            existingNames = categories.map { it.name },
+            onDismiss = { renameCategoryTarget = null },
+            onSave = { name ->
+                scope.launch {
+                    if (repository.renameCategory(categoryToRename.name, name)) {
+                        categories = repository.getCategories()
+                        renameCategoryTarget = null
+                    }
                 }
             }
         )
@@ -840,6 +989,185 @@ private fun InstallmentDialog(
 }
 
 @Composable
+@Composable
+private fun AccountDialog(
+    existingNames: List<String>,
+    onDismiss: () -> Unit,
+    onSave: (name: String) -> Unit
+) {
+    var name by remember { mutableStateOf("") }
+    val duplicate = name.isNotBlank() && existingNames.contains(name)
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("حساب جدید") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                TextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text("نام حساب") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                if (duplicate) {
+                    Text("این نام قبلاً استفاده شده است.", color = MaterialTheme.colorScheme.error)
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { onSave(name) },
+                enabled = name.isNotBlank() && !duplicate
+            ) {
+                Text("ذخیره")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("لغو")
+            }
+        }
+    )
+}
+
+@Composable
+private fun AccountRenameDialog(
+    currentName: String,
+    existingNames: List<String>,
+    onDismiss: () -> Unit,
+    onSave: (name: String) -> Unit
+) {
+    var name by remember { mutableStateOf(currentName) }
+    val duplicate = name.isNotBlank() && name != currentName && existingNames.contains(name)
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("تغییر نام حساب") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                TextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text("نام جدید") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                if (duplicate) {
+                    Text("این نام قبلاً استفاده شده است.", color = MaterialTheme.colorScheme.error)
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { onSave(name) },
+                enabled = name.isNotBlank() && !duplicate
+            ) {
+                Text("ذخیره")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("لغو")
+            }
+        }
+    )
+}
+
+@Composable
+private fun CategoryDialog(
+    existingNames: List<String>,
+    onDismiss: () -> Unit,
+    onSave: (name: String, isIncome: Boolean) -> Unit
+) {
+    var name by remember { mutableStateOf("") }
+    var isIncome by remember { mutableStateOf(false) }
+    val duplicate = name.isNotBlank() && existingNames.contains(name)
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("دسته جدید") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                TextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text("نام دسته") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilterChip(
+                        selected = !isIncome,
+                        onClick = { isIncome = false },
+                        label = { Text("هزینه") }
+                    )
+                    FilterChip(
+                        selected = isIncome,
+                        onClick = { isIncome = true },
+                        label = { Text("درآمد") }
+                    )
+                }
+                if (duplicate) {
+                    Text("این نام قبلاً استفاده شده است.", color = MaterialTheme.colorScheme.error)
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { onSave(name, isIncome) },
+                enabled = name.isNotBlank() && !duplicate
+            ) {
+                Text("ذخیره")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("لغو")
+            }
+        }
+    )
+}
+
+@Composable
+private fun CategoryRenameDialog(
+    currentName: String,
+    existingNames: List<String>,
+    onDismiss: () -> Unit,
+    onSave: (name: String) -> Unit
+) {
+    var name by remember { mutableStateOf(currentName) }
+    val duplicate = name.isNotBlank() && name != currentName && existingNames.contains(name)
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("تغییر نام دسته") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                TextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text("نام جدید") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                if (duplicate) {
+                    Text("این نام قبلاً استفاده شده است.", color = MaterialTheme.colorScheme.error)
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { onSave(name) },
+                enabled = name.isNotBlank() && !duplicate
+            ) {
+                Text("ذخیره")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("لغو")
+            }
+        }
+    )
+}
+
 private fun MiniStat(modifier: Modifier = Modifier, label: String, value: String) {
     Card(
         modifier = modifier,
