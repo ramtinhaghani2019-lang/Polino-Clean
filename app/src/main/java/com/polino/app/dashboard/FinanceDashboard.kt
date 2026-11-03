@@ -141,6 +141,12 @@ fun FinanceDashboard() {
             budgets
         )
     }
+    val nearing = remember(transactions, budgets) {
+        nearingCategories(
+            transactionsInMonth(transactions, JalaliDate.currentJalaliYearMonth()),
+            budgets
+        )
+    }
 
     val visible = accountTransactions
         .filter {
@@ -219,7 +225,7 @@ fun FinanceDashboard() {
                 }
             }
         }
-        if (overspent.isNotEmpty()) {
+        if (overspent.isNotEmpty() || nearing.isNotEmpty()) {
             item {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
@@ -231,16 +237,37 @@ fun FinanceDashboard() {
                         verticalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
                         Text(
-                            "⚠ رد شدن از بودجه ماه جاری",
+                            "⚠ هشدار بودجه ماه جاری",
                             style = MaterialTheme.typography.titleMedium,
                             color = MaterialTheme.colorScheme.onErrorContainer
                         )
-                        overspent.forEach { entry ->
+                        if (overspent.isNotEmpty()) {
                             Text(
-                                "${entry.category}: ${money(entry.spent)} از ${money(entry.limit)} تومان",
+                                "رد شده از سقف:",
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onErrorContainer
                             )
+                            overspent.forEach { entry ->
+                                Text(
+                                    "${entry.category}: ${money(entry.spent)} از ${money(entry.limit)} تومان",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onErrorContainer
+                                )
+                            }
+                        }
+                        if (nearing.isNotEmpty()) {
+                            Text(
+                                "نزدیک به سقف:",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onErrorContainer
+                            )
+                            nearing.forEach { entry ->
+                                Text(
+                                    "${entry.category}: ${money(entry.spent)} از ${money(entry.limit)} تومان",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onErrorContainer
+                                )
+                            }
                         }
                     }
                 }
@@ -630,6 +657,7 @@ private fun CategoryDialog(
     var isIncome by remember { mutableStateOf(false) }
     var validation by remember { mutableStateOf("") }
     var categoryToRename by remember { mutableStateOf<String?>(null) }
+    var categoryToDelete by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
 
     AlertDialog(
@@ -653,9 +681,7 @@ private fun CategoryDialog(
                                 TextButton(onClick = { categoryToRename = category.name }) {
                                     Text("ویرایش")
                                 }
-                                TextButton(onClick = {
-                                    scope.launch { onDelete(category.name) }
-                                }) {
+                                TextButton(onClick = { categoryToDelete = category.name }) {
                                     Text("حذف", color = MaterialTheme.colorScheme.error)
                                 }
                             }
@@ -708,6 +734,27 @@ private fun CategoryDialog(
                 val ok = onRename(categoryToRename!!, newName)
                 if (ok) categoryToRename = null
                 ok
+            }
+        )
+    }
+    if (categoryToDelete != null) {
+        AlertDialog(
+            onDismissRequest = { categoryToDelete = null },
+            title = { Text("حذف دسته") },
+            text = {
+                Text("دسته «$categoryToDelete» حذف شود؟ تراکنش‌هایش به «سایر» می‌روند و بودجه‌هایش پاک می‌شوند.")
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    val target = categoryToDelete
+                    categoryToDelete = null
+                    if (target != null) {
+                        scope.launch { onDelete(target) }
+                    }
+                }) { Text("حذف", color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = {
+                TextButton(onClick = { categoryToDelete = null }) { Text("انصراف") }
             }
         )
     }

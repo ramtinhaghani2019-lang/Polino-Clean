@@ -51,6 +51,32 @@ class BudgetWarningTest {
     }
 
     @Test
+    fun nearing_onlyBetweenEightyAndLimit_sortedByRatio() {
+        val transactions = listOf(
+            expense("1", "خوراک", 90000, "خوراک"),
+            expense("2", "لباس", 80000, "پوشاک"),
+            expense("3", "رفت‌وآمد", 79000, "حمل‌ونقل"),
+            expense("4", "درمان", 150000, "سلامت")
+        )
+        val budgets = listOf(
+            BudgetEntity("1405-08", "خوراک", 100000),
+            BudgetEntity("1405-08", "پوشاک", 100000),
+            BudgetEntity("1405-08", "حمل‌ونقل", 100000),
+            BudgetEntity("1405-08", "سلامت", 100000)
+        )
+        val result = nearingCategories(transactionsInMonth(transactions, "1405-08"), budgets)
+        // خوراک ۹۰٪ و پوشاک دقیقاً ۸۰٪ نزدیک‌اند (نزدیک‌ترین اول)؛
+        // حمل‌ونقل ۷۹٪ هنوز نزدیک نیست و سلامت رد شده است و اینجا نمی‌آید.
+        assertEquals(
+            listOf(
+                NearingCategory("خوراک", 90000, 100000),
+                NearingCategory("پوشاک", 80000, 100000)
+            ),
+            result
+        )
+    }
+
+    @Test
     fun overspent_emptyWhenNoBudgetsOrNoSpending() {
         val transactions = listOf(expense("1", "خوراک", 500000, "خوراک"))
         assertEquals(

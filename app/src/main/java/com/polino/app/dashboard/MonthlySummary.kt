@@ -27,8 +27,28 @@ internal fun spentByCategory(monthTransactions: List<MoneyTransaction>): List<Pa
         .map { (category, items) -> category to items.sumOf { it.amount } }
         .sortedByDescending { it.second }
 
-/** دسته‌ای که هزینه ماه جاری‌اش از بودجه‌اش گذشته است. */
-internal data class OverspentCategory(val category: String, val spent: Long, val limit: Long)
+/** دسته‌ای که هزینه ماه جاری‌اش به ۸۰٪ سقف بودجه‌اش رسیده ولی هنوز رد نشده است. */
+internal data class NearingCategory(val category: String, val spent: Long, val limit: Long)
+
+/**
+ * دسته‌های نزدیک به سقف بودجه ماه جاری (از ۸۰٪ سقف تا زیر سقف)، از
+ * نزدیک‌ترین به سقف به دورترین. دسته ردشده اینجا نمی‌آید؛ آن در
+ * overspentCategories است.
+ */
+internal fun nearingCategories(
+    monthTransactions: List<MoneyTransaction>,
+    budgets: List<BudgetEntity>
+): List<NearingCategory> {
+    val spent = spentByCategory(monthTransactions).toMap()
+    return budgets.mapNotNull { budget ->
+        val spentAmount = spent[budget.category] ?: 0L
+        if (spentAmount < budget.limitAmount && spentAmount * 5 >= budget.limitAmount * 4) {
+            NearingCategory(budget.category, spentAmount, budget.limitAmount)
+        } else {
+            null
+        }
+    }.sortedByDescending { it.spent.toDouble() / it.limit }
+}
 
 /**
  * دسته‌های ردشده از بودجه ماه جاری، از بیشترین اضافه‌خرج به کمترین.

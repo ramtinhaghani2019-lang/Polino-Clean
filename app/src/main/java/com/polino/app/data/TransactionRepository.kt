@@ -105,6 +105,7 @@ internal class TransactionRepository(context: Context) {
     suspend fun deleteCategory(name: String): Boolean {
         if (!canDeleteCategory(name)) return false
         dao.reassignCategory(name, FALLBACK_CATEGORY)
+        recurringDao.renameCategory(name, FALLBACK_CATEGORY)
         budgetDao.deleteForCategory(name)
         categoryDao.deleteByName(name)
         return true
