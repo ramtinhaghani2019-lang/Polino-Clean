@@ -11,9 +11,10 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         AccountEntity::class,
         CategoryEntity::class,
         RecurringEntity::class,
-        GoalEntity::class
+        GoalEntity::class,
+        InstallmentEntity::class
     ],
-    version = 7,
+    version = 8,
     exportSchema = false
 )
 internal abstract class PolinoDatabase : RoomDatabase() {
@@ -22,6 +23,7 @@ internal abstract class PolinoDatabase : RoomDatabase() {
     abstract fun categoryDao(): CategoryDao
     abstract fun recurringDao(): RecurringDao
     abstract fun goalDao(): GoalDao
+    abstract fun installmentDao(): InstallmentDao
 
     companion object {
         /**
@@ -116,6 +118,20 @@ internal abstract class PolinoDatabase : RoomDatabase() {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL(
                     "ALTER TABLE recurring ADD COLUMN active INTEGER NOT NULL DEFAULT 1"
+                )
+            }
+        }
+        /**
+         * مهاجرت v7→v8: جدول اقساط ساخته می‌شود؛
+         * بقیه جدول‌ها دست نمی‌خورند.
+         */
+        val MIGRATION_7_8 = object : Migration(7, 8) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS installments " +
+                        "(id TEXT NOT NULL PRIMARY KEY, title TEXT NOT NULL, " +
+                        "totalAmount INTEGER NOT NULL, monthCount INTEGER NOT NULL, " +
+                        "paidCount INTEGER NOT NULL, accountId TEXT NOT NULL)"
                 )
             }
         }

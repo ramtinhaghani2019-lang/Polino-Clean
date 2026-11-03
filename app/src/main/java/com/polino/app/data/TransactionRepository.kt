@@ -14,13 +14,15 @@ internal class TransactionRepository(context: Context) {
         PolinoDatabase.MIGRATION_3_4,
         PolinoDatabase.MIGRATION_4_5,
         PolinoDatabase.MIGRATION_5_6,
-        PolinoDatabase.MIGRATION_6_7
+        PolinoDatabase.MIGRATION_6_7,
+        PolinoDatabase.MIGRATION_7_8
     ).build()
     private val dao = database.transactionDao()
     private val accountDao = database.accountDao()
     private val categoryDao = database.categoryDao()
     private val recurringDao = database.recurringDao()
     private val goalDao = database.goalDao()
+    private val installmentDao = database.installmentDao()
     private val budgetDao = Room.databaseBuilder(
         appContext, BudgetDatabase::class.java, "polino_budgets_db"
     ).build().budgetDao()
@@ -145,6 +147,33 @@ internal class TransactionRepository(context: Context) {
     suspend fun addGoal(item: GoalEntity) = goalDao.upsert(item)
 
     suspend fun deleteGoal(id: String) = goalDao.deleteById(id)
+
+    suspend fun getInstallments(): List<InstallmentEntity> = installmentDao.getAll()
+
+    suspend fun addInstallment(item: InstallmentEntity) = installmentDao.upsert(item)
+
+    suspend fun deleteInstallment(id: String) = installmentDao.deleteById(id)
+
+    /**
+     * پرداخت یک قسط: شمارنده پرداخت یکی زیاد می‌شود و یک تراکنش هزینه
+     * به مبلغ همان قسط در حساب قسط ثبت می‌شود.
+     */
+    suspend fun payInstallment(item: InstallmentEntity) {
+        if (item.paidCount >= item.monthCount) return
+        installmentDao.upsert(item.copy(paidCount = item.paidCount + 1))
+        dao.upsert(
+            TransactionEntity(
+                id = UUID.randomUUID().toString(),
+                title = "قسط: ${item.title}",
+                amount = installmentMonthlyAmount(item.totalAmount, item.monthCount),
+                income = false,
+                category = "سایر",
+                dateMillis = System.currentTimeMillis(),
+                accountId = item.accountId,
+                note = ""
+            )
+        )
+    }
 
     /**
      * مهاجرت یک‌بارمصرف از JSON قدیمی SharedPreferences به Room.
