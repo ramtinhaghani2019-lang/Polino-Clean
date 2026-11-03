@@ -507,6 +507,12 @@ fun FinanceDashboard() {
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             Text(transaction.category, style = MaterialTheme.typography.bodySmall)
                             Text(JalaliDate.formatJalali(transaction.dateMillis), style = MaterialTheme.typography.bodySmall)
+                            if (selectedAccountId == "all") {
+                                Text(
+                                    accounts.firstOrNull { it.id == transaction.accountId }?.name ?: "اصلی",
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                            }
                         }
                         if (transaction.note.isNotBlank()) {
                             Text(transaction.note, style = MaterialTheme.typography.bodySmall)
