@@ -1,6 +1,15 @@
 package com.polino.app.dashboard
 
-import androidx.compose.foundation.layout.Arrangement
+import android.Manifest
+import android.content.Context
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.material.icons.filled.Sms
+import androidx.compose.material3.Switch
+import androidx.core.content.ContextCompat
+import com.polino.app.sms.SMS_ENABLED_KEY
+import com.polino.app.sms.SMS_PREFS_NAME
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -54,6 +63,16 @@ fun ManagementScreen(
     var recurring by remember { mutableStateOf<List<RecurringEntity>>(emptyList()) }
     var goals by remember { mutableStateOf<List<GoalEntity>>(emptyList()) }
     var budgetCount by remember { mutableStateOf(0) }
+    var smsEnabled by remember { mutableStateOf(false) }
+    val smsPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) {
+            context.getSharedPreferences(SMS_PREFS_NAME, Context.MODE_PRIVATE)
+                .edit().putBoolean(SMS_ENABLED_KEY, true).apply()
+            smsEnabled = true
+        }
+    }
 
     LaunchedEffect(Unit) {
         runCatching {
@@ -64,6 +83,8 @@ fun ManagementScreen(
             goals = repository.getGoals()
             budgetCount = budgetRepository.getBudgets(JalaliDate.currentJalaliYearMonth()).size
         }
+        smsEnabled = context.getSharedPreferences(SMS_PREFS_NAME, Context.MODE_PRIVATE)
+            .getBoolean(SMS_ENABLED_KEY, false)
     }
 
     val totalBalance = transactions.sumOf { if (it.income) it.amount else -it.amount }
@@ -120,6 +141,50 @@ fun ManagementScreen(
             }
         }
         item { Text("بخش‌ها", style = MaterialTheme.typography.titleMedium) }
+        item {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(20.dp)
+            ) {
+                Row(
+                    Modifier.padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Icon(Icons.Default.Sms, contentDescription = "خوانش پیامک")
+                    Column(Modifier.weight(1f)) {
+                        Text("خوانش پیامک", style = MaterialTheme.typography.titleMedium)
+                        Text(
+                            if (smsEnabled) "فعال — تراکنش‌های بانکی به‌صورت خودکار ثبت می‌شوند"
+                            else "خاموش — برای ثبت خودکار، دسترسی خواندن پیامک لازم است",
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                    Switch(
+                        checked = smsEnabled,
+                        onCheckedChange = { checked ->
+                            val prefs = context.getSharedPreferences(
+                                SMS_PREFS_NAME, Context.MODE_PRIVATE
+                            )
+                            if (checked) {
+                                if (ContextCompat.checkSelfPermission(
+                                        context, Manifest.permission.RECEIVE_SMS
+                                    ) == PackageManager.PERMISSION_GRANTED
+                                ) {
+                                    prefs.edit().putBoolean(SMS_ENABLED_KEY, true).apply()
+                                    smsEnabled = true
+                                } else {
+                                    smsPermissionLauncher.launch(Manifest.permission.RECEIVE_SMS)
+                                }
+                            } else {
+                                prefs.edit().putBoolean(SMS_ENABLED_KEY, false).apply()
+                                smsEnabled = false
+                            }
+                        }
+                    )
+                }
+            }
+        }
         item {
             ManagementCard(
                 title = "حساب‌ها و کارت‌ها",
