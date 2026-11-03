@@ -15,6 +15,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -22,11 +23,14 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -34,12 +38,16 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import com.polino.app.data.EventEntity
 import com.polino.app.data.MoneyTransaction
 import com.polino.app.data.TransactionRepository
+import com.polino.app.data.eventsOnDay
 import com.polino.app.data.nextJalaliYearMonth
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
+import java.util.UUID
+import kotlinx.coroutines.launch
 
 private val Weekdays = listOf("شنبه", "یکشنبه", "دوشنبه", "سه‌شنبه", "چهارشنبه", "پنجشنبه", "جمعه")
 
@@ -71,11 +79,15 @@ fun CalendarScreen() {
     val context = LocalContext.current
     val repository = remember { TransactionRepository(context) }
     var transactions by remember { mutableStateOf<List<MoneyTransaction>>(emptyList()) }
+    var events by remember { mutableStateOf<List<EventEntity>>(emptyList()) }
     var selectedYearMonth by remember { mutableStateOf(JalaliDate.currentJalaliYearMonth()) }
     var selectedDay by remember { mutableStateOf(todayJalaliDay()) }
+    var showEventDialog by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
 
     LaunchedEffect(Unit) {
         transactions = runCatching { repository.getAll() }.getOrDefault(emptyList())
+        events = runCatching { repository.getEvents() }.getOrDefault(emptyList())
     }
 
     val currentMonth = JalaliDate.currentJalaliYearMonth()
@@ -101,6 +113,16 @@ fun CalendarScreen() {
     }
     val dayTransactions = remember(monthTransactions, selectedDay) {
         monthTransactions.filter { jalaliDayOf(it.dateMillis).third == selectedDay }
+    }
+    // روزهای دارای رویداد در ماه نمایش‌داده‌شده (برای نقطه بنفش زیر روز).
+    val eventDays = remember(events, selectedYearMonth) {
+        events.mapNotNull { event ->
+            val (eventYear, eventMonth, eventDay) = jalaliDayOf(event.dateMillis)
+            if (eventYear == jy && eventMonth == jm) eventDay else null
+        }.toSet()
+    }
+    val dayEvents = remember(events, jy, jm, selectedDay) {
+        eventsOnDay(events, JalaliDate.jalaliToMillis(jy, jm, selectedDay))
     }
     val dayIncome = dayTransactions.filter { it.income }.sumOf { it.amount }
     val dayExpense = dayTransactions.filterNot { it.income }.sumOf { it.amount }
@@ -216,6 +238,13 @@ fun CalendarScreen() {
                                                         .background(Color(0xFFFF6B6B), CircleShape)
                                                 )
                                             }
+                                            if (eventDays.contains(day)) {
+                                                Box(
+                                                    Modifier
+                                                        .size(6.dp)
+                                                        .background(Color(0xFFA855F7), CircleShape)
+                                                )
+                                            }
                                         }
                                     }
                                 }
@@ -295,5 +324,113 @@ fun CalendarScreen() {
                 }
             }
         }
+        item { Text("رویدادهای این روز", style = MaterialTheme.typography.titleMedium) }
+        item {
+            Button(onClick = { showEventDialog = true }) {
+                Text("رویداد جدید")
+            }
+        }
+        if (dayEvents.isEmpty()) {
+            item { Text("در این روز رویدادی ثبت نشده است.") }
+        } else {
+            dayEvents.forEach { event ->
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(20.dp),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+                    ) {
+                        Row(
+                            Modifier.padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Column(
+                                Modifier.weight(1f),
+                                verticalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Text(event.title, style = MaterialTheme.typography.titleMedium)
+                                if (event.note.isNotBlank()) {
+                                    Text(event.note, style = MaterialTheme.typography.bodySmall)
+                                }
+                            }
+                            TextButton(
+                                onClick = {
+                                    scope.launch {
+                                        repository.deleteEvent(event.id)
+                                        events = repository.getEvents()
+                                    }
+                                }
+                            ) {
+                                Text("حذف")
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
+
+    if (showEventDialog) {
+        EventDialog(
+            onDismiss = { showEventDialog = false },
+            onSave = { title, note ->
+                scope.launch {
+                    repository.addEvent(
+                        EventEntity(
+                            id = UUID.randomUUID().toString(),
+                            title = title,
+                            dateMillis = JalaliDate.jalaliToMillis(jy, jm, selectedDay),
+                            note = note
+                        )
+                    )
+                    events = repository.getEvents()
+                    showEventDialog = false
+                }
+            }
+        )
+    }
+}
+
+@Composable
+private fun EventDialog(
+    onDismiss: () -> Unit,
+    onSave: (title: String, note: String) -> Unit
+) {
+    var title by remember { mutableStateOf("") }
+    var note by remember { mutableStateOf("") }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("رویداد جدید") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                TextField(
+                    value = title,
+                    onValueChange = { title = it },
+                    label = { Text("عنوان رویداد") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                TextField(
+                    value = note,
+                    onValueChange = { note = it },
+                    label = { Text("یادداشت (اختیاری)") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { if (title.isNotBlank()) onSave(title, note) },
+                enabled = title.isNotBlank()
+            ) {
+                Text("ذخیره")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("لغو")
+            }
+        }
+    )
 }

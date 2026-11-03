@@ -14,9 +14,10 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         GoalEntity::class,
         InstallmentEntity::class,
         DebtEntity::class,
-        TaskEntity::class
+        TaskEntity::class,
+        EventEntity::class
     ],
-    version = 10,
+    version = 11,
     exportSchema = false
 )
 internal abstract class PolinoDatabase : RoomDatabase() {
@@ -28,6 +29,7 @@ internal abstract class PolinoDatabase : RoomDatabase() {
     abstract fun installmentDao(): InstallmentDao
     abstract fun debtDao(): DebtDao
     abstract fun taskDao(): TaskDao
+    abstract fun eventDao(): EventDao
 
     companion object {
         /**
@@ -163,6 +165,19 @@ internal abstract class PolinoDatabase : RoomDatabase() {
                     "CREATE TABLE IF NOT EXISTS tasks " +
                         "(id TEXT NOT NULL PRIMARY KEY, title TEXT NOT NULL, " +
                         "dueMillis INTEGER NOT NULL, done INTEGER NOT NULL)"
+                )
+            }
+        }
+        /**
+         * مهاجرت v10→v11: جدول رویدادهای تقویم ساخته می‌شود؛
+         * بقیه جدول‌ها دست نمی‌خورند.
+         */
+        val MIGRATION_10_11 = object : Migration(10, 11) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS events " +
+                        "(id TEXT NOT NULL PRIMARY KEY, title TEXT NOT NULL, " +
+                        "dateMillis INTEGER NOT NULL, note TEXT NOT NULL)"
                 )
             }
         }

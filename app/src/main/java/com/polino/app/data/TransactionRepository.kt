@@ -17,7 +17,8 @@ internal class TransactionRepository(context: Context) {
         PolinoDatabase.MIGRATION_6_7,
         PolinoDatabase.MIGRATION_7_8,
         PolinoDatabase.MIGRATION_8_9,
-        PolinoDatabase.MIGRATION_9_10
+        PolinoDatabase.MIGRATION_9_10,
+        PolinoDatabase.MIGRATION_10_11
     ).build()
     private val dao = database.transactionDao()
     private val accountDao = database.accountDao()
@@ -27,6 +28,7 @@ internal class TransactionRepository(context: Context) {
     private val installmentDao = database.installmentDao()
     private val debtDao = database.debtDao()
     private val taskDao = database.taskDao()
+    private val eventDao = database.eventDao()
     private val budgetDao = Room.databaseBuilder(
         appContext, BudgetDatabase::class.java, "polino_budgets_db"
     ).build().budgetDao()
@@ -172,6 +174,12 @@ internal class TransactionRepository(context: Context) {
 
     suspend fun toggleTaskDone(item: TaskEntity) =
         taskDao.upsert(item.copy(done = !item.done))
+
+    suspend fun getEvents(): List<EventEntity> = eventDao.getAll()
+
+    suspend fun addEvent(item: EventEntity) = eventDao.upsert(item)
+
+    suspend fun deleteEvent(id: String) = eventDao.deleteById(id)
 
     /**
      * تسویه طلب یا بدهی: رکورد تسویه‌شده می‌شود و یک تراکنش واقعی ثبت
