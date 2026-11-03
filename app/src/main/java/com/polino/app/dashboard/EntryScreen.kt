@@ -68,6 +68,7 @@ private val EntryDark = Color(0xFF0F1730)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EntryScreen(
+    initialAmount: String = "",
     onBack: () -> Unit,
     onSaved: () -> Unit
 ) {
@@ -76,7 +77,7 @@ fun EntryScreen(
     var accounts by remember { mutableStateOf<List<AccountEntity>>(emptyList()) }
     var categories by remember { mutableStateOf<List<CategoryEntity>>(emptyList()) }
     var isExpense by remember { mutableStateOf(true) }
-    var amountText by remember { mutableStateOf("") }
+    var amountText by remember { mutableStateOf(initialAmount) }
     var selectedAccountId by remember { mutableStateOf("main") }
     var selectedCategory by remember { mutableStateOf<String?>(null) }
     var title by remember { mutableStateOf("") }

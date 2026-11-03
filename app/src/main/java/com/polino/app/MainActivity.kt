@@ -13,8 +13,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.BarChart
+import androidx.compose.material.icons.filled.Calculate
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -39,6 +41,7 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import com.polino.app.dashboard.CalendarScreen
+import com.polino.app.dashboard.CalculatorSheet
 import com.polino.app.dashboard.EntryScreen
 import com.polino.app.dashboard.FinanceDashboard
 import com.polino.app.dashboard.ManagementScreen
@@ -71,6 +74,8 @@ private fun PolinoApp() {
     var tab by remember { mutableStateOf(Tab.Home) }
     var entryScreen by remember { mutableStateOf(false) }
     var showTestCenter by remember { mutableStateOf(false) }
+    var showCalculator by remember { mutableStateOf(false) }
+    var calculatorAmount by remember { mutableStateOf("") }
 
     if (showTestCenter) {
         TestCenterScreen(onBack = { showTestCenter = false })
@@ -79,13 +84,29 @@ private fun PolinoApp() {
 
     if (entryScreen) {
         EntryScreen(
-            onBack = { entryScreen = false },
+            initialAmount = calculatorAmount,
+            onBack = {
+                entryScreen = false
+                calculatorAmount = ""
+            },
             onSaved = {
                 entryScreen = false
+                calculatorAmount = ""
                 tab = Tab.Home
             }
         )
         return
+    }
+
+    if (showCalculator) {
+        CalculatorSheet(
+            onDismiss = { showCalculator = false },
+            onUseAmount = { amount ->
+                calculatorAmount = amount
+                showCalculator = false
+                entryScreen = true
+            }
+        )
     }
 
     Scaffold(
@@ -99,6 +120,20 @@ private fun PolinoApp() {
                         }
                     }
                 )
+            }
+        },
+        floatingActionButton = {
+            if (tab == Tab.Home) {
+                FloatingActionButton(
+                    onClick = { showCalculator = true },
+                    containerColor = NavGold,
+                    contentColor = Color.Black
+                ) {
+                    Icon(
+                        Icons.Default.Calculate,
+                        contentDescription = "ماشین‌حساب"
+                    )
+                }
             }
         },
         bottomBar = {
