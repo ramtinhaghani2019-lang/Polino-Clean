@@ -144,6 +144,7 @@ fun ManagementScreen(
     onShowDebts: () -> Unit = {},
     onShowCategories: () -> Unit = {},
     onShowInvestments: () -> Unit = {},
+    onShowAccounts: () -> Unit = {},
     themeMode: String = "system",
     onThemeModeChange: (String) -> Unit = {},
     lockEnabled: Boolean = false,
@@ -1239,7 +1240,16 @@ fun ManagementScreen(
                 }
             }
         }
-        item { Text("مدیریت حساب‌ها", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)) }
+        item {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("مدیریت حساب‌ها", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
+                TextButton(onClick = onShowAccounts) { Text("مشاهده همه") }
+            }
+        }
         item {
             Button(onClick = { showAccountDialog = true }) {
                 Text("حساب جدید")
@@ -2381,7 +2391,7 @@ private fun installmentSheetFieldColors() = OutlinedTextFieldDefaults.colors(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun AccountDetailSheet(
+internal fun AccountDetailSheet(
     account: AccountEntity,
     senders: List<AccountSmsSenderEntity>,
     transactions: List<MoneyTransaction>,
@@ -2667,7 +2677,7 @@ private fun AccountDetailSheet(
 }
 
 @Composable
-private fun AccountSenderDialog(
+internal fun AccountSenderDialog(
     onDismiss: () -> Unit,
     onSave: (sender: String) -> Unit
 ) {
@@ -2703,7 +2713,7 @@ private fun AccountSenderDialog(
 }
 
 @Composable
-private fun AccountDialog(
+internal fun AccountDialog(
     existingNames: List<String>,
     onDismiss: () -> Unit,
     onSave: (name: String, bankName: String?) -> Unit
@@ -2754,7 +2764,7 @@ private fun AccountDialog(
 }
 
 @Composable
-private fun AccountRenameDialog(
+internal fun AccountRenameDialog(
     currentName: String,
     currentBankName: String?,
     existingNames: List<String>,
