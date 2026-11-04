@@ -14,6 +14,7 @@ import com.polino.app.sms.DetectedSender
 import com.polino.app.sms.detectSenders
 import com.polino.app.sms.rescanInboxSms
 import com.polino.app.sms.scanInboxSms
+import com.polino.app.sms.SmsPatternSheet
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -156,7 +157,7 @@ fun ManagementScreen(
     var cheques by remember { mutableStateOf<List<ChequeReminderEntity>>(emptyList()) }
     var assets by remember { mutableStateOf<List<AssetEntity>>(emptyList()) }
     var patterns by remember { mutableStateOf<List<SmsPatternEntity>>(emptyList()) }
-    var showPatternDialog by remember { mutableStateOf(false) }
+    var showPatternSheet by remember { mutableStateOf(false) }
     var showInstallmentDialog by remember { mutableStateOf(false) }
     var showDebtDialog by remember { mutableStateOf(false) }
     var showTaskDialog by remember { mutableStateOf(false) }
@@ -510,102 +511,12 @@ fun ManagementScreen(
                 }
             }
         }
-        item { Text("مدیریت الگوهای پیامک", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)) }
         item {
-            Text(
-                "تعیین فرستنده‌ها، کلمات کلیدی و قوانین تراکنش",
-                style = MaterialTheme.typography.bodySmall
-            )
-        }
-        item {
-            Button(onClick = { showPatternDialog = true }) {
-                Text("افزودن الگوی جدید")
-            }
-        }
-        item { Text("فرستنده‌های پیامک شناسایی‌شده در دستگاه", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)) }
-        item {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                val detected = detectedSenders
-                if (detected == null) {
-                    OutlinedButton(onClick = { runDetectSenders() }) {
-                        Text("اسکن صندوق پیامک")
-                    }
-                } else if (detected.isEmpty()) {
-                    Text("فرستنده‌ای در صندوق پیامک پیدا نشد.")
-                    OutlinedButton(onClick = { runDetectSenders() }) {
-                        Text("اسکن دوباره")
-                    }
-                } else {
-                    detected.forEach { sender ->
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                sender.sender,
-                                modifier = Modifier.weight(1f)
-                            )
-                            Surface(
-                                shape = RoundedCornerShape(16.dp),
-                                color = MaterialTheme.colorScheme.surfaceVariant
-                            ) {
-                                Text(
-                                    "${sender.count} پیامک",
-                                    style = MaterialTheme.typography.labelLarge,
-                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
-                                )
-                            }
-                        }
-                    }
-                    OutlinedButton(onClick = { runDetectSenders() }) {
-                        Text("اسکن دوباره")
-                    }
-                }
-                if (smsDetectMessage.isNotEmpty()) {
-                    Text(smsDetectMessage, style = MaterialTheme.typography.bodySmall)
-                }
-            }
-        }
-        if (patterns.isEmpty()) {
-            item { Text("الگوی سفارشی هنوز ثبت نشده است.") }
-        } else {
-            patterns.forEach { pattern ->
-                item {
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(20.dp),
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
-                    ) {
-                        Column(
-                            Modifier.padding(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Text(pattern.sender, style = MaterialTheme.typography.titleMedium)
-                            if (pattern.keywords.isNotBlank()) {
-                                Text("کلمات کلیدی: ${pattern.keywords}")
-                            }
-                            Text(if (pattern.isIncome) "درآمد" else "هزینه")
-                            if (!pattern.isFinancial) {
-                                Text("غیرمالی — ثبت خودکار نمی‌شود")
-                            }
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                TextButton(
-                                    onClick = {
-                                        scope.launch {
-                                            repository.deletePattern(pattern.id)
-                                            patterns = repository.getPatterns()
-                                        }
-                                    }
-                                ) {
-                                    Text("حذف")
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        item {
-            Text(
-                "پارس‌های بانک‌های عضو شتاب فعال می‌باشند.",
-                style = MaterialTheme.typography.bodySmall
+            ManagementCard(
+                title = "مدیریت الگوهای پیامک",
+                subtitle = "فرستنده‌های شناسایی‌شده و قوانین ثبت پیامک",
+                icon = Icons.Default.Sms,
+                onClick = { showPatternSheet = true }
             )
         }
         item {
@@ -1702,10 +1613,13 @@ fun ManagementScreen(
             }
         )
     }
-    if (showPatternDialog) {
-        SmsPatternDialog(
-            onDismiss = { showPatternDialog = false },
-            onSave = { sender, keywords, isFinancial, isIncome ->
+    if (showPatternSheet) {
+        SmsPatternSheet(
+            patterns = patterns,
+            detectedSenders = detectedSenders,
+            smsDetectMessage = smsDetectMessage,
+            onScanSenders = { runDetectSenders() },
+            onAddPattern = { sender, keywords, isFinancial, isIncome ->
                 scope.launch {
                     repository.addPattern(
                         SmsPatternEntity(
@@ -1717,9 +1631,28 @@ fun ManagementScreen(
                         )
                     )
                     patterns = repository.getPatterns()
-                    showPatternDialog = false
                 }
-            }
+            },
+            onEditPattern = { pattern, sender, keywords, isFinancial, isIncome ->
+                scope.launch {
+                    repository.addPattern(
+                        pattern.copy(
+                            sender = sender,
+                            keywords = keywords,
+                            isFinancial = isFinancial,
+                            isIncome = isIncome
+                        )
+                    )
+                    patterns = repository.getPatterns()
+                }
+            },
+            onDeletePattern = { pattern ->
+                scope.launch {
+                    repository.deletePattern(pattern.id)
+                    patterns = repository.getPatterns()
+                }
+            },
+            onDismiss = { showPatternSheet = false }
         )
     }
 }
@@ -3057,74 +2990,6 @@ private fun AssetDialog(
 }
 
 @Composable
-private fun SmsPatternDialog(
-    onDismiss: () -> Unit,
-    onSave: (sender: String, keywords: String, isFinancial: Boolean, isIncome: Boolean) -> Unit
-) {
-    var sender by remember { mutableStateOf("") }
-    var keywords by remember { mutableStateOf("") }
-    var isFinancial by remember { mutableStateOf(true) }
-    var isIncome by remember { mutableStateOf(false) }
-    val valid = sender.isNotBlank()
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        shape = RoundedCornerShape(28.dp),
-        containerColor = if (MaterialTheme.colorScheme.background.luminance() < 0.5f) Color(0xFF1E1438) else MaterialTheme.colorScheme.surface,
-        title = { Text("تعریف الگوی جدید", fontWeight = FontWeight.Bold) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                TextField(
-                    value = sender,
-                    onValueChange = { sender = it },
-                    label = { Text("نام فرستنده یا سرشماره") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                TextField(
-                    value = keywords,
-                    onValueChange = { keywords = it },
-                    label = { Text("کلمات کلیدی (با کاما جدا کنید)") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                Text("مثل: برداشت، خرید", style = MaterialTheme.typography.bodySmall)
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Switch(checked = isFinancial, onCheckedChange = { isFinancial = it })
-                    Text("آیا این پیامک تراکنش مالی است؟")
-                }
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FilterChip(
-                        selected = !isIncome,
-                        onClick = { isIncome = false },
-                        label = { Text("هزینه") }
-                    )
-                    FilterChip(
-                        selected = isIncome,
-                        onClick = { isIncome = true },
-                        label = { Text("درآمد") }
-                    )
-                }
-            }
-        },
-        confirmButton = {
-            Button(
-                onClick = { onSave(sender.trim(), keywords.trim(), isFinancial, isIncome) },
-                enabled = valid
-            ) {
-                Text("ذخیره الگو")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("انصراف")
-            }
-        }
-    )
-}
-
 /** واحدهای هر نوع دارایی در فرم افزودن دارایی. */
 private fun assetUnitsFor(type: String): List<String> = when (type) {
     "طلا" -> listOf("گرم", "سوت", "مثقال", "اونس")

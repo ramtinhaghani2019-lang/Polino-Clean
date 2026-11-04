@@ -54,10 +54,19 @@ import androidx.compose.ui.unit.dp
 import com.polino.app.BuildConfig
 import com.polino.app.backup.BackupSheet
 import com.polino.app.data.BudgetRepository
+import com.polino.app.data.SmsPatternEntity
 import com.polino.app.data.TransactionRepository
 import com.polino.app.security.SecuritySheet
+import com.polino.app.sms.DetectedSender
 import com.polino.app.sms.SMS_ENABLED_KEY
 import com.polino.app.sms.SMS_PREFS_NAME
+import com.polino.app.sms.SmsPatternSheet
+import com.polino.app.sms.detectSenders
+import com.polino.app.sms.scanInboxSms
+import java.util.UUID
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.core.content.ContextCompat
 import kotlinx.coroutines.launch
 
 private val SettingsDark = Color(0xFF1E1438)
@@ -92,6 +101,49 @@ internal fun SettingsScreen(
     var showBackupSheet by remember { mutableStateOf(false) }
     var showAboutSheet by remember { mutableStateOf(false) }
     var showContactSheet by remember { mutableStateOf(false) }
+    var showPatternSheet by remember { mutableStateOf(false) }
+    var patterns by remember { mutableStateOf<List<SmsPatternEntity>>(emptyList()) }
+    var detectedSenders by remember { mutableStateOf<List<DetectedSender>?>(null) }
+    var smsDetectMessage by remember { mutableStateOf("") }
+    var pendingInboxAction by remember { mutableStateOf("") }
+    val readSmsPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (!granted) {
+            smsDetectMessage = "دسترسی خواندن پیامک داده نشده است."
+            pendingInboxAction = ""
+            return@rememberLauncherForActivityResult
+        }
+        if (pendingInboxAction == "detect") {
+            pendingInboxAction = ""
+            scope.launch {
+                detectedSenders = detectSenders(scanInboxSms(context))
+                smsDetectMessage = if (detectedSenders.isNullOrEmpty()) {
+                    "فرستنده‌ای در صندوق پیامک پیدا نشد."
+                } else {
+                    ""
+                }
+            }
+        }
+    }
+    fun runDetectSenders() {
+        if (ContextCompat.checkSelfPermission(
+                context, Manifest.permission.READ_SMS
+            ) == PackageManager.PERMISSION_GRANTED
+        ) {
+            scope.launch {
+                detectedSenders = detectSenders(scanInboxSms(context))
+                smsDetectMessage = if (detectedSenders.isNullOrEmpty()) {
+                    "فرستنده‌ای در صندوق پیامک پیدا نشد."
+                } else {
+                    ""
+                }
+            }
+        } else {
+            pendingInboxAction = "detect"
+            readSmsPermissionLauncher.launch(Manifest.permission.READ_SMS)
+        }
+    }
     var smsEnabled by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf("") }
     var error by remember { mutableStateOf("") }
@@ -99,6 +151,7 @@ internal fun SettingsScreen(
     LaunchedEffect(Unit) {
         smsEnabled = context.getSharedPreferences(SMS_PREFS_NAME, Context.MODE_PRIVATE)
             .getBoolean(SMS_ENABLED_KEY, false)
+        patterns = repository.getPatterns()
     }
 
     val xlsxLauncher = rememberLauncherForActivityResult(
@@ -206,7 +259,7 @@ internal fun SettingsScreen(
                         title = "مدیریت الگوهای پیامک",
                         subtitle = "فرستنده‌های شناسایی‌شده و قوانین ثبت پیامک",
                         icon = Icons.Default.List,
-                        onClick = onNavigateToManagement
+                        onClick = { showPatternSheet = true }
                     )
                 }
                 item {
@@ -249,6 +302,48 @@ internal fun SettingsScreen(
     }
     if (showContactSheet) {
         ContactSheet(onDismiss = { showContactSheet = false })
+    }
+    if (showPatternSheet) {
+        SmsPatternSheet(
+            patterns = patterns,
+            detectedSenders = detectedSenders,
+            smsDetectMessage = smsDetectMessage,
+            onScanSenders = { runDetectSenders() },
+            onAddPattern = { sender, keywords, isFinancial, isIncome ->
+                scope.launch {
+                    repository.addPattern(
+                        SmsPatternEntity(
+                            id = UUID.randomUUID().toString(),
+                            sender = sender,
+                            keywords = keywords,
+                            isFinancial = isFinancial,
+                            isIncome = isIncome
+                        )
+                    )
+                    patterns = repository.getPatterns()
+                }
+            },
+            onEditPattern = { pattern, sender, keywords, isFinancial, isIncome ->
+                scope.launch {
+                    repository.addPattern(
+                        pattern.copy(
+                            sender = sender,
+                            keywords = keywords,
+                            isFinancial = isFinancial,
+                            isIncome = isIncome
+                        )
+                    )
+                    patterns = repository.getPatterns()
+                }
+            },
+            onDeletePattern = { pattern ->
+                scope.launch {
+                    repository.deletePattern(pattern.id)
+                    patterns = repository.getPatterns()
+                }
+            },
+            onDismiss = { showPatternSheet = false }
+        )
     }
 }
 
