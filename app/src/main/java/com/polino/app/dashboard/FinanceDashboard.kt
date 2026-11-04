@@ -4,6 +4,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.shape.CircleShape
@@ -58,6 +59,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
@@ -69,6 +71,7 @@ import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -148,7 +151,8 @@ private fun relativeJalaliDay(millis: Long): String {
 fun FinanceDashboard(
     onNavigateToReports: () -> Unit = {},
     onNavigateToManagement: () -> Unit = {},
-    onNavigateToEntry: () -> Unit = {}
+    onNavigateToEntry: () -> Unit = {},
+    onNavigateToTransactions: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val repository = remember { TransactionRepository(context) }
@@ -640,7 +644,7 @@ fun FinanceDashboard(
                             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                             color = Color.White
                         )
-                        TextButton(onClick = onNavigateToReports) {
+                        TextButton(onClick = onNavigateToTransactions) {
                             Text(
                                 "مشاهده همه ›",
                                 style = MaterialTheme.typography.titleSmall,
@@ -664,51 +668,10 @@ fun FinanceDashboard(
                             if (index > 0) {
                                 HorizontalDivider(color = HeroBorder, thickness = 1.dp)
                             }
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable { editing = transaction; showDialog = true }
-                                    .padding(vertical = 12.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(12.dp)
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(40.dp)
-                                        .clip(CircleShape)
-                                        .background(
-                                            if (transaction.income) Color(0xFF1E3A2F)
-                                            else Color(0xFF3D1F1F)
-                                        ),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text(
-                                        if (transaction.income) "↙" else "↗",
-                                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                                        color = if (transaction.income) PergarIncome else PergarExpense
-                                    )
-                                }
-                                Column(
-                                    Modifier.weight(1f),
-                                    verticalArrangement = Arrangement.spacedBy(4.dp)
-                                ) {
-                                    Text(
-                                        transaction.title,
-                                        style = MaterialTheme.typography.titleMedium,
-                                        color = Color.White
-                                    )
-                                    Text(
-                                        "${relativeJalaliDay(transaction.dateMillis)} • ${transaction.category}",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = HeroMuted
-                                    )
-                                }
-                                Text(
-                                    (if (transaction.income) "+" else "−") + money(transaction.amount),
-                                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                                    color = if (transaction.income) PergarIncome else PergarExpense
-                                )
-                            }
+                            TransactionRow(
+                                transaction = transaction,
+                                onClick = { editing = transaction; showDialog = true }
+                            )
                         }
                     }
                 }
@@ -795,6 +758,315 @@ fun FinanceDashboard(
     }
 
 
+}
+
+/** ردیف تراکنش عین کارت «آخرین تراکنش‌ها» خانه: چیپ فلش، عنوان، روز • دسته، مبلغ علامت‌دار. */
+@Composable
+private fun TransactionRow(
+    transaction: MoneyTransaction,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() }
+            .padding(vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(40.dp)
+                .clip(CircleShape)
+                .background(
+                    if (transaction.income) Color(0xFF1E3A2F)
+                    else Color(0xFF3D1F1F)
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                if (transaction.income) "↙" else "↗",
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                color = if (transaction.income) PergarIncome else PergarExpense
+            )
+        }
+        Column(
+            Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Text(
+                transaction.title,
+                style = MaterialTheme.typography.titleMedium,
+                color = Color.White
+            )
+            Text(
+                "${relativeJalaliDay(transaction.dateMillis)} • ${transaction.category}",
+                style = MaterialTheme.typography.bodySmall,
+                color = HeroMuted
+            )
+        }
+        Text(
+            (if (transaction.income) "+" else "−") + money(transaction.amount),
+            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+            color = if (transaction.income) PergarIncome else PergarExpense
+        )
+    }
+}
+
+/**
+ * صفحه «تراکنش‌ها»: فهرست کامل همه تراکنش‌ها (همه حساب‌ها، جدیدترین اول)
+ * با جستجو در عنوان/یادداشت/فروشگاه و فیلتر نوع و حساب — مقصد «مشاهده همه»
+ * خانه. ضربه روی ردیف همان دیالوگ ویرایش خانه (TransactionDialog) را باز
+ * می‌کند؛ منطق ویرایش تکراری نشده است. بدون تغییر داده و بدون مهاجرت.
+ */
+@Composable
+fun TransactionsScreen(onBack: () -> Unit) {
+    val context = LocalContext.current
+    val repository = remember { TransactionRepository(context) }
+    var transactions by remember { mutableStateOf<List<MoneyTransaction>>(emptyList()) }
+    var accounts by remember { mutableStateOf<List<AccountEntity>>(emptyList()) }
+    var categories by remember { mutableStateOf<List<CategoryEntity>>(emptyList()) }
+    var error by remember { mutableStateOf("") }
+    var query by remember { mutableStateOf("") }
+    // ۰ = همه، ۱ = درآمد، ۲ = هزینه.
+    var typeFilter by remember { mutableStateOf(0) }
+    // null = همه حساب‌ها، وگرنه شناسه حساب.
+    var accountFilter by remember { mutableStateOf<String?>(null) }
+    var showDialog by remember { mutableStateOf(false) }
+    var editing by remember { mutableStateOf<MoneyTransaction?>(null) }
+
+    LaunchedEffect(Unit) {
+        runCatching {
+            repository.migrateIfNeeded()
+            transactions = repository.getAll()
+            accounts = repository.getAccounts()
+            categories = repository.getCategories()
+        }.onFailure {
+            error = "بارگذاری اطلاعات ناموفق بود. دوباره تلاش کنید."
+        }
+    }
+
+    val filtered = remember(transactions, query, typeFilter, accountFilter) {
+        val q = normalizeDigits(query.trim())
+        transactions
+            .filter { typeFilter == 0 || it.income == (typeFilter == 1) }
+            .filter { accountFilter == null || it.accountId == accountFilter }
+            .filter {
+                q.isEmpty() ||
+                    normalizeDigits(it.title).contains(q, ignoreCase = true) ||
+                    normalizeDigits(it.note).contains(q, ignoreCase = true) ||
+                    normalizeDigits(it.store).contains(q, ignoreCase = true)
+            }
+            .sortedByDescending { it.dateMillis }
+    }
+
+    // پس‌زمینه محو آبی→بنفش در تم تیره، عین صفحه خانه؛ تم روشن پس‌زمینه تم را نگه می‌دارد.
+    val isDarkPage = MaterialTheme.colorScheme.background.luminance() < 0.5f
+    val pageGradient = remember {
+        Brush.linearGradient(
+            colors = listOf(Color(0xFF12377E), Color(0xFF7C3AED), Color(0xFF150F2E)),
+            start = Offset.Zero,
+            end = Offset.Infinite
+        )
+    }
+    val pageBackground = if (isDarkPage) Modifier.background(pageGradient) else Modifier
+
+    Column(modifier = Modifier.fillMaxSize().then(pageBackground)) {
+        Row(
+            modifier = Modifier.padding(20.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Button(onClick = onBack) { Text("بازگشت") }
+            Text("تراکنش‌ها", style = MaterialTheme.typography.headlineSmall)
+        }
+        if (error.isNotEmpty()) {
+            Text(
+                error,
+                color = MaterialTheme.colorScheme.error,
+                modifier = Modifier.padding(horizontal = 20.dp)
+            )
+        }
+        Column(
+            modifier = Modifier.padding(horizontal = 20.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            OutlinedTextField(
+                value = query,
+                onValueChange = { query = it },
+                label = { Text("جستجو در عنوان، یادداشت و فروشگاه") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Row(
+                modifier = Modifier.horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                listOf("همه", "درآمد", "هزینه").forEachIndexed { index, label ->
+                    FilterChip(
+                        selected = typeFilter == index,
+                        onClick = { typeFilter = index },
+                        label = { Text(label) },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = MaterialTheme.colorScheme.primary
+                        )
+                    )
+                }
+            }
+            Row(
+                modifier = Modifier.horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                FilterChip(
+                    selected = accountFilter == null,
+                    onClick = { accountFilter = null },
+                    label = { Text("همه حساب‌ها") },
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = MaterialTheme.colorScheme.primary
+                    )
+                )
+                accounts.forEach { account ->
+                    FilterChip(
+                        selected = accountFilter == account.id,
+                        onClick = { accountFilter = account.id },
+                        label = { Text(account.name) },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = MaterialTheme.colorScheme.primary
+                        )
+                    )
+                }
+            }
+        }
+        Spacer(Modifier.height(16.dp))
+        Card(
+            modifier = Modifier
+                .weight(1f)
+                .padding(horizontal = 20.dp)
+                .padding(bottom = 20.dp),
+            shape = RoundedCornerShape(28.dp),
+            colors = CardDefaults.cardColors(containerColor = PergarCard),
+            border = BorderStroke(1.dp, HeroBorder)
+        ) {
+            if (filtered.isEmpty()) {
+                Column(
+                    Modifier.padding(20.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    if (transactions.isEmpty()) {
+                        Text(
+                            "هنوز تراکنشی ثبت نشده است.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = HeroMuted
+                        )
+                        Text(
+                            "با دکمه + پایین صفحه اولین تراکنش را ثبت کنید.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = HeroMuted
+                        )
+                    } else {
+                        Text(
+                            "تراکنشی با این جستجو و فیلترها پیدا نشد.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = HeroMuted
+                        )
+                    }
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier.weight(1f),
+                    contentPadding = PaddingValues(20.dp)
+                ) {
+                    itemsIndexed(filtered, key = { _, item -> item.id }) { index, transaction ->
+                        if (index > 0) {
+                            HorizontalDivider(color = HeroBorder, thickness = 1.dp)
+                        }
+                        TransactionRow(
+                            transaction = transaction,
+                            onClick = { editing = transaction; showDialog = true }
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    if (showDialog) {
+        TransactionDialog(
+            initial = editing,
+            accounts = accounts,
+            initialAccountId = editing?.accountId ?: "main",
+            expenseCategories = expenseCategoryNames(categories),
+            incomeCategories = incomeCategoryNames(categories),
+            onDismiss = { showDialog = false; editing = null; error = "" },
+            onSave = { title, amount, isIncome, category, dateMillis, note, store, accountId ->
+                val transaction = if (editing == null) {
+                    MoneyTransaction(
+                        id = UUID.randomUUID().toString(),
+                        title = title,
+                        amount = amount,
+                        income = isIncome,
+                        category = category,
+                        dateMillis = dateMillis,
+                        accountId = accountId,
+                        note = note,
+                        store = store
+                    )
+                } else {
+                    editing!!.copy(
+                        title = title,
+                        amount = amount,
+                        income = isIncome,
+                        category = category,
+                        dateMillis = dateMillis,
+                        accountId = accountId,
+                        note = note,
+                        store = store
+                    )
+                }
+                val ok = runCatching {
+                    repository.upsert(transaction)
+                    transactions = repository.getAll()
+                }.isSuccess
+                if (ok) {
+                    showDialog = false
+                    editing = null
+                    error = ""
+                } else {
+                    error = "ذخیره اطلاعات ناموفق بود. دوباره تلاش کنید."
+                }
+                ok
+            },
+            onDelete = { target ->
+                val ok = runCatching {
+                    repository.delete(target.id)
+                    transactions = repository.getAll()
+                }.isSuccess
+                if (ok) {
+                    showDialog = false
+                    editing = null
+                } else {
+                    error = "حذف اطلاعات ناموفق بود. دوباره تلاش کنید."
+                    showDialog = false
+                    editing = null
+                }
+                ok
+            },
+            onDuplicate = { source ->
+                val copy = source.copy(id = UUID.randomUUID().toString())
+                val ok = runCatching {
+                    repository.upsert(copy)
+                    transactions = repository.getAll()
+                }.isSuccess
+                if (ok) {
+                    showDialog = false
+                    editing = null
+                } else {
+                    error = "تکثیر اطلاعات ناموفق بود. دوباره تلاش کنید."
+                }
+                ok
+            }
+        )
+    }
 }
 
 private fun compactAxisLabel(value: Long): String = when {

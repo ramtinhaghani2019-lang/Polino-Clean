@@ -50,6 +50,7 @@ import com.polino.app.dashboard.ManagementScreen
 import com.polino.app.dashboard.RemindersScreen
 import com.polino.app.dashboard.ReportsScreen
 import com.polino.app.dashboard.SmartBudgetScreen
+import com.polino.app.dashboard.TransactionsScreen
 import com.polino.app.testcenter.TestCenterScreen
 import com.polino.app.security.AppLockScreen
 import com.polino.app.security.LOCK_ENABLED_KEY
@@ -115,6 +116,7 @@ private fun PolinoApp(
     var showTestCenter by remember { mutableStateOf(false) }
     var showSmartBudget by remember { mutableStateOf(false) }
     var showReminders by remember { mutableStateOf(false) }
+    var showTransactions by remember { mutableStateOf(false) }
     var showCalculator by remember { mutableStateOf(false) }
     var calculatorAmount by remember { mutableStateOf("") }
 
@@ -130,6 +132,11 @@ private fun PolinoApp(
 
     if (showReminders) {
         RemindersScreen(onBack = { showReminders = false })
+        return
+    }
+
+    if (showTransactions) {
+        TransactionsScreen(onBack = { showTransactions = false })
         return
     }
 
@@ -261,7 +268,8 @@ private fun PolinoApp(
                 Tab.Home -> FinanceDashboard(
                     onNavigateToReports = { tab = Tab.Reports },
                     onNavigateToManagement = { tab = Tab.Management },
-                    onNavigateToEntry = { entryScreen = true }
+                    onNavigateToEntry = { entryScreen = true },
+                    onNavigateToTransactions = { showTransactions = true }
                 )
                 Tab.Calendar -> CalendarScreen()
                 Tab.Management -> ManagementScreen(
