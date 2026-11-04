@@ -15,6 +15,7 @@ import kotlinx.coroutines.launch
  * پیامک‌های بانکی دریافتی را — فقط وقتی کاربر خوانش پیامک را فعال کرده باشد —
  * به تراکنش تبدیل می‌کند. پیامک بدون مبلغ یا جهت قابل تشخیص نادیده گرفته
  * می‌شود و پیامک تکراری (همان فرستنده، مبلغ و زمان) دوباره ثبت نمی‌شود.
+ * متن پیامک ذخیره نمی‌شود؛ یادداشت تراکنشِ ثبت‌شده از پیامک خالی می‌ماند.
  */
 class SmsReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
@@ -49,7 +50,7 @@ class SmsReceiver : BroadcastReceiver() {
                             category = "سایر",
                             dateMillis = sms.timestampMillis,
                             accountId = resolveSmsAccountId(smsLinks, originator),
-                            note = body
+                            note = ""
                         )
                     )
                 }

@@ -10,8 +10,8 @@ import kotlinx.coroutines.withContext
 
 /**
  * یک ردیف از صندوق پیامک دستگاه؛ فقط برای اسکن و شمارش فرستنده‌ها
- * خوانده می‌شود و متن پیامک هرگز جدا از تراکنشِ ثبت‌شده نگه داشته
- * نمی‌شود (رفتار ذخیره‌سازی مثل دریافت زنده باقی می‌ماند).
+ * خوانده می‌شود. متن پیامک فقط در لحظه خواندن برای استخراج مبلغ و جهت
+ * استفاده می‌شود و هرگز به‌عنوان یادداشت تراکنش ذخیره نمی‌شود.
  */
 data class InboxSmsRow(
     val sender: String,
@@ -119,7 +119,7 @@ internal suspend fun rescanInboxSms(context: Context, repository: TransactionRep
             category = "سایر",
             dateMillis = row.timestampMillis,
             accountId = resolveSmsAccountId(smsLinks, row.sender),
-            note = row.body
+            note = ""
         )
         repository.upsert(transaction)
         existing.add(transaction)
