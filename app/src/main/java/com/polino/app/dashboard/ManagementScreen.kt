@@ -351,12 +351,12 @@ fun ManagementScreen(
                 )
                 MiniStat(
                     modifier = Modifier.weight(1f),
-                    label = "تکرارشونده‌ها",
-                    value = recurring.size.toString()
+                    label = "یادآورها",
+                    value = hubReminderCount(installments.size, cheques).toString()
                 )
                 MiniStat(
                     modifier = Modifier.weight(1f),
-                    label = "بودجه‌های این ماه",
+                    label = "بودجه‌بندی",
                     value = budgetCount.toString()
                 )
             }
@@ -414,56 +414,26 @@ fun ManagementScreen(
             }
         }
         item {
-            Card(
-                onClick = { showSecuritySheet = true },
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(20.dp),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
-            ) {
-                Row(
-                    Modifier.padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Icon(Icons.Default.Lock, contentDescription = "امنیت و حریم خصوصی")
-                    Column(Modifier.weight(1f)) {
-                        Text("امنیت و حریم خصوصی", style = MaterialTheme.typography.titleMedium)
-                        Text(
-                            "قفل با پین‌کد، تشخیص چهره / اثر انگشت و بازنشانی کامل",
-                            style = MaterialTheme.typography.bodySmall
-                        )
-                    }
-                }
-            }
+            ManagementCard(
+                title = "امنیت و حریم خصوصی",
+                subtitle = "قفل با پین‌کد، تشخیص چهره / اثر انگشت و بازنشانی کامل",
+                icon = Icons.Default.Lock,
+                onClick = { showSecuritySheet = true }
+            )
         }
         item {
-            Card(
-                onClick = { showBackupSheet = true },
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(20.dp),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
-            ) {
-                Row(
-                    Modifier.padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Icon(Icons.Default.Backup, contentDescription = "پشتیبان‌گیری و دارایی")
-                    Column(Modifier.weight(1f)) {
-                        Text("پشتیبان‌گیری و دارایی", style = MaterialTheme.typography.titleMedium)
-                        Text(
-                            "فهرست پشتیبان‌ها، ساخت، بازیابی و خروجی اکسل",
-                            style = MaterialTheme.typography.bodySmall
-                        )
-                    }
-                }
-            }
+            ManagementCard(
+                title = "پشتیبان‌گیری و دارایی",
+                subtitle = "فهرست پشتیبان‌ها، ساخت، بازیابی و خروجی اکسل",
+                icon = Icons.Default.Backup,
+                onClick = { showBackupSheet = true }
+            )
         }
         item { Text("بخش‌ها", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)) }
         item {
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(20.dp),
+                shape = RoundedCornerShape(28.dp),
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
             ) {
                 Row(
@@ -471,15 +441,32 @@ fun ManagementScreen(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    Icon(Icons.Default.Sms, contentDescription = "خوانش پیامک")
+                    Box(
+                        modifier = Modifier
+                            .size(48.dp)
+                            .background(
+                                color = MaterialTheme.colorScheme.primary,
+                                shape = RoundedCornerShape(16.dp)
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(Icons.Default.Sms, contentDescription = "خوانش پیامک", tint = Color.White)
+                    }
                     Column(Modifier.weight(1f)) {
-                        Text("خوانش پیامک", style = MaterialTheme.typography.titleMedium)
+                        Text(
+                            "خوانش پیامک",
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                        )
                         Text(
                             if (smsEnabled) "فعال — تراکنش‌های بانکی به‌صورت خودکار ثبت می‌شوند"
                             else "خاموش — برای ثبت خودکار، دسترسی خواندن پیامک لازم است",
                             style = MaterialTheme.typography.bodySmall
                         )
                     }
+                    HubStatusChip(
+                        text = if (smsEnabled) "فعال" else "خاموش",
+                        positive = smsEnabled
+                    )
                     Switch(
                         checked = smsEnabled,
                         onCheckedChange = { checked ->
@@ -523,7 +510,8 @@ fun ManagementScreen(
                 title = "مدیریت الگوهای پیامک",
                 subtitle = "فرستنده‌های شناسایی‌شده و قوانین ثبت پیامک",
                 icon = Icons.Default.Sms,
-                onClick = { showPatternSheet = true }
+                onClick = { showPatternSheet = true },
+                statusChip = "${patterns.size} الگو"
             )
         }
         item {
@@ -2996,12 +2984,14 @@ private fun ManagementCard(
     title: String,
     subtitle: String,
     icon: ImageVector,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    statusChip: String? = null,
+    statusChipPositive: Boolean = true
 ) {
     Card(
         onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
+        shape = RoundedCornerShape(28.dp),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
     ) {
         Row(
@@ -3009,13 +2999,45 @@ private fun ManagementCard(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Icon(icon, contentDescription = title)
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
+                    .background(
+                        color = MaterialTheme.colorScheme.primary,
+                        shape = RoundedCornerShape(16.dp)
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(icon, contentDescription = title, tint = Color.White)
+            }
             Column(Modifier.weight(1f)) {
-                Text(title, style = MaterialTheme.typography.titleMedium)
+                Text(
+                    title,
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                )
                 Text(subtitle, style = MaterialTheme.typography.bodySmall)
+            }
+            if (statusChip != null) {
+                HubStatusChip(text = statusChip, positive = statusChipPositive)
             }
             Icon(Icons.Default.ChevronLeft, contentDescription = "باز کردن")
         }
+    }
+}
+
+/** Small status pill for hub rows, e.g. «فعال» or «۳ الگو». */
+@Composable
+private fun HubStatusChip(text: String, positive: Boolean) {
+    Surface(
+        shape = RoundedCornerShape(12.dp),
+        color = if (positive) Color(0xFFDCFCE7) else MaterialTheme.colorScheme.surfaceVariant,
+        contentColor = if (positive) Color(0xFF166534) else MaterialTheme.colorScheme.onSurfaceVariant
+    ) {
+        Text(
+            text,
+            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+        )
     }
 }
 
