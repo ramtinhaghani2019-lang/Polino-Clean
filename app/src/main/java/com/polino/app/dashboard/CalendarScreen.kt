@@ -36,7 +36,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.polino.app.data.EventEntity
 import com.polino.app.data.MoneyTransaction
@@ -156,9 +158,9 @@ fun CalendarScreen() {
                 }
                 Text(
                     JalaliDate.jalaliMonthDisplay(selectedYearMonth),
-                    style = MaterialTheme.typography.titleMedium
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                 )
-                Button(
+                OutlinedButton(
                     onClick = { goToMonth(nextJalaliYearMonth(selectedYearMonth)) },
                     enabled = selectedYearMonth != currentMonth
                 ) {
@@ -167,20 +169,27 @@ fun CalendarScreen() {
             }
         }
         item {
-            Row(modifier = Modifier.fillMaxWidth()) {
-                Weekdays.forEach { day ->
-                    Text(
-                        day,
-                        modifier = Modifier.weight(1f),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                    )
-                }
-            }
-        }
-        item {
-            val cells: List<Int?> = List(firstOffset) { null } + (1..daysInMonth).toList()
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(28.dp),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+            ) {
+                Column(
+                    Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Row(modifier = Modifier.fillMaxWidth()) {
+                        Weekdays.forEach { day ->
+                            Text(
+                                day,
+                                modifier = Modifier.weight(1f),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                            )
+                        }
+                    }
+                    val cells: List<Int?> = List(firstOffset) { null } + (1..daysInMonth).toList()
             val weeks = cells.chunked(7).map { week ->
                 if (week.size < 7) week + List(7 - week.size) { null } else week
             }
@@ -198,10 +207,16 @@ fun CalendarScreen() {
                                     Box(Modifier.size(52.dp))
                                 } else {
                                     val isSelected = day == selectedDay
+                                    val isToday = day == todayJalaliDay() && selectedYearMonth == currentMonth
                                     val marks = dayMarks[day]
                                     Column(
                                         modifier = Modifier
                                             .clip(RoundedCornerShape(12.dp))
+                                            .border(
+                                                if (isToday && !isSelected) BorderStroke(1.dp, Color(0xFFA855F7))
+                                                else BorderStroke(0.dp, Color.Transparent),
+                                                RoundedCornerShape(12.dp)
+                                            )
                                             .background(
                                                 if (isSelected) Color(0xFFA855F7)
                                                 else Color.Transparent
@@ -253,13 +268,20 @@ fun CalendarScreen() {
                     }
                 }
             }
+                }
+            }
         }
         item {
+            // تم تیره: کارت تیره با بوردر بنفش؛ تم روشن: کارت روشن با بوردر بنفش.
+            val isDarkDay = MaterialTheme.colorScheme.background.luminance() < 0.5f
+            val dayContainer = if (isDarkDay) Color(0xFF1E1438) else MaterialTheme.colorScheme.surface
+            val dayBorder = if (isDarkDay) Color(0xFF3D3368) else MaterialTheme.colorScheme.outline
+            val dayTitle = if (isDarkDay) Color.White else MaterialTheme.colorScheme.onSurface
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFF1E1438)),
-                border = BorderStroke(1.dp, Color(0xFF3D3368))
+                shape = RoundedCornerShape(28.dp),
+                colors = CardDefaults.cardColors(containerColor = dayContainer),
+                border = BorderStroke(1.dp, dayBorder)
             ) {
                 Column(
                     Modifier.padding(20.dp),
@@ -268,7 +290,7 @@ fun CalendarScreen() {
                     Text(
                         "${weekdayName(jy, jm, selectedDay)} $selectedDay ${JalaliDate.jalaliMonthDisplay(selectedYearMonth)}",
                         style = MaterialTheme.typography.titleMedium,
-                        color = Color.White
+                        color = dayTitle
                     )
                     Text(
                         "مجموع درآمد: ${money(dayIncome)}",
@@ -287,7 +309,7 @@ fun CalendarScreen() {
                 }
             }
         }
-        item { Text("تراکنش‌های این روز", style = MaterialTheme.typography.titleMedium) }
+        item { Text("تراکنش‌های این روز", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)) }
         if (dayTransactions.isEmpty()) {
             item { Text("در این روز تراکنشی ثبت نشده است.") }
         }
@@ -324,7 +346,7 @@ fun CalendarScreen() {
                 }
             }
         }
-        item { Text("رویدادهای این روز", style = MaterialTheme.typography.titleMedium) }
+        item { Text("رویدادهای این روز", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)) }
         item {
             Button(onClick = { showEventDialog = true }) {
                 Text("رویداد جدید")
