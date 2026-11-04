@@ -80,6 +80,8 @@ import com.polino.app.data.isTaskOverdue
 import com.polino.app.data.unsettledTotals
 import com.polino.app.data.MoneyTransaction
 import com.polino.app.data.dongiShares
+import com.polino.app.data.DongiMember
+import com.polino.app.data.dongiSettlements
 import com.polino.app.data.installmentMonthlyAmount
 import com.polino.app.data.installmentProgressFraction
 import com.polino.app.data.RecurringEntity
@@ -660,11 +662,15 @@ fun ManagementScreen(
         }
         item { Text("محاسبه دنگی", style = MaterialTheme.typography.titleMedium) }
         item {
-            var dongiAmountText by remember { mutableStateOf("") }
-            var dongiPeople by remember { mutableStateOf(2) }
+            var dongiMembers by remember {
+                mutableStateOf(
+                    listOf(DongiMember("من", 0L), DongiMember("نفر ۲", 0L))
+                )
+            }
             var dongiSaved by remember { mutableStateOf(false) }
-            val dongiTotal = normalizeDigits(dongiAmountText).toLongOrNull() ?: 0L
-            val shares = dongiShares(dongiTotal, dongiPeople)
+            val dongiTotal = dongiMembers.sumOf { it.paid.coerceAtLeast(0L) }
+            val dongiSharesList = dongiShares(dongiTotal, dongiMembers.size)
+            val dongiSettlementsList = dongiSettlements(dongiMembers)
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(20.dp),
@@ -675,46 +681,143 @@ fun ManagementScreen(
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     Text(
-                        "هزینه مشترک را بین نفرات تقسیم کنید؛ باقیمانده یکی‌یکی به نفرات اول می‌رسد.",
+                        "مبلغی که هر نفر پرداخته را وارد کنید تا سهم مساوی و تسویه‌ها حساب شود؛ باقیمانده یکی‌یکی به نفرات اول می‌رسد.",
                         style = MaterialTheme.typography.bodySmall
                     )
-                    TextField(
-                        value = dongiAmountText,
-                        onValueChange = { dongiAmountText = it; dongiSaved = false },
-                        label = { Text("مبلغ کل (تومان)") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
+                    Text(
+                        "جمع کل هزینه‌ها: ${money(dongiTotal)}",
+                        style = MaterialTheme.typography.titleMedium
                     )
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Text("تعداد نفرات:")
-                        Button(
-                            onClick = {
-                                if (dongiPeople > 1) dongiPeople--
-                                dongiSaved = false
-                            }
-                        ) { Text("−") }
-                        Text("$dongiPeople نفر", style = MaterialTheme.typography.titleMedium)
-                        Button(
-                            onClick = {
-                                if (dongiPeople < 50) dongiPeople++
-                                dongiSaved = false
-                            }
-                        ) { Text("+") }
-                    }
-                    if (dongiTotal > 0 && shares.isNotEmpty()) {
-                        val minShare = shares.min()
-                        val maxShare = shares.max()
-                        Text(
+                    Text(
+                        if (dongiSharesList.isEmpty()) {
+                            "${dongiMembers.size} نفر"
+                        } else {
+                            val minShare = dongiSharesList.min()
+                            val maxShare = dongiSharesList.max()
                             if (minShare == maxShare) {
-                                "سهم هر نفر: ${money(minShare)}"
+                                "${dongiMembers.size} نفر · سهم مساوی هر نفر: ${money(minShare)}"
                             } else {
-                                "سهم هر نفر: ${money(minShare)} تا ${money(maxShare)}"
-                            },
-                            style = MaterialTheme.typography.titleMedium
-                        )
+                                "${dongiMembers.size} نفر · سهم مساوی هر نفر: ${money(minShare)} تا ${money(maxShare)}"
+                            }
+                        },
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Text(
+                        "تعداد تسویه‌ها: ${dongiSettlementsList.size}",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Text("اعضای گروه و مبالغ پرداختی", style = MaterialTheme.typography.titleMedium)
+                    dongiMembers.forEachIndexed { index, member ->
+                        val share = dongiSharesList.getOrNull(index) ?: 0L
+                        val balance = member.paid.coerceAtLeast(0L) - share
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(16.dp),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+                        ) {
+                            Column(
+                                Modifier.padding(12.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    TextField(
+                                        value = member.name,
+                                        onValueChange = { newName ->
+                                            dongiMembers = dongiMembers.toMutableList().also {
+                                                it[index] = member.copy(name = newName)
+                                            }
+                                            dongiSaved = false
+                                        },
+                                        label = { Text("نام شخص") },
+                                        singleLine = true,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                    TextButton(
+                                        onClick = {
+                                            dongiMembers = dongiMembers.filterIndexed { i, _ -> i != index }
+                                            dongiSaved = false
+                                        }
+                                    ) { Text("حذف") }
+                                }
+                                TextField(
+                                    value = if (member.paid == 0L) "" else member.paid.toString(),
+                                    onValueChange = { raw ->
+                                        val value = normalizeDigits(raw)
+                                            .filter { it.isDigit() }
+                                            .toLongOrNull()?.coerceAtLeast(0L) ?: 0L
+                                        dongiMembers = dongiMembers.toMutableList().also {
+                                            it[index] = member.copy(paid = value)
+                                        }
+                                        dongiSaved = false
+                                    },
+                                    label = { Text("مبلغ پرداختی (تومان)") },
+                                    singleLine = true,
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    listOf(
+                                        50_000L to "+۵۰ هزار",
+                                        100_000L to "+۱۰۰ هزار",
+                                        500_000L to "+۵۰۰ هزار"
+                                    ).forEach { (quick, label) ->
+                                        FilterChip(
+                                            selected = false,
+                                            onClick = {
+                                                dongiMembers = dongiMembers.toMutableList().also {
+                                                    it[index] = member.copy(paid = member.paid + quick)
+                                                }
+                                                dongiSaved = false
+                                            },
+                                            label = { Text(label) }
+                                        )
+                                    }
+                                }
+                                Text("سهم: ${money(share)}", style = MaterialTheme.typography.bodyMedium)
+                                Text(
+                                    when {
+                                        member.settled -> "تسویه شده"
+                                        balance > 0 -> "باید بگیرد: ${money(balance)}"
+                                        balance < 0 -> "باید بدهد: ${money(-balance)}"
+                                        else -> "متوازن"
+                                    },
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Text("تسویه شده")
+                                    Switch(
+                                        checked = member.settled,
+                                        onCheckedChange = { settled ->
+                                            dongiMembers = dongiMembers.toMutableList().also {
+                                                it[index] = member.copy(settled = settled)
+                                            }
+                                            dongiSaved = false
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    Button(
+                        onClick = {
+                            dongiMembers = dongiMembers + DongiMember("نفر ${dongiMembers.size + 1}", 0L)
+                            dongiSaved = false
+                        }
+                    ) { Text("افزودن شخص") }
+                    Text("تسویه‌حساب و پرداخت‌ها", style = MaterialTheme.typography.titleMedium)
+                    if (dongiSettlementsList.isEmpty()) {
+                        Text("تمام حساب‌ها متوازن است و هیچ پرداختی لازم نیست.")
+                    } else {
+                        dongiSettlementsList.forEach { settlement ->
+                            Text("${settlement.from} به ${settlement.to}: ${money(settlement.amount)}")
+                        }
+                    }
+                    if (dongiMembers.isNotEmpty() && dongiSharesList.isNotEmpty()) {
                         Button(
                             onClick = {
                                 scope.launch {
@@ -722,12 +825,12 @@ fun ManagementScreen(
                                         MoneyTransaction(
                                             id = UUID.randomUUID().toString(),
                                             title = "سهم دنگی",
-                                            amount = shares.first(),
+                                            amount = dongiSharesList.first(),
                                             income = false,
                                             category = "سایر",
                                             dateMillis = System.currentTimeMillis(),
                                             accountId = "main",
-                                            note = "محاسبه دنگی: ${money(dongiTotal)} بین $dongiPeople نفر"
+                                            note = "محاسبه دنگی: ${money(dongiTotal)} بین ${dongiMembers.size} نفر"
                                         )
                                     )
                                     dongiSaved = true

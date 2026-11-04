@@ -17,6 +17,8 @@ import com.polino.app.data.MoneyTransaction
 import com.polino.app.data.SmsPatternEntity
 import com.polino.app.data.assetCurrentValue
 import com.polino.app.data.dongiShares
+import com.polino.app.data.DongiMember
+import com.polino.app.data.dongiSettlements
 import com.polino.app.data.installmentMonthlyAmount
 import com.polino.app.data.installmentProgressFraction
 import com.polino.app.data.isValidAssetInput
@@ -104,6 +106,39 @@ internal object PolinoSelfTests {
             eq(emptyList<Long>(), dongiShares(-1000, 3), "دونگی مبلغ منفی")
             eq(emptyList<Long>(), dongiShares(1000, 0), "دونگی صفر نفر")
             "هر دو ورودی نامعتبر فهرست خالی دادند"
+        },
+        TestCase("دونگی: تسویه نفرات", "تسویه حریصانه بدهکار به بستانکار، با باقیمانده سهم اول") {
+            eq(
+                emptyList<DongiSettlement>(),
+                dongiSettlements(
+                    listOf(
+                        DongiMember("علی", 40000),
+                        DongiMember("رضا", 40000),
+                        DongiMember("سارا", 40000)
+                    )
+                ),
+                "تسویه حالت متوازن"
+            )
+            eq(
+                listOf(DongiSettlement("رضا", "علی", 50000)),
+                dongiSettlements(listOf(DongiMember("علی", 100000), DongiMember("رضا", 0))),
+                "تسویه دو نفر"
+            )
+            eq(
+                listOf(
+                    DongiSettlement("رضا", "علی", 10000),
+                    DongiSettlement("سارا", "علی", 40000)
+                ),
+                dongiSettlements(
+                    listOf(
+                        DongiMember("علی", 90000),
+                        DongiMember("رضا", 30000),
+                        DongiMember("سارا", 0)
+                    )
+                ),
+                "تسویه سه نفر"
+            )
+            "متوازن خالی، دو نفر یک پرداخت، سه نفر دو پرداخت"
         },
         TestCase("اقساط: مبلغ هر قسط", "تقسیم صحیح؛ باقی‌مانده در قسط آخر می‌نشیند") {
             eq(100000L, installmentMonthlyAmount(1_000_000, 10), "قسط ۱٬۰۰۰٬۰۰۰ در ۱۰ ماه")

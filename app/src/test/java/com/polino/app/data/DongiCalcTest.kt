@@ -32,4 +32,73 @@ class DongiCalcTest {
         assertEquals(emptyList<Long>(), dongiShares(-1000, 3))
         assertEquals(emptyList<Long>(), dongiShares(1000, 0))
     }
+
+    @Test
+    fun dongiSettlements_balanced_returnsEmpty() {
+        val members = listOf(
+            DongiMember("علی", 40000),
+            DongiMember("رضا", 40000),
+            DongiMember("سارا", 40000)
+        )
+        assertEquals(emptyList<DongiSettlement>(), dongiSettlements(members))
+    }
+
+    @Test
+    fun dongiSettlements_twoPerson() {
+        val members = listOf(DongiMember("علی", 100000), DongiMember("رضا", 0))
+        assertEquals(
+            listOf(DongiSettlement("رضا", "علی", 50000)),
+            dongiSettlements(members)
+        )
+    }
+
+    @Test
+    fun dongiSettlements_multiPerson() {
+        val members = listOf(
+            DongiMember("علی", 90000),
+            DongiMember("رضا", 30000),
+            DongiMember("سارا", 0)
+        )
+        assertEquals(
+            listOf(
+                DongiSettlement("رضا", "علی", 10000),
+                DongiSettlement("سارا", "علی", 40000)
+            ),
+            dongiSettlements(members)
+        )
+    }
+
+    @Test
+    fun dongiSettlements_remainderGoesToFirst() {
+        val members = listOf(
+            DongiMember("علی", 100001),
+            DongiMember("رضا", 0),
+            DongiMember("سارا", 0)
+        )
+        assertEquals(
+            listOf(
+                DongiSettlement("رضا", "علی", 33333),
+                DongiSettlement("سارا", "علی", 33333)
+            ),
+            dongiSettlements(members)
+        )
+    }
+
+    @Test
+    fun dongiSettlements_settledMemberExcluded() {
+        val members = listOf(
+            DongiMember("علی", 100000),
+            DongiMember("رضا", 0),
+            DongiMember("سارا", 0, settled = true)
+        )
+        assertEquals(
+            listOf(DongiSettlement("رضا", "علی", 33333)),
+            dongiSettlements(members)
+        )
+    }
+
+    @Test
+    fun dongiSettlements_emptyMembers_returnsEmpty() {
+        assertEquals(emptyList<DongiSettlement>(), dongiSettlements(emptyList()))
+    }
 }
