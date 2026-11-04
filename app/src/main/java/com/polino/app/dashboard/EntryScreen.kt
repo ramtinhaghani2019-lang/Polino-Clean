@@ -22,8 +22,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Backspace
-import androidx.compose.material.icons.filled.ExpandLess
-import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -38,7 +36,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -93,13 +90,15 @@ fun EntryScreen(
     var store by remember { mutableStateOf("") }
     var dateMillis by remember { mutableStateOf(System.currentTimeMillis()) }
     var showDatePicker by remember { mutableStateOf(false) }
-    var showExtra by remember { mutableStateOf(false) }
+    var recentTransactions by remember { mutableStateOf<List<MoneyTransaction>>(emptyList()) }
+    var showAllCategories by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf("") }
     val scope = rememberCoroutineScope()
 
     LaunchedEffect(Unit) {
         accounts = runCatching { repository.getAccounts() }.getOrDefault(emptyList())
         categories = runCatching { repository.getCategories() }.getOrDefault(emptyList())
+        recentTransactions = runCatching { repository.getAll() }.getOrDefault(emptyList())
     }
     val pickedType = if (isExpense) CategoryType.EXPENSE else CategoryType.INCOME
     val groupedCategories: List<Pair<CategoryEntity, List<CategoryEntity>>> =
@@ -113,6 +112,9 @@ fun EntryScreen(
         if (selectedCategory == null || selectedCategory !in categoryNames) {
             selectedCategory = categoryNames.firstOrNull()
         }
+    }
+    val suggestions = remember(recentTransactions, isExpense) {
+        deriveEntrySuggestions(recentTransactions, income = !isExpense)
     }
 
     val amount = amountText.toLongOrNull() ?: 0L
@@ -239,6 +241,18 @@ fun EntryScreen(
                             )
                         }
                         Spacer(Modifier.width(8.dp))
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = EntryGold
+                        ) {
+                            Text(
+                                "کیپد فعال",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = Color.White,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                            )
+                        }
+                        Spacer(Modifier.width(8.dp))
                         IconButton(onClick = {
                             val intent =
                                 Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
@@ -347,64 +361,104 @@ fun EntryScreen(
             }
         }
         item {
-            Text("دسته", style = MaterialTheme.typography.titleMedium)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    if (showAllCategories) "همه دسته‌ها" else "پیشنهادها",
+                    style = MaterialTheme.typography.titleMedium
+                )
+                TextButton(onClick = { showAllCategories = !showAllCategories }) {
+                    Text(if (showAllCategories) "پیشنهادها" else "همه دسته‌ها")
+                }
+            }
             Spacer(Modifier.height(8.dp))
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                groupedCategories.forEach { (main, subs) ->
-                    Row(
-                        modifier = Modifier.horizontalScroll(rememberScrollState()),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
+            if (!showAllCategories && suggestions.isNotEmpty()) {
+                Row(
+                    modifier = Modifier.horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    suggestions.forEach { suggestion ->
                         FilterChip(
-                            selected = selectedCategory == main.name,
-                            onClick = { selectedCategory = main.name },
-                            label = { Text(main.name) },
+                            selected = selectedCategory == suggestion.category,
+                            onClick = {
+                                selectedCategory = suggestion.category
+                                amountText = suggestion.amount.toString()
+                                error = ""
+                            },
+                            label = {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        categoryIcon(suggestion.category),
+                                        contentDescription = null
+                                    )
+                                    Spacer(Modifier.width(4.dp))
+                                    Column {
+                                        Text(suggestion.category)
+                                        Text(
+                                            money(suggestion.amount),
+                                            style = MaterialTheme.typography.labelSmall
+                                        )
+                                    }
+                                }
+                            },
                             colors = FilterChipDefaults.filterChipColors(
                                 selectedContainerColor = MaterialTheme.colorScheme.primary,
                                 selectedLabelColor = Color.White
                             )
                         )
-                        subs.forEach { sub ->
+                    }
+                }
+            } else {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    groupedCategories.forEach { (main, subs) ->
+                        Row(
+                            modifier = Modifier.horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
                             FilterChip(
-                                selected = selectedCategory == sub.name,
-                                onClick = { selectedCategory = sub.name },
-                                label = { Text(sub.name) },
+                                selected = selectedCategory == main.name,
+                                onClick = { selectedCategory = main.name },
+                                label = { Text(main.name) },
+                                leadingIcon = {
+                                    Icon(categoryIcon(main.name), contentDescription = null)
+                                },
+                                selectedIcon = {
+                                    Icon(categoryIcon(main.name), contentDescription = null)
+                                },
                                 colors = FilterChipDefaults.filterChipColors(
                                     selectedContainerColor = MaterialTheme.colorScheme.primary,
                                     selectedLabelColor = Color.White
                                 )
                             )
+                            subs.forEach { sub ->
+                                FilterChip(
+                                    selected = selectedCategory == sub.name,
+                                    onClick = { selectedCategory = sub.name },
+                                    label = { Text(sub.name) },
+                                    leadingIcon = {
+                                        Icon(categoryIcon(sub.name), contentDescription = null)
+                                    },
+                                    selectedIcon = {
+                                        Icon(categoryIcon(sub.name), contentDescription = null)
+                                    },
+                                    colors = FilterChipDefaults.filterChipColors(
+                                        selectedContainerColor = MaterialTheme.colorScheme.primary,
+                                        selectedLabelColor = Color.White
+                                    )
+                                )
+                            }
                         }
                     }
                 }
             }
         }
         item {
-            OutlinedCard(
-                onClick = { showExtra = !showExtra },
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(20.dp)
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 14.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        "اطلاعات تکمیلی (تاریخ، بابت، فروشگاه)",
-                        style = MaterialTheme.typography.titleSmall
-                    )
-                    Icon(
-                        if (showExtra) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                        contentDescription = if (showExtra) "بستن" else "باز کردن"
-                    )
-                }
-            }
-        }
-        if (showExtra) {
-            item {
+            Text("اطلاعات تکمیلی", style = MaterialTheme.typography.titleMedium)
+            Spacer(Modifier.height(8.dp))
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 OutlinedTextField(
                     value = title,
                     onValueChange = { title = it },
@@ -412,8 +466,6 @@ fun EntryScreen(
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
-            }
-            item {
                 OutlinedTextField(
                     value = note,
                     onValueChange = { note = it },
@@ -421,8 +473,6 @@ fun EntryScreen(
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
-            }
-            item {
                 OutlinedTextField(
                     value = store,
                     onValueChange = { store = it },
@@ -430,8 +480,6 @@ fun EntryScreen(
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
-            }
-            item {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
