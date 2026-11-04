@@ -3,6 +3,7 @@ package com.polino.app.testcenter
 import com.polino.app.BuildConfig
 import com.polino.app.dashboard.JalaliDate
 import com.polino.app.dashboard.RadarKind
+import com.polino.app.dashboard.RadarInsight
 import com.polino.app.dashboard.money
 import com.polino.app.dashboard.monthTotals
 import com.polino.app.dashboard.normalizeDigits
@@ -216,7 +217,7 @@ internal object PolinoSelfTests {
             val insights = spendingInsights(current, previous)
             eq(1, insights.size, "تعداد بینش کاهش مجموع")
             eq(RadarKind.DOWN, insights[0].kind, "نوع بینش کاهش مجموع")
-            eq(emptyList(), spendingInsights(emptyList(), previous), "بینش ماه خالی")
+            eq(emptyList<RadarInsight>(), spendingInsights(emptyList<MoneyTransaction>(), previous), "بینش ماه خالی")
             "فقط خط کاهش مجموع"
         },
         TestCase("شمسی: تبدیل میلادی و نمایش", "مرزهای تقویم و قالب نمایش تاریخ") {
