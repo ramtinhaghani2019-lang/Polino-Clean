@@ -255,7 +255,9 @@ private fun PolinoApp(
         Box(modifier = Modifier.padding(padding)) {
             when (tab) {
                 Tab.Home -> FinanceDashboard(
-                    onNavigateToReports = { tab = Tab.Reports }
+                    onNavigateToReports = { tab = Tab.Reports },
+                    onNavigateToManagement = { tab = Tab.Management },
+                    onNavigateToEntry = { entryScreen = true }
                 )
                 Tab.Calendar -> CalendarScreen()
                 Tab.Management -> ManagementScreen(

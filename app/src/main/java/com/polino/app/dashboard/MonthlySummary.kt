@@ -133,3 +133,24 @@ internal fun transactionsInPeriod(
     }
     ReportPeriod.MONTHLY -> transactionsInMonth(transactions, yearMonth)
 }
+
+internal data class DayTotal(val day: Int, val income: Long, val expense: Long)
+
+/** جمع درآمد و هزینه هر روز ماه شمسی؛ روزهای بدون تراکنش صفر می‌گیرند. */
+internal fun dailyTotals(monthTransactions: List<MoneyTransaction>, yearMonth: String): List<DayTotal> {
+    val parts = yearMonth.split("-")
+    val jy = parts.getOrNull(0)?.toIntOrNull() ?: return emptyList()
+    val jm = parts.getOrNull(1)?.toIntOrNull() ?: return emptyList()
+    val days = JalaliDate.daysInJalaliMonth(jy, jm)
+    val incomeByDay = LongArray(days + 1)
+    val expenseByDay = LongArray(days + 1)
+    monthTransactions.forEach { tx ->
+        if (tx.dateMillis == 0L) return@forEach
+        val date = Instant.ofEpochMilli(tx.dateMillis).atZone(ZoneId.systemDefault()).toLocalDate()
+        val (ty, tm, td) = JalaliDate.gregorianToJalali(date.year, date.monthValue, date.dayOfMonth)
+        if (ty == jy && tm == jm && td in 1..days) {
+            if (tx.income) incomeByDay[td] += tx.amount else expenseByDay[td] += tx.amount
+        }
+    }
+    return (1..days).map { DayTotal(it, incomeByDay[it], expenseByDay[it]) }
+}

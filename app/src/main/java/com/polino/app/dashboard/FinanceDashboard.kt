@@ -1,6 +1,32 @@
 package com.polino.app.dashboard
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.filled.AccountBalanceWallet
+import androidx.compose.material.icons.filled.Explore
+import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.drawText
+import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.sp
+import java.text.NumberFormat
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
+import java.util.Locale
+import kotlin.math.roundToInt
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
@@ -77,8 +103,6 @@ import com.polino.app.data.incomeCategoryNames
 import kotlinx.coroutines.launch
 import java.util.UUID
 
-private enum class TypeFilter { ALL, INCOME, EXPENSE }
-private enum class SortOrder { NEWEST, OLDEST, AMOUNT_DESC, AMOUNT_ASC }
 
 private val PurpleHero = Color(0xFF1E1438)
 private val HeroChart = Color(0xFFC084FC)
@@ -86,6 +110,10 @@ private val HeroIncome = Color(0xFF16A34A)
 private val HeroExpense = Color(0xFFDC2626)
 private val HeroMuted = Color(0xFFB3ACD6)
 private val HeroBorder = Color(0xFF3D3368)
+private val PergarCard = Color(0xFF171233)
+private val PergarIncome = Color(0xFF64C0AB)
+private val PergarExpense = Color(0xFFF87171)
+private val PergarPurple = Color(0xFFA855F7)
 
 private fun ymKey(yearMonth: String): Int {
     val parts = yearMonth.split("-")
@@ -93,9 +121,33 @@ private fun ymKey(yearMonth: String): Int {
         (parts.getOrNull(1)?.toIntOrNull() ?: 0)
 }
 
+/** عدد فارسی بدون «تومان» برای نمایش دوخطی مبالغ (عدد + «تومان» جدا). */
+private fun moneyNumber(value: Long): String = money(value).removeSuffix(" تومان")
+
+private fun faNum(value: Long): String =
+    NumberFormat.getIntegerInstance(Locale("fa", "IR")).format(value)
+
+/** «امروز» / «دیروز» یا «روز ماه» شمسی، برای زیرنویس ردیف تراکنش اخیر. */
+private fun relativeJalaliDay(millis: Long): String {
+    if (millis == 0L) return "بدون تاریخ"
+    val now = LocalDate.now()
+    val todayTriple = JalaliDate.gregorianToJalali(now.year, now.monthValue, now.dayOfMonth)
+    val yesterday = now.minusDays(1)
+    val yesterdayTriple = JalaliDate.gregorianToJalali(yesterday.year, yesterday.monthValue, yesterday.dayOfMonth)
+    val date = Instant.ofEpochMilli(millis).atZone(ZoneId.systemDefault()).toLocalDate()
+    val triple = JalaliDate.gregorianToJalali(date.year, date.monthValue, date.dayOfMonth)
+    return when (triple) {
+        todayTriple -> "امروز"
+        yesterdayTriple -> "دیروز"
+        else -> JalaliDate.formatJalali(millis).substringBeforeLast(" ")
+    }
+}
+
 @Composable
 fun FinanceDashboard(
-    onNavigateToReports: () -> Unit = {}
+    onNavigateToReports: () -> Unit = {},
+    onNavigateToManagement: () -> Unit = {},
+    onNavigateToEntry: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val repository = remember { TransactionRepository(context) }
@@ -104,23 +156,9 @@ fun FinanceDashboard(
     var showDialog by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf<MoneyTransaction?>(null) }
     var error by remember { mutableStateOf("") }
-    var searchQuery by remember { mutableStateOf("") }
-    var typeFilter by remember { mutableStateOf(TypeFilter.ALL) }
-    var categoryFilter by remember { mutableStateOf<String?>(null) }
-    var categoryFilterExpanded by remember { mutableStateOf(false) }
-    var sortOrder by remember { mutableStateOf(SortOrder.NEWEST) }
     var accounts by remember { mutableStateOf<List<AccountEntity>>(emptyList()) }
-    var selectedAccountId by remember { mutableStateOf("main") }
-    var accountExpanded by remember { mutableStateOf(false) }
-    var showAccountDialog by remember { mutableStateOf(false) }
-    var showRenameAccountDialog by remember { mutableStateOf(false) }
     var categories by remember { mutableStateOf<List<CategoryEntity>>(emptyList()) }
     var budgets by remember { mutableStateOf<List<BudgetEntity>>(emptyList()) }
-    var showCategoryDialog by remember { mutableStateOf(false) }
-    var recurring by remember { mutableStateOf<List<RecurringEntity>>(emptyList()) }
-    var showRecurringDialog by remember { mutableStateOf(false) }
-    var showDeleteAccountConfirm by remember { mutableStateOf(false) }
-    val scope = rememberCoroutineScope()
 
     LaunchedEffect(Unit) {
         runCatching {
@@ -159,33 +197,12 @@ fun FinanceDashboard(
                 }
             }
             if (applied > 0) transactions = repository.getAll()
-            recurring = repository.getRecurring()
             budgets = budgetRepository.getBudgets(JalaliDate.currentJalaliYearMonth())
         }.onFailure {
             error = "بارگذاری اطلاعات ناموفق بود. دوباره تلاش کنید."
         }
     }
 
-    val accountTransactions = transactions.filter {
-        selectedAccountId == "all" || it.accountId == selectedAccountId
-    }
-    // موجودی بعد از هر تراکنش، از روی کل تاریخچه حساب (نه فیلترشده) تا
-    // با فیلتر فعال هم عدد درست بماند؛ مرتب‌سازی با id برای ترتیب قطعی.
-    // برای هر حساب جداگانه حساب می‌شود تا در نمای «همه حساب‌ها» هم درست بماند.
-    val runningBalances = remember(accountTransactions) {
-        accountTransactions
-            .groupBy { it.accountId }
-            .flatMap { (_, group) ->
-                var balance = 0L
-                group
-                    .sortedWith(compareBy({ it.dateMillis }, { it.id }))
-                    .map { tx ->
-                        balance += if (tx.income) tx.amount else -tx.amount
-                        tx.id to balance
-                    }
-            }
-            .toMap()
-    }
     // جمع همه حساب‌ها برای کارت قهرمان خانه (نه حساب انتخاب‌شده).
     val income = transactions.filter { it.income }.sumOf { it.amount }
     val expense = transactions.filterNot { it.income }.sumOf { it.amount }
@@ -204,29 +221,6 @@ fun FinanceDashboard(
         )
     }
 
-    val filtered = accountTransactions
-        .filter {
-            when (typeFilter) {
-                TypeFilter.ALL -> true
-                TypeFilter.INCOME -> it.income
-                TypeFilter.EXPENSE -> !it.income
-            }
-        }
-        .filter { categoryFilter == null || it.category == categoryFilter }
-        .filter {
-            val query = searchQuery.trim()
-            query.isBlank() ||
-                it.title.contains(query, ignoreCase = true) ||
-                it.note.contains(query, ignoreCase = true) ||
-                it.category.contains(query, ignoreCase = true) ||
-                normalizeDigits(query).toLongOrNull()?.let { amount -> it.amount == amount } == true
-        }
-    val visible = when (sortOrder) {
-        SortOrder.NEWEST -> filtered.sortedByDescending { it.dateMillis }
-        SortOrder.OLDEST -> filtered.sortedBy { it.dateMillis }
-        SortOrder.AMOUNT_DESC -> filtered.sortedByDescending { it.amount }
-        SortOrder.AMOUNT_ASC -> filtered.sortedBy { it.amount }
-    }
 
     // کارت قهرمان خانه: موجودی کل همه حساب‌ها + موجودی پایان ۶ ماه اخیر
     // شمسی برای نمودار داخل کارت، بر اساس همه تراکنش‌ها (نه حساب انتخاب‌شده).
@@ -242,12 +236,29 @@ fun FinanceDashboard(
                 .sumOf { if (it.income) it.amount else -it.amount }
         }
     }
-    val monthTotals = remember(accountTransactions, currentMonth) {
-        monthTotals(transactionsInMonth(accountTransactions, currentMonth))
+    // کارت‌های درآمد/هزینه ماه جاری بر اساس همه حساب‌ها (ردیف انتخاب حساب
+    // از خانه حذف شده؛ تغییر حساب در صفحه مدیریت انجام می‌شود).
+    val monthTotals = remember(transactions, currentMonth) {
+        monthTotals(transactionsInMonth(transactions, currentMonth))
+    }
+    // ۵ تراکنش اخیر همه حساب‌ها برای کارت «آخرین تراکنش‌ها».
+    val recentTransactions = remember(transactions) {
+        transactions.sortedByDescending { it.dateMillis }.take(5)
     }
 
+    // پس‌زمینه محو آبی→بنفش در تم تیره، عین صفحه خانه پرگار؛ تم روشن
+    // پس‌زمینه تم را نگه می‌دارد و کارت‌های تیره روی آن می‌نشینند.
+    val isDarkPage = MaterialTheme.colorScheme.background.luminance() < 0.5f
+    val homeGradient = remember {
+        Brush.linearGradient(
+            colors = listOf(Color(0xFF12377E), Color(0xFF7C3AED), Color(0xFF150F2E)),
+            start = Offset.Zero,
+            end = Offset.Infinite
+        )
+    }
+    val homeBackground = if (isDarkPage) Modifier.background(homeGradient) else Modifier
     LazyColumn(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier.fillMaxSize().then(homeBackground),
         contentPadding = PaddingValues(start = 20.dp, top = 20.dp, end = 20.dp, bottom = 120.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
@@ -263,7 +274,13 @@ fun FinanceDashboard(
                 )
                 Spacer(Modifier.width(12.dp))
                 Column {
-                    Text("پولینو", style = MaterialTheme.typography.headlineSmall)
+                    Text(
+                        "پولینو",
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    )
                     Text("نسخه ${BuildConfig.VERSION_NAME}", style = MaterialTheme.typography.labelMedium)
                 }
             }
@@ -273,84 +290,39 @@ fun FinanceDashboard(
             }
         }
         item {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Box {
-                    OutlinedButton(onClick = { accountExpanded = true }) {
-                        Text(
-                            if (selectedAccountId == "all") "همه حساب‌ها"
-                            else accounts.firstOrNull { it.id == selectedAccountId }?.name ?: "اصلی"
-                        )
-                    }
-                    DropdownMenu(
-                        expanded = accountExpanded,
-                        onDismissRequest = { accountExpanded = false }
-                    ) {
-                        DropdownMenuItem(
-                            text = { Text("همه حساب‌ها") },
-                            onClick = {
-                                selectedAccountId = "all"
-                                accountExpanded = false
-                            }
-                        )
-                        accounts.forEach { account ->
-                            DropdownMenuItem(
-                                text = { Text(account.name) },
-                                onClick = {
-                                    selectedAccountId = account.id
-                                    accountExpanded = false
-                                }
-                            )
-                        }
-                    }
-                }
-                Button(onClick = { showAccountDialog = true }) {
-                    Text("حساب جدید")
-                }
-                if (selectedAccountId != "all") {
-                    TextButton(onClick = { showRenameAccountDialog = true }) {
-                        Text("تغییر نام حساب")
-                    }
-                }
-                if (selectedAccountId != "main" && selectedAccountId != "all") {
-                    TextButton(onClick = { showDeleteAccountConfirm = true }) {
-                        Text("حذف حساب", color = MaterialTheme.colorScheme.error)
-                    }
-                }
-            }
-        }
-        item {
-            // تم تیره: کارت تیره با بوردر بنفش؛ تم روشن: کارت روشن با بوردر بنفش.
-            val isDarkHero = MaterialTheme.colorScheme.background.luminance() < 0.5f
-            val heroContainer = if (isDarkHero) PurpleHero else MaterialTheme.colorScheme.surface
-            val heroBorderColor = if (isDarkHero) HeroBorder else MaterialTheme.colorScheme.outline
-            val heroLabelColor = if (isDarkHero) HeroMuted else MaterialTheme.colorScheme.onSurfaceVariant
-            val heroNumberColor = if (isDarkHero) Color.White else MaterialTheme.colorScheme.onSurface
-            val heroChartColor = if (isDarkHero) HeroChart else MaterialTheme.colorScheme.primary
+            // کارت قهرمان تیره در هر دو تم (عین کارت مبلغ صفحه ثبت مرحله ۶۸):
+            // عدد بزرگ ۳۲sp + «تومان» کوچک کنارش، خط روند نقطه‌دار سفید.
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(28.dp),
-                colors = CardDefaults.cardColors(containerColor = heroContainer),
-                border = BorderStroke(1.dp, heroBorderColor)
+                colors = CardDefaults.cardColors(containerColor = PergarCard),
+                border = BorderStroke(1.dp, HeroBorder)
             ) {
                 Column(
                     Modifier.padding(20.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    Text(
-                        "موجودی کل",
-                        style = MaterialTheme.typography.labelLarge,
-                        color = heroLabelColor
-                    )
-                    Text(
-                        money(income - expense),
-                        style = MaterialTheme.typography.displayLarge.copy(fontWeight = FontWeight.Bold),
-                        color = heroNumberColor
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            moneyNumber(income - expense),
+                            style = MaterialTheme.typography.headlineLarge.copy(fontWeight = FontWeight.Bold),
+                            color = Color.White
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            "تومان",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = HeroMuted
+                        )
+                    }
                     BalanceChart(
                         months = heroMonths,
                         balances = heroBalances,
-                        lineColor = heroChartColor,
-                        labelColor = heroLabelColor
+                        lineColor = Color.White,
+                        labelColor = HeroMuted,
+                        chartHeight = 56.dp,
+                        dotFill = Color.White,
+                        dotRing = HeroBorder
                     )
                 }
             }
@@ -360,50 +332,50 @@ fun FinanceDashboard(
                 Card(
                     modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(20.dp),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+                    colors = CardDefaults.cardColors(containerColor = PergarCard),
+                    border = BorderStroke(1.dp, HeroBorder)
                 ) {
                     Column(
-                        Modifier.padding(16.dp),
+                        Modifier.padding(vertical = 10.dp, horizontal = 16.dp),
                         verticalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
                         Text(
-                            "درآمد این ماه",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = HeroIncome
+                            "+" + moneyNumber(monthTotals.income),
+                            style = MaterialTheme.typography.titleMedium.copy(
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Bold
+                            ),
+                            color = PergarIncome
                         )
                         Text(
-                            "+" + money(monthTotals.income),
-                            style = MaterialTheme.typography.titleMedium,
-                            color = HeroIncome
-                        )
-                        Text(
-                            JalaliDate.jalaliMonthDisplay(currentMonth),
-                            style = MaterialTheme.typography.bodySmall
+                            "تومان",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = HeroMuted
                         )
                     }
                 }
                 Card(
                     modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(20.dp),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+                    colors = CardDefaults.cardColors(containerColor = PergarCard),
+                    border = BorderStroke(1.dp, HeroBorder)
                 ) {
                     Column(
-                        Modifier.padding(16.dp),
+                        Modifier.padding(vertical = 10.dp, horizontal = 16.dp),
                         verticalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
                         Text(
-                            "هزینه این ماه",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = HeroExpense
+                            "−" + moneyNumber(monthTotals.expense),
+                            style = MaterialTheme.typography.titleMedium.copy(
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Bold
+                            ),
+                            color = PergarExpense
                         )
                         Text(
-                            "−" + money(monthTotals.expense),
-                            style = MaterialTheme.typography.titleMedium,
-                            color = HeroExpense
-                        )
-                        Text(
-                            JalaliDate.jalaliMonthDisplay(currentMonth),
-                            style = MaterialTheme.typography.bodySmall
+                            "تومان",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = HeroMuted
                         )
                     }
                 }
@@ -458,208 +430,284 @@ fun FinanceDashboard(
             }
         }
         item {
-            Text("دسترسی سریع", style = MaterialTheme.typography.titleMedium)
-            Spacer(Modifier.height(8.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                QuickTile(
-                    modifier = Modifier.weight(1f),
-                    label = "دسته‌ها",
-                    icon = Icons.Default.Category,
-                    onClick = { showCategoryDialog = true }
-                )
-                QuickTile(
-                    modifier = Modifier.weight(1f),
-                    label = "تکرارشونده‌ها",
-                    icon = Icons.Default.Repeat,
-                    onClick = { showRecurringDialog = true }
-                )
-                QuickTile(
-                    modifier = Modifier.weight(1f),
-                    label = "بودجه‌ها",
-                    icon = Icons.Default.Savings,
-                    onClick = onNavigateToReports
-                )
-                QuickTile(
-                    modifier = Modifier.weight(1f),
-                    label = "اهداف",
-                    icon = Icons.Default.Flag,
-                    onClick = onNavigateToReports
+            // کارت نمودار جریان مالی روزانه ماه انتخاب‌شده، عین صفحه خانه پرگار.
+            var chartMonth by remember { mutableStateOf(currentMonth) }
+            var chartMonthExpanded by remember { mutableStateOf(false) }
+            val todayTriple = remember {
+                val now = LocalDate.now()
+                JalaliDate.gregorianToJalali(now.year, now.monthValue, now.dayOfMonth)
+            }
+            var selectedDay by remember(chartMonth) {
+                mutableStateOf(
+                    if (chartMonth == currentMonth) todayTriple.third else null
                 )
             }
-        }
-        item {
-            OutlinedTextField(
-                value = searchQuery,
-                onValueChange = { searchQuery = it },
-                label = { Text("جستجو در عنوان، یادداشت و دسته") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth()
-            )
-        }
-        item {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilterChip(
-                    selected = typeFilter == TypeFilter.ALL,
-                    onClick = { typeFilter = TypeFilter.ALL },
-                    label = { Text("همه") }
-                )
-                FilterChip(
-                    selected = typeFilter == TypeFilter.INCOME,
-                    onClick = { typeFilter = TypeFilter.INCOME },
-                    label = { Text("درآمد") }
-                )
-                FilterChip(
-                    selected = typeFilter == TypeFilter.EXPENSE,
-                    onClick = { typeFilter = TypeFilter.EXPENSE },
-                    label = { Text("هزینه") }
-                )
-                if (searchQuery.isNotBlank() || typeFilter != TypeFilter.ALL || categoryFilter != null) {
-                    TextButton(onClick = {
-                        searchQuery = ""
-                        typeFilter = TypeFilter.ALL
-                        categoryFilter = null
-                    }) { Text("پاک کردن فیلترها") }
-                }
+            val chartMonthTransactions = remember(transactions, chartMonth) {
+                transactionsInMonth(transactions, chartMonth)
             }
-        }
-        item {
-            var sortExpanded by remember { mutableStateOf(false) }
-            Box {
-                OutlinedButton(onClick = { sortExpanded = true }) {
-                    Text(
-                        when (sortOrder) {
-                            SortOrder.NEWEST -> "مرتب‌سازی: جدیدترین"
-                            SortOrder.OLDEST -> "مرتب‌سازی: قدیمی‌ترین"
-                            SortOrder.AMOUNT_DESC -> "مرتب‌سازی: بیشترین مبلغ"
-                            SortOrder.AMOUNT_ASC -> "مرتب‌سازی: کمترین مبلغ"
-                        }
-                    )
-                }
-                DropdownMenu(
-                    expanded = sortExpanded,
-                    onDismissRequest = { sortExpanded = false }
+            val dayTotals = remember(chartMonthTransactions, chartMonth) {
+                dailyTotals(chartMonthTransactions, chartMonth)
+            }
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(28.dp),
+                colors = CardDefaults.cardColors(containerColor = PergarCard),
+                border = BorderStroke(1.dp, HeroBorder)
+            ) {
+                Column(
+                    Modifier.padding(20.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    DropdownMenuItem(
-                        text = { Text("جدیدترین") },
-                        onClick = { sortOrder = SortOrder.NEWEST; sortExpanded = false }
-                    )
-                    DropdownMenuItem(
-                        text = { Text("قدیمی‌ترین") },
-                        onClick = { sortOrder = SortOrder.OLDEST; sortExpanded = false }
-                    )
-                    DropdownMenuItem(
-                        text = { Text("بیشترین مبلغ") },
-                        onClick = { sortOrder = SortOrder.AMOUNT_DESC; sortExpanded = false }
-                    )
-                    DropdownMenuItem(
-                        text = { Text("کمترین مبلغ") },
-                        onClick = { sortOrder = SortOrder.AMOUNT_ASC; sortExpanded = false }
-                    )
-                }
-            }
-        }
-        item {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Box {
-                    OutlinedButton(onClick = { categoryFilterExpanded = true }) {
-                        Text(categoryFilter ?: "همه دسته‌ها")
-                    }
-                    DropdownMenu(
-                        expanded = categoryFilterExpanded,
-                        onDismissRequest = { categoryFilterExpanded = false }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        DropdownMenuItem(
-                            text = { Text("همه دسته‌ها") },
-                            onClick = { categoryFilter = null; categoryFilterExpanded = false }
+                        Text(
+                            "نمودار جریان مالی",
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                            color = Color.White
                         )
-                        (expenseCategoryNames(categories) + incomeCategoryNames(categories))
-                            .distinct().forEach { category ->
-                                DropdownMenuItem(
-                                    text = { Text(category) },
-                                    onClick = { categoryFilter = category; categoryFilterExpanded = false }
+                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Box(
+                                    Modifier
+                                        .size(8.dp)
+                                        .clip(CircleShape)
+                                        .background(PergarIncome)
+                                )
+                                Text("درآمد", style = MaterialTheme.typography.titleSmall, color = Color.White)
+                            }
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Box(
+                                    Modifier
+                                        .size(8.dp)
+                                        .clip(CircleShape)
+                                        .background(PergarExpense)
+                                )
+                                Text("هزینه", style = MaterialTheme.typography.titleSmall, color = Color.White)
+                            }
+                        }
+                    }
+                    CashFlowDayChart(
+                        days = dayTotals,
+                        selectedDay = selectedDay,
+                        onDaySelected = { selectedDay = it }
+                    )
+                    selectedDay?.let { day ->
+                        val totals = dayTotals.firstOrNull { it.day == day }
+                        val parts = chartMonth.split("-")
+                        val jy = parts.getOrNull(0)?.toIntOrNull() ?: 0
+                        val jm = parts.getOrNull(1)?.toIntOrNull() ?: 0
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(16.dp),
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFF201A3E)),
+                            border = BorderStroke(1.dp, HeroBorder)
+                        ) {
+                            Column(
+                                Modifier.padding(12.dp),
+                                verticalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        "تاریخ: ${JalaliDate.formatJalali(JalaliDate.jalaliToMillis(jy, jm, day))}",
+                                        style = MaterialTheme.typography.titleSmall,
+                                        color = Color.White
+                                    )
+                                    TextButton(onClick = { selectedDay = null }) {
+                                        Text("✕", color = HeroMuted)
+                                    }
+                                }
+                                Text(
+                                    "درآمد: ${money(totals?.income ?: 0L)}",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = PergarIncome
+                                )
+                                Text(
+                                    "هزینه: ${money(totals?.expense ?: 0L)}",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = PergarExpense
                                 )
                             }
+                        }
                     }
-                }
-                Button(onClick = { showCategoryDialog = true }) {
-                    Text("دسته‌ها")
-                }
-                Button(onClick = { showRecurringDialog = true }) {
-                    Text("تکرارشونده‌ها")
-                }
-            }
-        }
-        item { Text("آخرین تراکنش‌ها", style = MaterialTheme.typography.titleLarge) }
-        if (accountTransactions.isEmpty()) {
-            item {
-                Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp)) {
-                    Column(
-                        modifier = Modifier.padding(20.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("در این حساب هنوز تراکنشی ثبت نشده است.", style = MaterialTheme.typography.titleMedium)
                         Text(
-                            "با دکمه + پایین صفحه اولین تراکنش این حساب را ثبت کنید.",
-                            style = MaterialTheme.typography.bodyMedium
+                            "نمودار ماه: ${JalaliDate.jalaliMonthDisplay(chartMonth)}",
+                            style = MaterialTheme.typography.titleSmall,
+                            color = Color.White
                         )
+                        Box {
+                            TextButton(onClick = { chartMonthExpanded = true }) {
+                                Text(
+                                    "تغییر ماه ▾",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    color = PergarPurple
+                                )
+                            }
+                            DropdownMenu(
+                                expanded = chartMonthExpanded,
+                                onDismissRequest = { chartMonthExpanded = false }
+                            ) {
+                                JalaliDate.lastJalaliYearMonths(6, currentMonth).forEach { month ->
+                                    DropdownMenuItem(
+                                        text = { Text(JalaliDate.jalaliMonthDisplay(month)) },
+                                        onClick = {
+                                            chartMonth = month
+                                            chartMonthExpanded = false
+                                        }
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
             }
-        } else if (visible.isEmpty()) {
-            item { Text("تراکنشی با این فیلتر پیدا نشد.") }
         }
-        items(visible) { transaction ->
+        item {
+            Text(
+                "دسترسی سریع",
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Spacer(Modifier.height(8.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                QuickTile(
+                    modifier = Modifier.weight(1f),
+                    label = "اهداف مالی",
+                    icon = Icons.Default.Flag,
+                    iconTint = Color(0xFF60A5FA),
+                    onClick = onNavigateToReports
+                )
+                QuickTile(
+                    modifier = Modifier.weight(1f),
+                    label = "مدیریت حساب",
+                    icon = Icons.Default.AccountBalanceWallet,
+                    iconTint = Color(0xFF38BDF8),
+                    onClick = onNavigateToManagement
+                )
+                QuickTile(
+                    modifier = Modifier.weight(1f),
+                    label = "ثبت صوتی",
+                    icon = Icons.Default.Mic,
+                    iconTint = Color(0xFFC084FC),
+                    onClick = onNavigateToEntry
+                )
+                QuickTile(
+                    modifier = Modifier.weight(1f),
+                    label = "رادار مالی",
+                    icon = Icons.Default.Explore,
+                    iconTint = Color(0xFFC374AB),
+                    onClick = onNavigateToReports
+                )
+            }
+        }
+
+        item {
             Card(
-                onClick = { editing = transaction; showDialog = true },
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(20.dp),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+                shape = RoundedCornerShape(28.dp),
+                colors = CardDefaults.cardColors(containerColor = PergarCard),
+                border = BorderStroke(1.dp, HeroBorder)
             ) {
-                Row(
-                    Modifier.padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                Column(
+                    Modifier.padding(20.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    Icon(
-                        categoryIcon(transaction.category),
-                        contentDescription = transaction.category,
-                        tint = if (transaction.income) HeroIncome
-                        else MaterialTheme.colorScheme.error
-                    )
-                    Column(
-                        Modifier.weight(1f),
-                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text(transaction.title)
+                        Text(
+                            "آخرین تراکنش‌ها",
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                            color = Color.White
+                        )
+                        TextButton(onClick = onNavigateToReports) {
                             Text(
-                                (if (transaction.income) "+" else "−") + money(transaction.amount),
-                                style = MaterialTheme.typography.titleMedium,
-                                color = if (transaction.income) HeroIncome
-                                else MaterialTheme.colorScheme.error
+                                "مشاهده همه ›",
+                                style = MaterialTheme.typography.titleSmall,
+                                color = PergarPurple
                             )
                         }
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Text(transaction.category, style = MaterialTheme.typography.bodySmall)
-                            Text(JalaliDate.formatJalali(transaction.dateMillis), style = MaterialTheme.typography.bodySmall)
-                            if (selectedAccountId == "all") {
+                    }
+                    if (recentTransactions.isEmpty()) {
+                        Text(
+                            "هنوز تراکنشی ثبت نشده است.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = HeroMuted
+                        )
+                        Text(
+                            "با دکمه + پایین صفحه اولین تراکنش را ثبت کنید.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = HeroMuted
+                        )
+                    } else {
+                        recentTransactions.forEachIndexed { index, transaction ->
+                            if (index > 0) {
+                                HorizontalDivider(color = HeroBorder, thickness = 1.dp)
+                            }
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { editing = transaction; showDialog = true }
+                                    .padding(vertical = 12.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(40.dp)
+                                        .clip(CircleShape)
+                                        .background(
+                                            if (transaction.income) Color(0xFF1E3A2F)
+                                            else Color(0xFF3D1F1F)
+                                        ),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        if (transaction.income) "↙" else "↗",
+                                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                                        color = if (transaction.income) PergarIncome else PergarExpense
+                                    )
+                                }
+                                Column(
+                                    Modifier.weight(1f),
+                                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    Text(
+                                        transaction.title,
+                                        style = MaterialTheme.typography.titleMedium,
+                                        color = Color.White
+                                    )
+                                    Text(
+                                        "${relativeJalaliDay(transaction.dateMillis)} • ${transaction.category}",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = HeroMuted
+                                    )
+                                }
                                 Text(
-                                    accounts.firstOrNull { it.id == transaction.accountId }?.name ?: "اصلی",
-                                    style = MaterialTheme.typography.bodySmall
+                                    (if (transaction.income) "+" else "−") + money(transaction.amount),
+                                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                                    color = if (transaction.income) PergarIncome else PergarExpense
                                 )
                             }
-                        }
-                        if (transaction.note.isNotBlank()) {
-                            Text(transaction.note, style = MaterialTheme.typography.bodySmall)
-                        }
-                        if (transaction.store.isNotBlank()) {
-                            Text("فروشگاه: ${transaction.store}", style = MaterialTheme.typography.bodySmall)
-                        }
-                        runningBalances[transaction.id]?.let { balance ->
-                            Text("موجودی: ${money(balance)}", style = MaterialTheme.typography.bodySmall)
                         }
                     }
                 }
@@ -671,8 +719,7 @@ fun FinanceDashboard(
         TransactionDialog(
             initial = editing,
             accounts = accounts,
-            initialAccountId = editing?.accountId
-                ?: if (selectedAccountId == "all") "main" else selectedAccountId,
+            initialAccountId = editing?.accountId ?: "main",
             expenseCategories = expenseCategoryNames(categories),
             incomeCategories = incomeCategoryNames(categories),
             onDismiss = { showDialog = false; editing = null; error = "" },
@@ -746,555 +793,97 @@ fun FinanceDashboard(
         )
     }
 
-    if (showCategoryDialog) {
-        CategoryDialog(
-            categories = categories,
-            onDismiss = { showCategoryDialog = false },
-            onAdd = { name, isIncome ->
-                val ok = repository.addCategory(name, isIncome)
-                if (ok) categories = repository.getCategories()
-                ok
-            },
-            onDelete = { name ->
-                repository.deleteCategory(name)
-                categories = repository.getCategories()
-                transactions = repository.getAll()
-                if (categoryFilter == name) categoryFilter = null
-            },
-            onRename = { oldName, newName ->
-                val ok = repository.renameCategory(oldName, newName)
-                if (ok) {
-                    categories = repository.getCategories()
-                    transactions = repository.getAll()
-                    if (categoryFilter == oldName) categoryFilter = newName
-                }
-                ok
-            }
-        )
-    }
 
-    if (showRecurringDialog) {
-        RecurringDialog(
-            recurring = recurring,
-            accounts = accounts,
-            expenseCategories = expenseCategoryNames(categories),
-            incomeCategories = incomeCategoryNames(categories),
-            onDismiss = { showRecurringDialog = false },
-            onAdd = { rule ->
-                repository.addRecurring(rule)
-                recurring = repository.getRecurring()
-            },
-            onDelete = { id ->
-                repository.deleteRecurring(id)
-                recurring = repository.getRecurring()
-            }
-        )
-    }
+}
 
-    if (showAccountDialog) {
-        AccountDialog(
-            onDismiss = { showAccountDialog = false },
-            onSave = { name ->
-                scope.launch {
-                    val created = repository.addAccount(name)
-                    accounts = repository.getAccounts()
-                    selectedAccountId = created.id
-                    showAccountDialog = false
-                }
-            }
-        )
-    }
-
-    if (showRenameAccountDialog) {
-        RenameAccountDialog(
-            currentName = accounts.firstOrNull { it.id == selectedAccountId }?.name ?: "اصلی",
-            onDismiss = { showRenameAccountDialog = false },
-            onSave = { name ->
-                val ok = repository.renameAccount(selectedAccountId, name)
-                if (ok) accounts = repository.getAccounts()
-                ok
-            }
-        )
-    }
-
-    if (showDeleteAccountConfirm) {
-        AlertDialog(
-            onDismissRequest = { showDeleteAccountConfirm = false },
-            shape = RoundedCornerShape(28.dp),
-            containerColor = if (MaterialTheme.colorScheme.background.luminance() < 0.5f) Color(0xFF1E1438) else MaterialTheme.colorScheme.surface,
-            title = { Text("حذف حساب", fontWeight = FontWeight.Bold) },
-            text = {
-                Text("تراکنش‌های این حساب به حساب «اصلی» منتقل می‌شوند و حساب حذف می‌شود.")
-            },
-            confirmButton = {
-                TextButton(onClick = {
-                    showDeleteAccountConfirm = false
-                    scope.launch {
-                        repository.deleteAccount(selectedAccountId)
-                        accounts = repository.getAccounts()
-                        selectedAccountId = "main"
-                    }
-                }) { Text("حذف", color = MaterialTheme.colorScheme.error) }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDeleteAccountConfirm = false }) { Text("انصراف") }
-            }
-        )
-    }
+private fun compactAxisLabel(value: Long): String = when {
+    value >= 1_000_000L -> faNum(value / 1_000_000L) + "م"
+    value >= 1_000L -> faNum(value / 1_000L) + "هزار"
+    else -> faNum(value)
 }
 
 @Composable
-private fun AccountDialog(
-    onDismiss: () -> Unit,
-    onSave: (String) -> Unit
+private fun CashFlowDayChart(
+    days: List<DayTotal>,
+    selectedDay: Int?,
+    onDaySelected: (Int) -> Unit
 ) {
-    var name by remember { mutableStateOf("") }
-    var validation by remember { mutableStateOf("") }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        shape = RoundedCornerShape(28.dp),
-        containerColor = if (MaterialTheme.colorScheme.background.luminance() < 0.5f) Color(0xFF1E1438) else MaterialTheme.colorScheme.surface,
-        title = { Text("حساب جدید", fontWeight = FontWeight.Bold) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedTextField(
-                    value = name,
-                    onValueChange = { name = it },
-                    label = { Text("نام حساب") },
-                    singleLine = true
-                )
-                if (validation.isNotEmpty()) {
-                    Text(validation, color = MaterialTheme.colorScheme.error)
-                }
-            }
-        },
-        confirmButton = {
-            Button(onClick = {
-                if (name.isBlank()) {
-                    validation = "نام حساب را وارد کنید."
-                } else {
-                    onSave(name.trim())
-                }
-            }) { Text("ذخیره") }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("انصراف") }
+    if (days.isEmpty()) {
+        Text("داده‌ای برای این ماه نیست.", style = MaterialTheme.typography.bodyMedium, color = HeroMuted)
+        return
+    }
+    val maxValue = maxOf(days.maxOf { it.income }, days.maxOf { it.expense }, 1L)
+    val textMeasurer = rememberTextMeasurer()
+    Row {
+        Column(
+            modifier = Modifier.height(160.dp),
+            verticalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(compactAxisLabel(maxValue), style = MaterialTheme.typography.bodySmall, color = HeroMuted)
+            Text(compactAxisLabel(maxValue / 2), style = MaterialTheme.typography.bodySmall, color = HeroMuted)
+            Text("۰", style = MaterialTheme.typography.bodySmall, color = HeroMuted)
         }
-    )
-}
-
-@Composable
-private fun RenameAccountDialog(
-    currentName: String,
-    onDismiss: () -> Unit,
-    onSave: suspend (String) -> Boolean
-) {
-    var name by remember { mutableStateOf(currentName) }
-    var validation by remember { mutableStateOf("") }
-    val scope = rememberCoroutineScope()
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        shape = RoundedCornerShape(28.dp),
-        containerColor = if (MaterialTheme.colorScheme.background.luminance() < 0.5f) Color(0xFF1E1438) else MaterialTheme.colorScheme.surface,
-        title = { Text("تغییر نام حساب", fontWeight = FontWeight.Bold) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedTextField(
-                    value = name,
-                    onValueChange = { name = it },
-                    label = { Text("نام حساب") },
-                    singleLine = true
-                )
-                if (validation.isNotEmpty()) {
-                    Text(validation, color = MaterialTheme.colorScheme.error)
-                }
-            }
-        },
-        confirmButton = {
-            Button(onClick = {
-                if (name.isBlank()) {
-                    validation = "نام حساب را وارد کنید."
-                } else {
-                    scope.launch {
-                        if (onSave(name.trim())) onDismiss()
-                        else validation = "حسابی با این نام از قبل وجود دارد."
-                    }
-                }
-            }) { Text("ذخیره") }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("انصراف") }
-        }
-    )
-}
-
-@Composable
-private fun CategoryDialog(
-    categories: List<CategoryEntity>,
-    onDismiss: () -> Unit,
-    onAdd: suspend (String, Boolean) -> Boolean,
-    onDelete: suspend (String) -> Unit,
-    onRename: suspend (String, String) -> Boolean
-) {
-    var name by remember { mutableStateOf("") }
-    var isIncome by remember { mutableStateOf(false) }
-    var validation by remember { mutableStateOf("") }
-    var categoryToRename by remember { mutableStateOf<String?>(null) }
-    var categoryToDelete by remember { mutableStateOf<String?>(null) }
-    val scope = rememberCoroutineScope()
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        shape = RoundedCornerShape(28.dp),
-        containerColor = if (MaterialTheme.colorScheme.background.luminance() < 0.5f) Color(0xFF1E1438) else MaterialTheme.colorScheme.surface,
-        title = { Text("دسته‌ها", fontWeight = FontWeight.Bold) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text(
-                    "حذف یک دسته، تراکنش‌هایش را به «سایر» می‌برد و بودجه‌هایش را پاک می‌کند. «سایر» قابل حذف نیست.",
-                    style = MaterialTheme.typography.bodySmall
-                )
-                categories.forEach { category ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(category.name + if (category.isIncome) " (درآمد)" else " (هزینه)")
-                        if (category.name != "سایر") {
-                            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                                TextButton(onClick = { categoryToRename = category.name }) {
-                                    Text("ویرایش")
-                                }
-                                TextButton(onClick = { categoryToDelete = category.name }) {
-                                    Text("حذف", color = MaterialTheme.colorScheme.error)
-                                }
-                            }
+        Spacer(Modifier.width(8.dp))
+        BoxWithConstraints(Modifier.weight(1f)) {
+            val widthPx = with(LocalDensity.current) { maxWidth.toPx() }
+            Canvas(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(180.dp)
+                    .pointerInput(days, widthPx) {
+                        detectTapGestures { offset ->
+                            val n = days.size
+                            val index = ((offset.x / widthPx) * (n - 1)).roundToInt().coerceIn(0, n - 1)
+                            onDaySelected(days[index].day)
                         }
                     }
-                }
-                OutlinedTextField(
-                    value = name,
-                    onValueChange = { name = it },
-                    label = { Text("دسته جدید") },
-                    singleLine = true
-                )
-                Row {
-                    RadioButton(selected = !isIncome, onClick = { isIncome = false })
-                    Text("هزینه")
-                    Spacer(Modifier.width(16.dp))
-                    RadioButton(selected = isIncome, onClick = { isIncome = true })
-                    Text("درآمد")
-                }
-                if (validation.isNotEmpty()) {
-                    Text(validation, color = MaterialTheme.colorScheme.error)
-                }
-            }
-        },
-        confirmButton = {
-            Button(onClick = {
-                if (name.isBlank()) {
-                    validation = "نام دسته را وارد کنید."
-                } else {
-                    scope.launch {
-                        if (onAdd(name.trim(), isIncome)) {
-                            name = ""
-                            validation = ""
-                        } else {
-                            validation = "این دسته از قبل هست."
-                        }
-                    }
-                }
-            }) { Text("افزودن") }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("بستن") }
-        }
-    )
-    if (categoryToRename != null) {
-        RenameCategoryDialog(
-            currentName = categoryToRename!!,
-            onDismiss = { categoryToRename = null },
-            onSave = { newName ->
-                val ok = onRename(categoryToRename!!, newName)
-                if (ok) categoryToRename = null
-                ok
-            }
-        )
-    }
-    if (categoryToDelete != null) {
-        AlertDialog(
-            onDismissRequest = { categoryToDelete = null },
-            shape = RoundedCornerShape(28.dp),
-            containerColor = if (MaterialTheme.colorScheme.background.luminance() < 0.5f) Color(0xFF1E1438) else MaterialTheme.colorScheme.surface,
-            title = { Text("حذف دسته", fontWeight = FontWeight.Bold) },
-            text = {
-                Text("دسته «$categoryToDelete» حذف شود؟ تراکنش‌هایش به «سایر» می‌روند و بودجه‌هایش پاک می‌شوند.")
-            },
-            confirmButton = {
-                TextButton(onClick = {
-                    val target = categoryToDelete
-                    categoryToDelete = null
-                    if (target != null) {
-                        scope.launch { onDelete(target) }
-                    }
-                }) { Text("حذف", color = MaterialTheme.colorScheme.error) }
-            },
-            dismissButton = {
-                TextButton(onClick = { categoryToDelete = null }) { Text("انصراف") }
-            }
-        )
-    }
-}
-
-@Composable
-private fun RenameCategoryDialog(
-    currentName: String,
-    onDismiss: () -> Unit,
-    onSave: suspend (String) -> Boolean
-) {
-    var name by remember { mutableStateOf(currentName) }
-    var validation by remember { mutableStateOf("") }
-    val scope = rememberCoroutineScope()
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        shape = RoundedCornerShape(28.dp),
-        containerColor = if (MaterialTheme.colorScheme.background.luminance() < 0.5f) Color(0xFF1E1438) else MaterialTheme.colorScheme.surface,
-        title = { Text("تغییر نام دسته", fontWeight = FontWeight.Bold) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedTextField(
-                    value = name,
-                    onValueChange = { name = it },
-                    label = { Text("نام دسته") },
-                    singleLine = true
-                )
-                if (validation.isNotEmpty()) {
-                    Text(validation, color = MaterialTheme.colorScheme.error)
-                }
-            }
-        },
-        confirmButton = {
-            Button(onClick = {
-                if (name.isBlank()) {
-                    validation = "نام دسته را وارد کنید."
-                } else {
-                    scope.launch {
-                        if (onSave(name.trim())) onDismiss()
-                        else validation = "این دسته از قبل هست."
-                    }
-                }
-            }) { Text("ذخیره") }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("انصراف") }
-        }
-    )
-}
-
-@Composable
-private fun RecurringDialog(
-    recurring: List<RecurringEntity>,
-    accounts: List<AccountEntity>,
-    expenseCategories: List<String>,
-    incomeCategories: List<String>,
-    onDismiss: () -> Unit,
-    onAdd: suspend (RecurringEntity) -> Unit,
-    onDelete: suspend (String) -> Unit
-) {
-    var title by remember { mutableStateOf("") }
-    var amount by remember { mutableStateOf("") }
-    var isIncome by remember { mutableStateOf(false) }
-    var category by remember {
-        mutableStateOf(expenseCategories.firstOrNull() ?: "سایر")
-    }
-    var categoryExpanded by remember { mutableStateOf(false) }
-    var accountId by remember {
-        mutableStateOf(accounts.firstOrNull()?.id ?: "main")
-    }
-    var accountExpanded by remember { mutableStateOf(false) }
-    var day by remember { mutableStateOf("") }
-    var validation by remember { mutableStateOf("") }
-    var editingId by remember { mutableStateOf<String?>(null) }
-    val scope = rememberCoroutineScope()
-    val categories = if (isIncome) incomeCategories else expenseCategories
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        shape = RoundedCornerShape(28.dp),
-        containerColor = if (MaterialTheme.colorScheme.background.luminance() < 0.5f) Color(0xFF1E1438) else MaterialTheme.colorScheme.surface,
-        title = { Text("تراکنش‌های تکرارشونده", fontWeight = FontWeight.Bold) },
-        text = {
-            Column(
-                modifier = Modifier.verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Text(
-                    "هر ماه در روز مشخص‌شده، این تراکنش خودکار ساخته می‌شود؛ مثلاً حقوق اول ماه یا اجاره. حذف قاعده، تراکنش‌های ساخته‌شده را پاک نمی‌کند.",
-                    style = MaterialTheme.typography.bodySmall
-                )
-                recurring.forEach { rule ->
-                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text("${rule.title}${if (rule.active) "" else " (متوقف)"} — روز ${rule.dayOfMonth} هر ماه")
-                            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                                TextButton(onClick = {
-                                    scope.launch { onAdd(rule.copy(active = !rule.active)) }
-                                }) { Text(if (rule.active) "توقف" else "ادامه") }
-                                TextButton(onClick = {
-                                    editingId = rule.id
-                                    title = rule.title
-                                    amount = rule.amount.toString()
-                                    isIncome = rule.income
-                                    category = rule.category
-                                    accountId = rule.accountId
-                                    day = rule.dayOfMonth.toString()
-                                    validation = ""
-                                }) { Text("ویرایش") }
-                                TextButton(onClick = {
-                                    scope.launch { onDelete(rule.id) }
-                                }) {
-                                    Text("حذف", color = MaterialTheme.colorScheme.error)
-                                }
-                            }
-                        }
-                        Text(
-                            rule.lastAppliedYearMonth?.let {
-                                "آخرین اجرا: ${JalaliDate.jalaliMonthDisplay(it)}"
-                            } ?: "هنوز اجرا نشده",
-                            style = MaterialTheme.typography.bodySmall
+                val labelStrip = 20.dp.toPx()
+                val plotHeight = size.height - labelStrip
+                val xFor: (Int) -> Float = { day ->
+                    if (days.size > 1) (day - 1).toFloat() / (days.size - 1) * size.width else size.width / 2f
+                }
+                val yFor: (Long) -> Float = { value ->
+                    plotHeight - (value.toFloat() / maxValue.toFloat()) * (plotHeight - 16f) - 8f
+                }
+                val incomePoints = days.map { Offset(xFor(it.day), yFor(it.income)) }
+                val expensePoints = days.map { Offset(xFor(it.day), yFor(it.expense)) }
+                for (index in 0 until incomePoints.size - 1) {
+                    drawLine(PergarIncome, incomePoints[index], incomePoints[index + 1], strokeWidth = 3f)
+                    drawLine(PergarExpense, expensePoints[index], expensePoints[index + 1], strokeWidth = 3f)
+                }
+                selectedDay?.let { day ->
+                    val x = xFor(day)
+                    drawLine(
+                        color = PergarPurple,
+                        start = Offset(x, 0f),
+                        end = Offset(x, plotHeight),
+                        strokeWidth = 2f,
+                        pathEffect = PathEffect.dashPathEffect(floatArrayOf(8f, 8f))
+                    )
+                    days.firstOrNull { it.day == day }?.let { totals ->
+                        drawCircle(PergarPurple, radius = 8f, center = Offset(x, yFor(totals.income)))
+                        drawCircle(Color.White, radius = 5f, center = Offset(x, yFor(totals.income)))
+                        drawCircle(PergarPurple, radius = 8f, center = Offset(x, yFor(totals.expense)))
+                        drawCircle(Color.White, radius = 5f, center = Offset(x, yFor(totals.expense)))
+                    }
+                }
+                listOf(1, 7, 14, 21, days.size).distinct().filter { it <= days.size }.forEach { day ->
+                    val label = textMeasurer.measure(
+                        AnnotatedString(faNum(day.toLong())),
+                        style = TextStyle(fontSize = 12.sp, color = HeroMuted)
+                    )
+                    drawText(
+                        label,
+                        topLeft = Offset(
+                            (xFor(day) - label.size.width / 2f).coerceIn(0f, size.width - label.size.width),
+                            plotHeight + 4.dp.toPx()
                         )
-                    }
-                }
-                OutlinedTextField(
-                    value = title,
-                    onValueChange = { title = it },
-                    label = { Text("عنوان") },
-                    singleLine = true
-                )
-                OutlinedTextField(
-                    value = amount,
-                    onValueChange = { amount = it },
-                    label = { Text("مبلغ (تومان)") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    singleLine = true
-                )
-                Row {
-                    RadioButton(selected = !isIncome, onClick = {
-                        isIncome = false
-                        if (category !in expenseCategories) {
-                            category = expenseCategories.firstOrNull() ?: "سایر"
-                        }
-                    })
-                    Text("هزینه")
-                    Spacer(Modifier.width(16.dp))
-                    RadioButton(selected = isIncome, onClick = {
-                        isIncome = true
-                        if (category !in incomeCategories) {
-                            category = incomeCategories.firstOrNull() ?: "سایر"
-                        }
-                    })
-                    Text("درآمد")
-                }
-                Box {
-                    OutlinedButton(onClick = { categoryExpanded = true }) {
-                        Text(category)
-                    }
-                    DropdownMenu(
-                        expanded = categoryExpanded,
-                        onDismissRequest = { categoryExpanded = false }
-                    ) {
-                        categories.forEach { item ->
-                            DropdownMenuItem(
-                                text = { Text(item) },
-                                onClick = { category = item; categoryExpanded = false }
-                            )
-                        }
-                    }
-                }
-                if (accounts.isNotEmpty()) {
-                    Box {
-                        OutlinedButton(onClick = { accountExpanded = true }) {
-                            Text(accounts.firstOrNull { it.id == accountId }?.name ?: "اصلی")
-                        }
-                        DropdownMenu(
-                            expanded = accountExpanded,
-                            onDismissRequest = { accountExpanded = false }
-                        ) {
-                            accounts.forEach { account ->
-                                DropdownMenuItem(
-                                    text = { Text(account.name) },
-                                    onClick = { accountId = account.id; accountExpanded = false }
-                                )
-                            }
-                        }
-                    }
-                }
-                OutlinedTextField(
-                    value = day,
-                    onValueChange = { day = it },
-                    label = { Text("روز ماه (۱ تا ۳۱)") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    singleLine = true
-                )
-                if (validation.isNotEmpty()) {
-                    Text(validation, color = MaterialTheme.colorScheme.error)
-                }
-                if (editingId != null) {
-                    TextButton(onClick = {
-                        editingId = null
-                        title = ""
-                        amount = ""
-                        day = ""
-                        validation = ""
-                    }) { Text("لغو ویرایش") }
+                    )
                 }
             }
-        },
-        confirmButton = {
-            Button(onClick = {
-                val parsedAmount = normalizeDigits(amount).toLongOrNull()
-                val parsedDay = normalizeDigits(day).toIntOrNull()
-                val error = when {
-                    title.isBlank() -> "عنوان را وارد کنید."
-                    parsedAmount == null || parsedAmount <= 0 -> "مبلغ معتبر وارد کنید."
-                    parsedDay == null || parsedDay !in 1..31 -> "روز ماه باید بین ۱ تا ۳۱ باشد."
-                    else -> ""
-                }
-                validation = error
-                if (error.isEmpty() && parsedAmount != null && parsedDay != null) {
-                    val existing = recurring.firstOrNull { it.id == editingId }
-                    val rule = RecurringEntity(
-                        id = existing?.id ?: UUID.randomUUID().toString(),
-                        title = title.trim(),
-                        amount = parsedAmount,
-                        income = isIncome,
-                        category = category,
-                        accountId = accountId,
-                        dayOfMonth = parsedDay,
-                        startYearMonth = existing?.startYearMonth
-                            ?: JalaliDate.currentJalaliYearMonth(),
-                        lastAppliedYearMonth = existing?.lastAppliedYearMonth,
-                        active = existing?.active ?: true
-                    )
-                    scope.launch {
-                        onAdd(rule)
-                        title = ""
-                        amount = ""
-                        day = ""
-                        editingId = null
-                    }
-                }
-            }) { Text(if (editingId != null) "ذخیره" else "افزودن") }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("بستن") }
         }
-    )
+    }
 }
 
 @Composable
@@ -1302,14 +891,17 @@ private fun BalanceChart(
     months: List<String>,
     balances: List<Long>,
     lineColor: Color = HeroChart,
-    labelColor: Color = HeroMuted
+    labelColor: Color = HeroMuted,
+    chartHeight: Dp = 110.dp,
+    dotFill: Color? = null,
+    dotRing: Color? = null
 ) {
     if (balances.isEmpty()) return
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Canvas(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(110.dp)
+                .height(chartHeight)
         ) {
             val min = balances.minOrNull() ?: 0L
             val max = balances.maxOrNull() ?: 0L
@@ -1324,7 +916,14 @@ private fun BalanceChart(
             for (index in 0 until points.size - 1) {
                 drawLine(lineColor, points[index], points[index + 1], strokeWidth = 3f)
             }
-            points.forEach { drawCircle(lineColor, radius = 5f, center = it) }
+            points.forEach {
+                if (dotFill != null) {
+                    drawCircle(dotRing ?: lineColor, radius = 8f, center = it)
+                    drawCircle(dotFill, radius = 5f, center = it)
+                } else {
+                    drawCircle(lineColor, radius = 5f, center = it)
+                }
+            }
         }
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -1346,23 +945,31 @@ private fun QuickTile(
     modifier: Modifier = Modifier,
     label: String,
     icon: androidx.compose.ui.graphics.vector.ImageVector,
+    iconTint: Color,
     onClick: () -> Unit
 ) {
     Card(
         onClick = onClick,
-        modifier = modifier,
+        modifier = modifier.aspectRatio(1f),
         shape = RoundedCornerShape(20.dp),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+        colors = CardDefaults.cardColors(containerColor = PergarCard),
+        border = BorderStroke(1.dp, HeroBorder)
     ) {
         Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 16.dp, horizontal = 4.dp),
+                .fillMaxSize()
+                .padding(4.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            verticalArrangement = Arrangement.Center
         ) {
-            Icon(icon, contentDescription = label)
-            Text(label, style = MaterialTheme.typography.bodySmall)
+            Icon(icon, contentDescription = label, tint = iconTint, modifier = Modifier.size(28.dp))
+            Spacer(Modifier.height(8.dp))
+            Text(
+                label,
+                style = MaterialTheme.typography.bodySmall,
+                color = Color.White,
+                textAlign = TextAlign.Center
+            )
         }
     }
 }
