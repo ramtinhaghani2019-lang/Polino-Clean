@@ -19,7 +19,8 @@ internal data class DebtEntity(
     val amount: Long,
     val isReceivable: Boolean,
     val settled: Boolean = false,
-    val accountId: String = "main"
+    val accountId: String = "main",
+    val dueMillis: Long? = null
 )
 
 @Dao
@@ -41,4 +42,16 @@ internal fun unsettledTotals(debts: List<DebtEntity>): Pair<Long, Long> {
         open.filter { it.isReceivable }.sumOf { it.amount },
         open.filter { !it.isReceivable }.sumOf { it.amount }
     )
+}
+
+/**
+ * بدهی یا طلب تسویه‌نشده‌ای که سررسیدش از امروز گذشته است؛ بدون
+ * سررسید هرگز سررسیدگذشته نیست، و سررسیدِ امروز هم هنوز
+ * سررسیدگذشته نیست، چون سررسید تاریخ است نه ساعت — همان قاعده
+ * یادآورهای چک و قبض.
+ */
+internal fun isDebtOverdue(dueMillis: Long?, nowMillis: Long, settled: Boolean): Boolean {
+    if (settled || dueMillis == null) return false
+    val startOfToday = nowMillis - Math.floorMod(nowMillis, 86_400_000L)
+    return dueMillis < startOfToday
 }

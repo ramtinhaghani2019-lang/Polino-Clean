@@ -20,7 +20,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         SmsPatternEntity::class,
         ChequeReminderEntity::class
     ],
-    version = 16,
+    version = 17,
     exportSchema = false
 )
 internal abstract class PolinoDatabase : RoomDatabase() {
@@ -289,6 +289,16 @@ internal abstract class PolinoDatabase : RoomDatabase() {
                         "amount INTEGER NOT NULL, dueMillis INTEGER NOT NULL, " +
                         "settled INTEGER NOT NULL, note TEXT NOT NULL)"
                 )
+            }
+        }
+        /**
+         * مهاجرت v16→v17: ستون سررسید به جدول طلب و بدهی اضافه
+         * می‌شود؛ بدهی‌های موجود سررسید خالی (بدون سررسید) می‌گیرند
+         * و هیچ تاریخی ساخته یا حدس زده نمی‌شود.
+         */
+        val MIGRATION_16_17 = object : Migration(16, 17) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE debts ADD COLUMN dueMillis INTEGER")
             }
         }
     }

@@ -70,6 +70,7 @@ import com.polino.app.data.DebtEntity
 import com.polino.app.data.TaskEntity
 import com.polino.app.data.ChequeReminderEntity
 import com.polino.app.data.isChequeReminderOverdue
+import com.polino.app.data.isDebtOverdue
 import com.polino.app.data.openChequeRemindersTotal
 import com.polino.app.data.AssetEntity
 import com.polino.app.data.SmsPatternEntity
@@ -564,9 +565,22 @@ fun ManagementScreen(
                             Modifier.padding(16.dp),
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            Text(debt.personName, style = MaterialTheme.typography.titleMedium)
+                            val overdue = isDebtOverdue(
+                                debt.dueMillis, System.currentTimeMillis(), debt.settled
+                            )
+                            Text(
+                                debt.personName,
+                                style = MaterialTheme.typography.titleMedium,
+                                color = if (overdue) {
+                                    MaterialTheme.colorScheme.error
+                                } else {
+                                    MaterialTheme.colorScheme.onSurface
+                                }
+                            )
                             Text(
                                 "${if (debt.isReceivable) "طلب" else "بدهی"}: ${money(debt.amount)}" +
+                                    if (debt.dueMillis != null) " — سررسید: ${JalaliDate.formatJalali(debt.dueMillis)}" else "" +
+                                    if (overdue) " — سررسید گذشته" else "" +
                                     if (debt.settled) " — تسویه شد" else ""
                             )
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -1095,7 +1109,7 @@ fun ManagementScreen(
         DebtDialog(
             accounts = accounts,
             onDismiss = { showDebtDialog = false },
-            onSave = { person, amount, isReceivable, accountId ->
+            onSave = { person, amount, isReceivable, accountId, dueMillis ->
                 scope.launch {
                     repository.addDebt(
                         DebtEntity(
@@ -1104,7 +1118,8 @@ fun ManagementScreen(
                             amount = amount,
                             isReceivable = isReceivable,
                             settled = false,
-                            accountId = accountId
+                            accountId = accountId,
+                            dueMillis = dueMillis
                         )
                     )
                     debts = repository.getDebts()
@@ -1425,12 +1440,15 @@ private fun ChequeReminderDialog(
 private fun DebtDialog(
     accounts: List<AccountEntity>,
     onDismiss: () -> Unit,
-    onSave: (person: String, amount: Long, isReceivable: Boolean, accountId: String) -> Unit
+    onSave: (person: String, amount: Long, isReceivable: Boolean, accountId: String, dueMillis: Long) -> Unit
 ) {
     var person by remember { mutableStateOf("") }
     var amountText by remember { mutableStateOf("") }
     var isReceivable by remember { mutableStateOf(true) }
     var selectedAccount by remember { mutableStateOf(accounts.firstOrNull()?.id ?: "main") }
+    var dueMillis by remember { mutableStateOf(System.currentTimeMillis()) }
+    var showDatePicker by remember { mutableStateOf(false) }
+    val datePickerState = rememberDatePickerState(initialSelectedDateMillis = dueMillis)
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("طلب یا بدهی جدید") },
@@ -1467,6 +1485,9 @@ private fun DebtDialog(
                         )
                     }
                 }
+                Button(onClick = { showDatePicker = true }) {
+                    Text("سررسید: ${JalaliDate.formatJalali(dueMillis)}")
+                }
             }
         },
         confirmButton = {
@@ -1474,7 +1495,7 @@ private fun DebtDialog(
                 onClick = {
                     val amount = normalizeDigits(amountText).toLongOrNull() ?: 0L
                     if (person.isNotBlank() && amount > 0) {
-                        onSave(person.trim(), amount, isReceivable, selectedAccount)
+                        onSave(person.trim(), amount, isReceivable, selectedAccount, dueMillis)
                     }
                 }
             ) {
@@ -1485,6 +1506,26 @@ private fun DebtDialog(
             TextButton(onClick = onDismiss) { Text("لغو") }
         }
     )
+    if (showDatePicker) {
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        datePickerState.selectedDateMillis?.let { dueMillis = it }
+                        showDatePicker = false
+                    }
+                ) {
+                    Text("تأیید")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) { Text("لغو") }
+            }
+        ) {
+            DatePicker(state = datePickerState)
+        }
+    }
 }
 
 @Composable
