@@ -26,7 +26,8 @@ internal class TransactionRepository(context: Context) {
         PolinoDatabase.MIGRATION_15_16,
         PolinoDatabase.MIGRATION_16_17,
         PolinoDatabase.MIGRATION_17_18,
-        PolinoDatabase.MIGRATION_18_19
+        PolinoDatabase.MIGRATION_18_19,
+        PolinoDatabase.MIGRATION_19_20
     ).build()
     private val dao = database.transactionDao()
     private val accountDao = database.accountDao()
@@ -302,7 +303,7 @@ internal class TransactionRepository(context: Context) {
 
     /**
      * پرداخت یک قسط: شمارنده پرداخت یکی زیاد می‌شود و یک تراکنش هزینه
-     * به مبلغ همان قسط در حساب قسط ثبت می‌شود.
+     * به مبلغ ذخیره‌شده همان قسط در حساب قسط ثبت می‌شود.
      */
     suspend fun payInstallment(item: InstallmentEntity) {
         if (item.paidCount >= item.monthCount) return
@@ -311,7 +312,7 @@ internal class TransactionRepository(context: Context) {
             TransactionEntity(
                 id = UUID.randomUUID().toString(),
                 title = "قسط: ${item.title}",
-                amount = installmentMonthlyAmount(item.totalAmount, item.monthCount),
+                amount = item.installmentAmount,
                 income = false,
                 category = "سایر",
                 dateMillis = System.currentTimeMillis(),

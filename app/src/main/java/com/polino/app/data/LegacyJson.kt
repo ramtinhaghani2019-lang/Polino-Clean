@@ -70,6 +70,7 @@ private class LegacyJsonParser(private val text: String) {
         val accountSmsSenders = ArrayList<AccountSmsSenderEntity>()
         val recurring = ArrayList<RecurringEntity>()
         val goals = ArrayList<GoalEntity>()
+        val installments = ArrayList<InstallmentEntity>()
         var isV2 = false
         skipWs()
         if (peek() == ']') {
@@ -106,6 +107,11 @@ private class LegacyJsonParser(private val text: String) {
             var priority: String? = null
             var bankName: String? = null
             var sender: String? = null
+            var totalAmount: Long? = null
+            var monthCount: Long? = null
+            var paidCount: Long? = null
+            var installmentAmount: Long? = null
+            var startMillis: Long? = null
             skipWs()
             if (peek() != '}') {
                 while (true) {
@@ -140,6 +146,11 @@ private class LegacyJsonParser(private val text: String) {
                         "priority" -> priority = parseValueAsString()
                         "bankName" -> bankName = parseValueAsString()
                         "sender" -> sender = parseValueAsString()
+                        "totalAmount" -> totalAmount = parseValueAsLong()
+                        "monthCount" -> monthCount = parseValueAsLong()
+                        "paidCount" -> paidCount = parseValueAsLong()
+                        "installmentAmount" -> installmentAmount = parseValueAsLong()
+                        "startMillis" -> startMillis = parseValueAsLong()
                         else -> skipValue()
                     }
                     skipWs()
@@ -234,6 +245,26 @@ private class LegacyJsonParser(private val text: String) {
                         )
                     }
                 }
+                "installment" -> {
+                    if (id != null && title != null && totalAmount != null &&
+                        monthCount != null && accountId != null
+                    ) {
+                        installments.add(
+                            InstallmentEntity(
+                                id = id,
+                                title = title,
+                                totalAmount = totalAmount,
+                                monthCount = monthCount.toInt(),
+                                paidCount = paidCount?.toInt() ?: 0,
+                                bankName = bankName?.ifBlank { null },
+                                installmentAmount = installmentAmount
+                                    ?: if (monthCount > 0) totalAmount / monthCount else 0L,
+                                startMillis = startMillis,
+                                accountId = accountId
+                            )
+                        )
+                    }
+                }
                 else -> {
                     // نشانگر نسخه یا نوع ناشناخته: نادیده گرفته می‌شود.
                 }
@@ -246,7 +277,7 @@ private class LegacyJsonParser(private val text: String) {
             }
         }
         if (!isV2) return null
-        return BackupData(transactions, budgets, categories, accounts, recurring, goals, accountSmsSenders)
+        return BackupData(transactions, budgets, categories, accounts, recurring, goals, accountSmsSenders, installments)
     }
 
     private fun parseObject(): MoneyTransaction? {

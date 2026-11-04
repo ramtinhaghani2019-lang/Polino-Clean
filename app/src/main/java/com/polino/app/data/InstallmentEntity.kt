@@ -14,6 +14,9 @@ internal data class InstallmentEntity(
     val totalAmount: Long,
     val monthCount: Int,
     val paidCount: Int = 0,
+    val bankName: String? = null,
+    val installmentAmount: Long = 0L,
+    val startMillis: Long? = null,
     val accountId: String = "main"
 )
 

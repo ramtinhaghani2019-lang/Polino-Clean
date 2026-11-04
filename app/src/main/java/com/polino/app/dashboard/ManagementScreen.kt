@@ -20,6 +20,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.border
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.shape.CircleShape
@@ -30,6 +32,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.BarChart
@@ -42,17 +45,22 @@ import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -75,6 +83,7 @@ import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.polino.app.data.AccountEntity
 import com.polino.app.data.AccountSmsSenderEntity
@@ -104,7 +113,6 @@ import com.polino.app.data.MoneyTransaction
 import com.polino.app.data.dongiShares
 import com.polino.app.data.DongiMember
 import com.polino.app.data.dongiSettlements
-import com.polino.app.data.installmentMonthlyAmount
 import com.polino.app.data.installmentProgressFraction
 import com.polino.app.data.RecurringEntity
 import java.util.UUID
@@ -466,7 +474,45 @@ fun ManagementScreen(
             }
         }
         if (installments.isEmpty()) {
-            item { Text("هنوز قسطی ثبت نشده است.") }
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(28.dp),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+                ) {
+                    Column(
+                        Modifier.padding(24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.AccountBalanceWallet,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(48.dp)
+                        )
+                        Text(
+                            "هیچ قسط یا تسهیلاتی ثبت نشده است",
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                            textAlign = TextAlign.Center
+                        )
+                        Text(
+                            "وام‌ها و خریدهای اقساطی خود را ثبت کنید تا سررسید و مبلغ ماهانه هر قسط به صورت منظم مدیریت شود.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            textAlign = TextAlign.Center
+                        )
+                        Button(
+                            onClick = { showInstallmentDialog = true },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color(0xFFF59E0B),
+                                contentColor = Color.White
+                            )
+                        ) {
+                            Text("+ ثبت اولین قسط")
+                        }
+                    }
+                }
+            }
         } else {
             installments.forEach { installment ->
                 item {
@@ -480,10 +526,22 @@ fun ManagementScreen(
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             Text(installment.title, style = MaterialTheme.typography.titleMedium)
+                            if (!installment.bankName.isNullOrBlank()) {
+                                Text(
+                                    "بانک: ${installment.bankName}",
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                            }
                             Text(
-                                "ماهانه: ${money(installmentMonthlyAmount(installment.totalAmount, installment.monthCount))} — " +
+                                "مبلغ هر قسط: ${money(installment.installmentAmount)} — " +
                                     "پرداخت‌شده: ${installment.paidCount} از ${installment.monthCount}"
                             )
+                            if (installment.startMillis != null) {
+                                Text(
+                                    "شروع: ${JalaliDate.formatJalali(installment.startMillis)}",
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                            }
                             LinearProgressIndicator(
                                 progress = {
                                     installmentProgressFraction(
@@ -1141,18 +1199,21 @@ fun ManagementScreen(
     }
 
     if (showInstallmentDialog) {
-        InstallmentDialog(
+        InstallmentSheet(
             accounts = accounts,
             onDismiss = { showInstallmentDialog = false },
-            onSave = { title, total, months, accountId ->
+            onSave = { title, bankName, installmentAmount, totalCount, paidCount, startMillis, accountId ->
                 scope.launch {
                     repository.addInstallment(
                         InstallmentEntity(
                             id = UUID.randomUUID().toString(),
                             title = title,
-                            totalAmount = total,
-                            monthCount = months,
-                            paidCount = 0,
+                            totalAmount = installmentAmount * totalCount,
+                            monthCount = totalCount,
+                            paidCount = paidCount,
+                            bankName = bankName,
+                            installmentAmount = installmentAmount,
+                            startMillis = startMillis,
                             accountId = accountId
                         )
                     )
@@ -1642,67 +1703,337 @@ private fun DebtDialog(
     }
 }
 
+private val InstallmentSheetDark = Color(0xFF1E1438)
+private val InstallmentSheetCard = Color(0xFF2A2150)
+private val InstallmentSheetBorder = Color(0xFF3D3368)
+private val InstallmentSheetMuted = Color(0xFFB3ACD6)
+private val InstallmentSheetPurple = Color(0xFFA855F7)
+
+/** فقط ارقام لاتین، فارسی و عربی می‌مانند. */
+private fun String.filterInstallmentDigits(): String = filter { char ->
+    char.isDigit() || char in "۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩"
+}
+
+/**
+ * ورق «قسط جدید»، عین فرم پرگار: عنوان و مبلغ هر قسط و تعداد کل و تاریخ
+ * شروع اجباری، نام بانک و تعداد پرداخت‌شده اختیاری، دکمه‌های انصراف و
+ * ذخیره قسط. نشان «کیپد فارسی» فقط برچسب است؛ فیلد مبلغ از پیش ارقام
+ * فارسی و عربی را هم می‌پذیرد. انتخاب حساب برای تراکنش پرداخت نگه داشته
+ * شده است (فرم پرگار حسابی نشان نمی‌دهد).
+ */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun InstallmentDialog(
+private fun InstallmentSheet(
     accounts: List<AccountEntity>,
     onDismiss: () -> Unit,
-    onSave: (title: String, total: Long, months: Int, accountId: String) -> Unit
+    onSave: (
+        title: String,
+        bankName: String?,
+        installmentAmount: Long,
+        totalCount: Int,
+        paidCount: Int,
+        startMillis: Long,
+        accountId: String
+    ) -> Unit
 ) {
     var title by remember { mutableStateOf("") }
+    var bankName by remember { mutableStateOf("") }
+    var amountText by remember { mutableStateOf("") }
     var totalText by remember { mutableStateOf("") }
-    var monthsText by remember { mutableStateOf("") }
+    var paidText by remember { mutableStateOf("") }
+    var startMillis by remember { mutableStateOf(System.currentTimeMillis()) }
     var selectedAccount by remember { mutableStateOf(accounts.firstOrNull()?.id ?: "main") }
-    AlertDialog(
+    var validation by remember { mutableStateOf("") }
+    var showDatePicker by remember { mutableStateOf(false) }
+    val datePickerState = rememberDatePickerState(initialSelectedDateMillis = startMillis)
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+
+    ModalBottomSheet(
         onDismissRequest = onDismiss,
-        shape = RoundedCornerShape(28.dp),
-        containerColor = if (MaterialTheme.colorScheme.background.luminance() < 0.5f) Color(0xFF1E1438) else MaterialTheme.colorScheme.surface,
-        title = { Text("قسط جدید", fontWeight = FontWeight.Bold) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                TextField(
+        sheetState = sheetState,
+        containerColor = InstallmentSheetDark
+    ) {
+        LazyColumn(
+            contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 32.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        "قسط جدید",
+                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                        color = Color.White
+                    )
+                    IconButton(onClick = onDismiss) {
+                        Icon(Icons.Default.Close, contentDescription = "بستن", tint = Color.White)
+                    }
+                }
+            }
+            item {
+                InstallmentSheetField(
+                    label = "عنوان قسط",
+                    required = true,
+                    numeric = false,
+                    placeholder = "عنوان قسط (مثلا وام مسکن)",
                     value = title,
-                    onValueChange = { title = it },
-                    label = { Text("عنوان") }
+                    onValueChange = { title = it }
                 )
-                TextField(
-                    value = totalText,
-                    onValueChange = { totalText = it },
-                    label = { Text("مبلغ کل (تومان)") }
+            }
+            item {
+                InstallmentSheetField(
+                    label = "نام بانک / موسسه",
+                    required = false,
+                    numeric = false,
+                    placeholder = null,
+                    value = bankName,
+                    onValueChange = { bankName = it }
                 )
-                TextField(
-                    value = monthsText,
-                    onValueChange = { monthsText = it },
-                    label = { Text("تعداد ماه") }
+            }
+            item {
+                InstallmentSheetField(
+                    label = "مبلغ هر قسط (تومان)",
+                    required = true,
+                    numeric = true,
+                    placeholder = null,
+                    value = amountText,
+                    onValueChange = { amountText = it.filterInstallmentDigits() }
                 )
+            }
+            item {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    accounts.forEach { account ->
-                        FilterChip(
-                            selected = selectedAccount == account.id,
-                            onClick = { selectedAccount = account.id },
-                            label = { Text(account.name) }
+                    InstallmentSheetField(
+                        label = "تعداد کل اقساط",
+                        required = true,
+                        numeric = false,
+                        placeholder = null,
+                        value = totalText,
+                        onValueChange = { totalText = it.filterInstallmentDigits() },
+                        modifier = Modifier.weight(1f)
+                    )
+                    InstallmentSheetField(
+                        label = "پرداخت شده",
+                        required = false,
+                        numeric = false,
+                        placeholder = null,
+                        value = paidText,
+                        onValueChange = { paidText = it.filterInstallmentDigits() },
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+            }
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            "تاریخ شروع قسط",
+                            style = MaterialTheme.typography.titleSmall,
+                            color = Color.White
                         )
+                        InstallmentMiniChip("اجباری", MaterialTheme.colorScheme.error)
+                    }
+                    Button(
+                        onClick = { showDatePicker = true },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = InstallmentSheetCard,
+                            contentColor = Color.White
+                        )
+                    ) {
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(Icons.Default.DateRange, contentDescription = null)
+                            Text(
+                                if (JalaliDate.formatJalali(startMillis) ==
+                                    JalaliDate.formatJalali(System.currentTimeMillis())
+                                ) {
+                                    "امروز"
+                                } else {
+                                    JalaliDate.formatJalali(startMillis)
+                                }
+                            )
+                        }
                     }
                 }
             }
-        },
-        confirmButton = {
-            Button(
-                onClick = {
-                    val total = normalizeDigits(totalText).toLongOrNull() ?: 0L
-                    val months = normalizeDigits(monthsText).toIntOrNull() ?: 0
-                    if (title.isNotBlank() && total > 0 && months > 0) {
-                        onSave(title.trim(), total, months, selectedAccount)
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        "حساب پرداخت",
+                        style = MaterialTheme.typography.titleSmall,
+                        color = Color.White
+                    )
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        accounts.forEach { account ->
+                            item {
+                                FilterChip(
+                                    selected = selectedAccount == account.id,
+                                    onClick = { selectedAccount = account.id },
+                                    label = { Text(account.name) },
+                                    colors = FilterChipDefaults.filterChipColors(
+                                        containerColor = InstallmentSheetCard,
+                                        labelColor = Color.White,
+                                        selectedContainerColor = InstallmentSheetPurple,
+                                        selectedLabelColor = Color.White
+                                    )
+                                )
+                            }
+                        }
                     }
                 }
-            ) {
-                Text("ذخیره")
             }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("لغو") }
+            if (validation.isNotEmpty()) {
+                item {
+                    Text(validation, color = MaterialTheme.colorScheme.error)
+                }
+            }
+            item {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.weight(1f),
+                        border = BorderStroke(1.dp, InstallmentSheetBorder),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White)
+                    ) {
+                        Text("انصراف")
+                    }
+                    Button(
+                        onClick = {
+                            val parsedAmount = normalizeDigits(amountText).toLongOrNull()
+                            val parsedTotal = normalizeDigits(totalText).toIntOrNull()
+                            val parsedPaid = if (paidText.isBlank()) {
+                                0
+                            } else {
+                                normalizeDigits(paidText).toIntOrNull()
+                            }
+                            val error = when {
+                                title.isBlank() -> "عنوان قسط را وارد کنید."
+                                parsedAmount == null || parsedAmount <= 0 -> "مبلغ هر قسط معتبر نیست."
+                                parsedTotal == null || parsedTotal <= 0 -> "تعداد کل اقساط معتبر نیست."
+                                parsedPaid == null || parsedPaid < 0 || parsedPaid > (parsedTotal ?: 0) ->
+                                    "تعداد پرداخت‌شده معتبر نیست."
+                                else -> ""
+                            }
+                            validation = error
+                            if (error.isEmpty() && parsedAmount != null &&
+                                parsedTotal != null && parsedPaid != null
+                            ) {
+                                onSave(
+                                    title.trim(),
+                                    bankName.trim().ifBlank { null },
+                                    parsedAmount,
+                                    parsedTotal,
+                                    parsedPaid,
+                                    startMillis,
+                                    selectedAccount
+                                )
+                            }
+                        },
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = InstallmentSheetPurple
+                        )
+                    ) {
+                        Text("ذخیره قسط")
+                    }
+                }
+            }
         }
-    )
+    }
+    if (showDatePicker) {
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        datePickerState.selectedDateMillis?.let { startMillis = it }
+                        showDatePicker = false
+                    }
+                ) {
+                    Text("تأیید")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) { Text("لغو") }
+            }
+        ) {
+            DatePicker(state = datePickerState)
+        }
+    }
 }
+
+@Composable
+private fun InstallmentSheetField(
+    label: String,
+    required: Boolean,
+    numeric: Boolean,
+    placeholder: String?,
+    value: String,
+    onValueChange: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(label, style = MaterialTheme.typography.titleSmall, color = Color.White)
+            if (required) {
+                InstallmentMiniChip("اجباری", MaterialTheme.colorScheme.error)
+            }
+            if (numeric) {
+                InstallmentMiniChip("کیپد فارسی", InstallmentSheetMuted)
+            }
+        }
+        OutlinedTextField(
+            value = value,
+            onValueChange = onValueChange,
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+            placeholder = placeholder?.let { { Text(it, color = InstallmentSheetMuted) } },
+            suffix = if (numeric) {
+                { Text("تومان", color = InstallmentSheetPurple) }
+            } else {
+                null
+            },
+            colors = installmentSheetFieldColors()
+        )
+    }
+}
+
+@Composable
+private fun InstallmentMiniChip(text: String, color: Color) {
+    Box(
+        modifier = Modifier
+            .border(BorderStroke(1.dp, color), RoundedCornerShape(12.dp))
+            .padding(horizontal = 8.dp, vertical = 2.dp)
+    ) {
+        Text(text, style = MaterialTheme.typography.labelSmall, color = color)
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun installmentSheetFieldColors() = OutlinedTextFieldDefaults.colors(
+    focusedTextColor = Color.White,
+    unfocusedTextColor = Color.White,
+    focusedContainerColor = InstallmentSheetCard,
+    unfocusedContainerColor = InstallmentSheetCard,
+    focusedBorderColor = InstallmentSheetBorder,
+    unfocusedBorderColor = InstallmentSheetBorder,
+    cursorColor = Color.White
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

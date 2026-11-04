@@ -118,7 +118,8 @@ fun ReportsScreen(onBack: () -> Unit) {
                         accounts = transactionRepository.getAccounts(),
                         recurring = transactionRepository.getRecurring(),
                         goals = transactionRepository.getGoals(),
-                        accountSmsSenders = transactionRepository.getAccountSmsLinks()
+                        accountSmsSenders = transactionRepository.getAccountSmsLinks(),
+                        installments = transactionRepository.getInstallments()
                     )
                     context.contentResolver.openOutputStream(uri)?.use { stream ->
                         stream.write(fullBackupToJson(data).toByteArray(Charsets.UTF_8))
@@ -239,8 +240,8 @@ fun ReportsScreen(onBack: () -> Unit) {
                     if (backup != null) {
                         "بازیابی شود؟ ${backup.transactions.size} تراکنش، " +
                             "${backup.budgets.size} بودجه، ${backup.categories.size} دسته، " +
-                            "${backup.accounts.size} حساب، ${backup.recurring.size} تکرارشونده و " +
-                            "${backup.goals.size} هدف. داده‌های هم‌شناسه با نسخه فایل جایگزین می‌شوند."
+                            "${backup.accounts.size} حساب، ${backup.recurring.size} تکرارشونده، " +
+                            "${backup.installments.size} قسط و ${backup.goals.size} هدف. داده‌های هم‌شناسه با نسخه فایل جایگزین می‌شوند."
                     } else {
                         val imported = parseLegacyTransactions(text)
                         "بازیابی شود؟ ${imported.size} تراکنش. تراکنش‌های هم‌شناسه جایگزین می‌شوند."
@@ -266,6 +267,7 @@ fun ReportsScreen(onBack: () -> Unit) {
                                     }
                                     confirmedBackup.recurring.forEach { transactionRepository.addRecurring(it) }
                                     confirmedBackup.goals.forEach { transactionRepository.addGoal(it) }
+                                    confirmedBackup.installments.forEach { transactionRepository.addInstallment(it) }
                                     confirmedBackup.budgets.forEach {
                                         budgetRepository.setBudget(it.yearMonth, it.category, it.limitAmount)
                                     }
@@ -277,7 +279,7 @@ fun ReportsScreen(onBack: () -> Unit) {
                                     info = "بازیابی کامل انجام شد: ${confirmedBackup.transactions.size} تراکنش، " +
                                         "${confirmedBackup.budgets.size} بودجه، ${confirmedBackup.categories.size} دسته، " +
                                         "${confirmedBackup.accounts.size} حساب، ${confirmedBackup.recurring.size} تکرارشونده، " +
-                                        "${confirmedBackup.goals.size} هدف."
+                                        "${confirmedBackup.installments.size} قسط، ${confirmedBackup.goals.size} هدف."
                                 }.onFailure { error = "بازیابی ناموفق بود. دوباره تلاش کنید." }
                             } else {
                                 val imported = parseLegacyTransactions(confirmedText)

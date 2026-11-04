@@ -8,10 +8,14 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -25,11 +29,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.polino.app.data.ChequeReminderEntity
 import com.polino.app.data.InstallmentEntity
 import com.polino.app.data.TransactionRepository
-import com.polino.app.data.installmentMonthlyAmount
 import com.polino.app.data.installmentProgressFraction
 import com.polino.app.data.isChequeReminderOverdue
 import com.polino.app.data.openChequeRemindersTotal
@@ -79,7 +83,36 @@ fun RemindersScreen(onBack: () -> Unit) {
                 )
             }
             if (installments.isEmpty()) {
-                item { Text("هنوز قسطی ثبت نشده است.") }
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(28.dp),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+                    ) {
+                        Column(
+                            Modifier.padding(24.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.AccountBalanceWallet,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(48.dp)
+                            )
+                            Text(
+                                "هیچ قسط یا تسهیلاتی ثبت نشده است",
+                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                                textAlign = TextAlign.Center
+                            )
+                            Text(
+                                "ثبت قسط جدید در بخش مدیریت انجام می‌شود.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                textAlign = TextAlign.Center
+                            )
+                        }
+                    }
+                }
             } else {
                 installments.forEach { installment ->
                     item {
@@ -93,10 +126,22 @@ fun RemindersScreen(onBack: () -> Unit) {
                                 verticalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
                                 Text(installment.title, style = MaterialTheme.typography.titleMedium)
+                                if (!installment.bankName.isNullOrBlank()) {
+                                    Text(
+                                        "بانک: ${installment.bankName}",
+                                        style = MaterialTheme.typography.bodySmall
+                                    )
+                                }
                                 Text(
-                                    "ماهانه: ${money(installmentMonthlyAmount(installment.totalAmount, installment.monthCount))} — " +
+                                    "مبلغ هر قسط: ${money(installment.installmentAmount)} — " +
                                         "پرداخت‌شده: ${installment.paidCount} از ${installment.monthCount}"
                                 )
+                                if (installment.startMillis != null) {
+                                    Text(
+                                        "شروع: ${JalaliDate.formatJalali(installment.startMillis)}",
+                                        style = MaterialTheme.typography.bodySmall
+                                    )
+                                }
                                 LinearProgressIndicator(
                                     progress = {
                                         installmentProgressFraction(

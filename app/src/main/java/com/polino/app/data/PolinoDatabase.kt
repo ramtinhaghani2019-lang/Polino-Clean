@@ -21,7 +21,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         ChequeReminderEntity::class,
         AccountSmsSenderEntity::class
     ],
-    version = 19,
+    version = 20,
     exportSchema = false
 )
 internal abstract class PolinoDatabase : RoomDatabase() {
@@ -331,6 +331,27 @@ internal abstract class PolinoDatabase : RoomDatabase() {
                 db.execSQL("ALTER TABLE goals ADD COLUMN priority TEXT NOT NULL DEFAULT 'متوسط'")
                 db.execSQL("ALTER TABLE goals ADD COLUMN category TEXT NOT NULL DEFAULT ''")
                 db.execSQL("ALTER TABLE goals ADD COLUMN note TEXT NOT NULL DEFAULT ''")
+            }
+        }
+        /**
+         * مهاجرت v19→v20: سه ستون مدل قسط پرگار به جدول اقساط اضافه
+         * می‌شود؛ مبلغ هر قسط موجود از تقسیم مبلغ کل بر تعداد ماه به دست
+         * می‌آید (همان مقدار مشتق‌شده قبلی)، شمارنده پرداخت موجود دست
+         * نمی‌خورد، و بانک و تاریخ شروع موجود خالی می‌مانند؛ هیچ مقداری
+         * ساخته یا حدس زده نمی‌شود.
+         */
+        val MIGRATION_19_20 = object : Migration(19, 20) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE installments ADD COLUMN bankName TEXT")
+                db.execSQL(
+                    "ALTER TABLE installments " +
+                        "ADD COLUMN installmentAmount INTEGER NOT NULL DEFAULT 0"
+                )
+                db.execSQL("ALTER TABLE installments ADD COLUMN startMillis INTEGER")
+                db.execSQL(
+                    "UPDATE installments SET installmentAmount = totalAmount / monthCount " +
+                        "WHERE monthCount > 0"
+                )
             }
         }
     }

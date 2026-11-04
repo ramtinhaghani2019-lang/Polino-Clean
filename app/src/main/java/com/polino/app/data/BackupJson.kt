@@ -11,7 +11,9 @@ internal data class BackupData(
     val recurring: List<RecurringEntity>,
     val goals: List<GoalEntity>,
     /** اتصال‌های سرشماره پیامک به حساب‌ها؛ خالی یعنی نسخه قدیمی پشتیبان. */
-    val accountSmsSenders: List<AccountSmsSenderEntity> = emptyList()
+    val accountSmsSenders: List<AccountSmsSenderEntity> = emptyList(),
+    /** اقساط؛ خالی یعنی نسخه قدیمی پشتیبان. */
+    val installments: List<InstallmentEntity> = emptyList()
 )
 
 /**
@@ -107,6 +109,22 @@ internal fun fullBackupToJson(data: BackupData): String = buildString {
             ",{\"type\":\"accountSmsSender\"," +
                 "\"accountId\":\"${escapeJsonString(link.accountId)}\"," +
                 "\"sender\":\"${escapeJsonString(link.sender)}\"}"
+        )
+    }
+    data.installments.forEach { inst ->
+        val instBankJson = inst.bankName?.let { "\"${escapeJsonString(it)}\"" } ?: "null"
+        val instStartJson = inst.startMillis?.toString() ?: "null"
+        append(
+            ",{\"type\":\"installment\"," +
+                "\"id\":\"${escapeJsonString(inst.id)}\"," +
+                "\"title\":\"${escapeJsonString(inst.title)}\"," +
+                "\"totalAmount\":${inst.totalAmount}," +
+                "\"monthCount\":${inst.monthCount}," +
+                "\"paidCount\":${inst.paidCount}," +
+                "\"installmentAmount\":${inst.installmentAmount}," +
+                "\"bankName\":$instBankJson," +
+                "\"startMillis\":$instStartJson," +
+                "\"accountId\":\"${escapeJsonString(inst.accountId)}\"}"
         )
     }
     data.recurring.forEach { r ->
