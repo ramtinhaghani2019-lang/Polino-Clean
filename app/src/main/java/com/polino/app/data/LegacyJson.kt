@@ -72,6 +72,7 @@ private class LegacyJsonParser(private val text: String) {
         val goals = ArrayList<GoalEntity>()
         val installments = ArrayList<InstallmentEntity>()
         val plans = ArrayList<PlanEntity>()
+        val notes = ArrayList<NoteEntity>()
         var isV2 = false
         skipWs()
         if (peek() == ']') {
@@ -114,6 +115,9 @@ private class LegacyJsonParser(private val text: String) {
             var paidCount: Long? = null
             var installmentAmount: Long? = null
             var startMillis: Long? = null
+            var body: String? = null
+            var createdMillis: Long? = null
+            var updatedMillis: Long? = null
             skipWs()
             if (peek() != '}') {
                 while (true) {
@@ -154,6 +158,9 @@ private class LegacyJsonParser(private val text: String) {
                         "paidCount" -> paidCount = parseValueAsLong()
                         "installmentAmount" -> installmentAmount = parseValueAsLong()
                         "startMillis" -> startMillis = parseValueAsLong()
+                        "body" -> body = parseValueAsString()
+                        "createdMillis" -> createdMillis = parseValueAsLong()
+                        "updatedMillis" -> updatedMillis = parseValueAsLong()
                         else -> skipValue()
                     }
                     skipWs()
@@ -281,6 +288,19 @@ private class LegacyJsonParser(private val text: String) {
                         )
                     }
                 }
+                "note" -> {
+                    if (id != null && title != null) {
+                        notes.add(
+                            NoteEntity(
+                                id = id,
+                                title = title,
+                                body = body ?: "",
+                                createdMillis = createdMillis ?: updatedMillis ?: 0L,
+                                updatedMillis = updatedMillis ?: createdMillis ?: 0L
+                            )
+                        )
+                    }
+                }
                 else -> {
                     // نشانگر نسخه یا نوع ناشناخته: نادیده گرفته می‌شود.
                 }
@@ -293,7 +313,7 @@ private class LegacyJsonParser(private val text: String) {
             }
         }
         if (!isV2) return null
-        return BackupData(transactions, budgets, categories, accounts, recurring, goals, accountSmsSenders, installments, plans)
+        return BackupData(transactions, budgets, categories, accounts, recurring, goals, accountSmsSenders, installments, plans, notes)
     }
 
     private fun parseObject(): MoneyTransaction? {

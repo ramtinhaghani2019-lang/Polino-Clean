@@ -192,7 +192,8 @@ internal suspend fun runDailyAutoBackupIfNeeded(
                 goals = transactionRepository.getGoals(),
                 accountSmsSenders = transactionRepository.getAccountSmsLinks(),
                 installments = transactionRepository.getInstallments(),
-                plans = transactionRepository.getPlans()
+                plans = transactionRepository.getPlans(),
+                notes = transactionRepository.getNotes()
             )
             val written = writeDocumentsAutoBackup(context, fullBackupToJson(data), now)
             if (written != null) {

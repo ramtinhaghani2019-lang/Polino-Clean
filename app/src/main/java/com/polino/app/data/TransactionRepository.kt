@@ -28,7 +28,8 @@ internal class TransactionRepository(context: Context) {
         PolinoDatabase.MIGRATION_17_18,
         PolinoDatabase.MIGRATION_18_19,
         PolinoDatabase.MIGRATION_19_20,
-        PolinoDatabase.MIGRATION_20_21
+        PolinoDatabase.MIGRATION_20_21,
+        PolinoDatabase.MIGRATION_21_22
     ).build()
     private val dao = database.transactionDao()
     private val accountDao = database.accountDao()
@@ -44,6 +45,7 @@ internal class TransactionRepository(context: Context) {
     private val chequeReminderDao = database.chequeReminderDao()
     private val accountSmsSenderDao = database.accountSmsSenderDao()
     private val planDao = database.planDao()
+    private val noteDao = database.noteDao()
     private val budgetDao = Room.databaseBuilder(
         appContext, BudgetDatabase::class.java, "polino_budgets_db"
     ).build().budgetDao()
@@ -261,6 +263,12 @@ internal class TransactionRepository(context: Context) {
 
     suspend fun togglePlanDone(item: PlanEntity) =
         planDao.upsert(item.copy(done = !item.done))
+
+    suspend fun getNotes(): List<NoteEntity> = noteDao.getAll()
+
+    suspend fun addNote(item: NoteEntity) = noteDao.upsert(item)
+
+    suspend fun deleteNote(id: String) = noteDao.deleteById(id)
 
     suspend fun getCheques(): List<ChequeReminderEntity> = chequeReminderDao.getAll()
 

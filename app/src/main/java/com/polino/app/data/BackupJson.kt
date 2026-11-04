@@ -15,7 +15,9 @@ internal data class BackupData(
     /** اقساط؛ خالی یعنی نسخه قدیمی پشتیبان. */
     val installments: List<InstallmentEntity> = emptyList(),
     /** برنامه‌ها؛ خالی یعنی نسخه قدیمی پشتیبان. */
-    val plans: List<PlanEntity> = emptyList()
+    val plans: List<PlanEntity> = emptyList(),
+    /** یادداشت‌ها؛ خالی یعنی نسخه قدیمی پشتیبان. */
+    val notes: List<NoteEntity> = emptyList()
 )
 
 /**
@@ -168,6 +170,16 @@ internal fun fullBackupToJson(data: BackupData): String = buildString {
                 "\"note\":\"${escapeJsonString(p.note)}\"," +
                 "\"dueMillis\":$planDueJson," +
                 "\"done\":${p.done}}"
+        )
+    }
+    data.notes.forEach { n ->
+        append(
+            ",{\"type\":\"note\"," +
+                "\"id\":\"${escapeJsonString(n.id)}\"," +
+                "\"title\":\"${escapeJsonString(n.title)}\"," +
+                "\"body\":\"${escapeJsonString(n.body)}\"," +
+                "\"createdMillis\":${n.createdMillis}," +
+                "\"updatedMillis\":${n.updatedMillis}}"
         )
     }
     append(']')

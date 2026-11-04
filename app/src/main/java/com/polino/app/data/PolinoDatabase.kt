@@ -20,9 +20,10 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         SmsPatternEntity::class,
         ChequeReminderEntity::class,
         AccountSmsSenderEntity::class,
-        PlanEntity::class
+        PlanEntity::class,
+        NoteEntity::class
     ],
-    version = 21,
+    version = 22,
     exportSchema = false
 )
 internal abstract class PolinoDatabase : RoomDatabase() {
@@ -40,6 +41,7 @@ internal abstract class PolinoDatabase : RoomDatabase() {
     abstract fun chequeReminderDao(): ChequeReminderDao
     abstract fun accountSmsSenderDao(): AccountSmsSenderDao
     abstract fun planDao(): PlanDao
+    abstract fun noteDao(): NoteDao
 
     companion object {
         /**
@@ -366,6 +368,19 @@ internal abstract class PolinoDatabase : RoomDatabase() {
                         "note TEXT NOT NULL DEFAULT '', " +
                         "dueMillis INTEGER, " +
                         "done INTEGER NOT NULL DEFAULT 0)"
+                )
+            }
+        }
+
+        val MIGRATION_21_22 = object : Migration(21, 22) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS notes (" +
+                        "id TEXT NOT NULL PRIMARY KEY, " +
+                        "title TEXT NOT NULL, " +
+                        "body TEXT NOT NULL DEFAULT '', " +
+                        "createdMillis INTEGER NOT NULL, " +
+                        "updatedMillis INTEGER NOT NULL)"
                 )
             }
         }
