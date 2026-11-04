@@ -16,4 +16,8 @@ internal interface CategoryDao {
 
     @Query("DELETE FROM categories WHERE name = :name")
     suspend fun deleteByName(name: String)
+
+    /** هنگام تغییر نام دسته اصلی، زیردسته‌هایش به نام جدید وصل می‌شوند. */
+    @Query("UPDATE categories SET parentId = :newName WHERE parentId = :oldName")
+    suspend fun reassignParent(oldName: String, newName: String)
 }

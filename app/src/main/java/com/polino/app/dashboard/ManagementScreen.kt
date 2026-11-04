@@ -59,6 +59,11 @@ import androidx.compose.ui.unit.dp
 import com.polino.app.data.AccountEntity
 import com.polino.app.data.BudgetRepository
 import com.polino.app.data.CategoryEntity
+import com.polino.app.data.CategoryType
+import com.polino.app.data.categoryType
+import com.polino.app.data.categoryTypeLabel
+import com.polino.app.data.mainCategories
+import com.polino.app.data.subcategoriesOf
 import com.polino.app.data.GoalEntity
 import com.polino.app.data.InstallmentEntity
 import com.polino.app.data.DebtEntity
@@ -112,6 +117,9 @@ fun ManagementScreen(
     var showCategoryDialog by remember { mutableStateOf(false) }
     var showAssetDialog by remember { mutableStateOf(false) }
     var renameCategoryTarget by remember { mutableStateOf<CategoryEntity?>(null) }
+    var selectedCategoryType by remember { mutableStateOf(CategoryType.EXPENSE) }
+    var categoryMessage by remember { mutableStateOf("") }
+    var subcategoryParent by remember { mutableStateOf<CategoryEntity?>(null) }
     val scope = rememberCoroutineScope()
     var smsEnabled by remember { mutableStateOf(false) }
     val smsPermissionLauncher = rememberLauncherForActivityResult(
@@ -705,11 +713,28 @@ fun ManagementScreen(
         }
         item { Text("مدیریت دسته‌ها", style = MaterialTheme.typography.titleMedium) }
         item {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                CategoryType.entries.forEach { type ->
+                    val count = mainCategories(categories, type).size
+                    FilterChip(
+                        selected = selectedCategoryType == type,
+                        onClick = { selectedCategoryType = type },
+                        label = { Text("${categoryTypeLabel(type)} ($count)") }
+                    )
+                }
+            }
+        }
+        item {
             Button(onClick = { showCategoryDialog = true }) {
                 Text("دسته جدید")
             }
         }
-        categories.forEach { category ->
+        if (categoryMessage.isNotEmpty()) {
+            item {
+                Text(categoryMessage, color = MaterialTheme.colorScheme.error)
+            }
+        }
+        mainCategories(categories, selectedCategoryType).forEach { category ->
             item {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
@@ -720,18 +745,58 @@ fun ManagementScreen(
                         Modifier.padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Text(category.name, style = MaterialTheme.typography.titleMedium)
-                        Text(if (category.isIncome) "درآمد" else "هزینه")
-                        if (category.name != "سایر") {
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Button(onClick = { renameCategoryTarget = category }) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Icon(
+                                categoryIcon(category.name),
+                                contentDescription = category.name
+                            )
+                            Column {
+                                Text(category.name, style = MaterialTheme.typography.titleMedium)
+                                Text("دسته اصلی · ${categoryTypeLabel(categoryType(category))}")
+                            }
+                        }
+                        subcategoriesOf(categories, category.name).forEach { sub ->
+                            Row(
+                                modifier = Modifier.padding(start = 12.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Text(sub.name, modifier = Modifier.weight(1f))
+                                TextButton(onClick = { renameCategoryTarget = sub }) {
                                     Text("تغییر نام")
                                 }
                                 TextButton(
                                     onClick = {
                                         scope.launch {
-                                            repository.deleteCategory(category.name)
+                                            repository.deleteCategory(sub.name)
                                             categories = repository.getCategories()
+                                        }
+                                    }
+                                ) {
+                                    Text("حذف")
+                                }
+                            }
+                        }
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            TextButton(onClick = { subcategoryParent = category }) {
+                                Text("زیردسته جدید")
+                            }
+                            if (category.name != "سایر") {
+                                TextButton(onClick = { renameCategoryTarget = category }) {
+                                    Text("تغییر نام")
+                                }
+                                TextButton(
+                                    onClick = {
+                                        scope.launch {
+                                            if (subcategoriesOf(categories, category.name).isNotEmpty()) {
+                                                categoryMessage = "اول زیردسته‌های این دسته را حذف کنید."
+                                            } else if (repository.deleteCategory(category.name)) {
+                                                categoryMessage = ""
+                                                categories = repository.getCategories()
+                                            }
                                         }
                                     }
                                 ) {
@@ -925,12 +990,34 @@ fun ManagementScreen(
     if (showCategoryDialog) {
         CategoryDialog(
             existingNames = categories.map { it.name },
+            initialType = selectedCategoryType,
             onDismiss = { showCategoryDialog = false },
-            onSave = { name, isIncome ->
+            onSave = { name, isIncome, isInvestment ->
                 scope.launch {
-                    repository.addCategory(name, isIncome)
+                    repository.addCategory(name, isIncome, isInvestment)
                     categories = repository.getCategories()
                     showCategoryDialog = false
+                }
+            }
+        )
+    }
+
+    val subcategoryTarget = subcategoryParent
+    if (subcategoryTarget != null) {
+        SubcategoryDialog(
+            parentName = subcategoryTarget.name,
+            existingNames = categories.map { it.name },
+            onDismiss = { subcategoryParent = null },
+            onSave = { name ->
+                scope.launch {
+                    repository.addCategory(
+                        name,
+                        subcategoryTarget.isIncome,
+                        subcategoryTarget.isInvestment,
+                        subcategoryTarget.name
+                    )
+                    categories = repository.getCategories()
+                    subcategoryParent = null
                 }
             }
         )
@@ -1272,11 +1359,12 @@ private fun AccountRenameDialog(
 @Composable
 private fun CategoryDialog(
     existingNames: List<String>,
+    initialType: CategoryType = CategoryType.EXPENSE,
     onDismiss: () -> Unit,
-    onSave: (name: String, isIncome: Boolean) -> Unit
+    onSave: (name: String, isIncome: Boolean, isInvestment: Boolean) -> Unit
 ) {
     var name by remember { mutableStateOf("") }
-    var isIncome by remember { mutableStateOf(false) }
+    var selectedType by remember { mutableStateOf(initialType) }
     val duplicate = name.isNotBlank() && existingNames.contains(name)
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -1292,14 +1380,19 @@ private fun CategoryDialog(
                 )
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     FilterChip(
-                        selected = !isIncome,
-                        onClick = { isIncome = false },
+                        selected = selectedType == CategoryType.EXPENSE,
+                        onClick = { selectedType = CategoryType.EXPENSE },
                         label = { Text("هزینه") }
                     )
                     FilterChip(
-                        selected = isIncome,
-                        onClick = { isIncome = true },
+                        selected = selectedType == CategoryType.INCOME,
+                        onClick = { selectedType = CategoryType.INCOME },
                         label = { Text("درآمد") }
+                    )
+                    FilterChip(
+                        selected = selectedType == CategoryType.INVESTMENT,
+                        onClick = { selectedType = CategoryType.INVESTMENT },
+                        label = { Text("سرمایه‌گذاری") }
                     )
                 }
                 if (duplicate) {
@@ -1309,7 +1402,55 @@ private fun CategoryDialog(
         },
         confirmButton = {
             Button(
-                onClick = { onSave(name, isIncome) },
+                onClick = {
+                    onSave(
+                        name,
+                        selectedType == CategoryType.INCOME,
+                        selectedType == CategoryType.INVESTMENT
+                    )
+                },
+                enabled = name.isNotBlank() && !duplicate
+            ) {
+                Text("ذخیره")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("لغو")
+            }
+        }
+    )
+}
+
+@Composable
+private fun SubcategoryDialog(
+    parentName: String,
+    existingNames: List<String>,
+    onDismiss: () -> Unit,
+    onSave: (name: String) -> Unit
+) {
+    var name by remember { mutableStateOf("") }
+    val duplicate = name.isNotBlank() && existingNames.contains(name)
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("زیردسته جدید برای $parentName") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                TextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text("نام زیردسته") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                if (duplicate) {
+                    Text("این نام قبلاً استفاده شده است.", color = MaterialTheme.colorScheme.error)
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { onSave(name) },
                 enabled = name.isNotBlank() && !duplicate
             ) {
                 Text("ذخیره")

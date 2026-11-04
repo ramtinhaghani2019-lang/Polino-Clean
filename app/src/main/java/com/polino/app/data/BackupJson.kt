@@ -82,10 +82,13 @@ internal fun fullBackupToJson(data: BackupData): String = buildString {
         )
     }
     data.categories.forEach { c ->
+        val parentJson = c.parentId?.let { "\"${escapeJsonString(it)}\"" } ?: "null"
         append(
             ",{\"type\":\"category\"," +
                 "\"name\":\"${escapeJsonString(c.name)}\"," +
-                "\"isIncome\":${c.isIncome}}"
+                "\"isIncome\":${c.isIncome}," +
+                "\"isInvestment\":${c.isInvestment}," +
+                "\"parentId\":$parentJson}"
         )
     }
     data.accounts.forEach { a ->

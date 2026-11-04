@@ -21,7 +21,8 @@ internal class TransactionRepository(context: Context) {
         PolinoDatabase.MIGRATION_10_11,
         PolinoDatabase.MIGRATION_11_12,
         PolinoDatabase.MIGRATION_12_13,
-        PolinoDatabase.MIGRATION_13_14
+        PolinoDatabase.MIGRATION_13_14,
+        PolinoDatabase.MIGRATION_14_15
     ).build()
     private val dao = database.transactionDao()
     private val accountDao = database.accountDao()
@@ -105,19 +106,39 @@ internal class TransactionRepository(context: Context) {
         return categoryDao.getAll()
     }
 
-    /** افزودن دسته؛ نام تکراری رد می‌شود. */
-    suspend fun addCategory(name: String, isIncome: Boolean): Boolean {
-        if (categoryDao.getAll().any { it.name == name }) return false
-        categoryDao.upsert(CategoryEntity(name, isIncome))
+    /**
+     * افزودن دسته؛ نام تکراری رد می‌شود. اگر parentId داده شود، والد
+     * باید دسته اصلیِ موجود باشد و نوع زیردسته از والد به ارث می‌رسد؛
+     * زیردسته نمی‌تواند خودش والد شود.
+     */
+    suspend fun addCategory(
+        name: String,
+        isIncome: Boolean,
+        isInvestment: Boolean = false,
+        parentId: String? = null
+    ): Boolean {
+        val all = categoryDao.getAll()
+        if (all.any { it.name == name }) return false
+        if (parentId != null) {
+            val parent = all.firstOrNull { it.name == parentId } ?: return false
+            if (parent.parentId != null) return false
+            categoryDao.upsert(
+                CategoryEntity(name, parent.isIncome, parent.isInvestment, parentId)
+            )
+        } else {
+            categoryDao.upsert(CategoryEntity(name, isIncome, isInvestment, null))
+        }
         return true
     }
 
     /**
      * حذف دسته؛ تراکنش‌هایش به «سایر» منتقل و بودجه‌هایش حذف می‌شوند.
-     * «سایر» خودش حذف نمی‌شود.
+     * «سایر» خودش حذف نمی‌شود. دسته اصلی‌ای که هنوز زیردسته دارد
+     * حذف نمی‌شود تا زیردسته‌هایش اول حذف شوند.
      */
     suspend fun deleteCategory(name: String): Boolean {
         if (!canDeleteCategory(name)) return false
+        if (categoryDao.getAll().any { it.parentId == name }) return false
         dao.reassignCategory(name, FALLBACK_CATEGORY)
         recurringDao.renameCategory(name, FALLBACK_CATEGORY)
         budgetDao.deleteForCategory(name)
@@ -127,9 +148,10 @@ internal class TransactionRepository(context: Context) {
 
     /**
      * تغییر نام دسته؛ تراکنش‌ها، بودجه‌ها و قاعده‌های تکرارشونده‌اش با
-     * نام جدید ادامه می‌دهند و نوع دسته (هزینه/درآمد) حفظ می‌شود.
-     * «سایر» قابل تغییرنام نیست چون نقطه اتکای حذف دسته‌هاست؛ نام
-     * تکراری یا خالی رد می‌شود.
+     * نام جدید ادامه می‌دهند و نوع دسته (هزینه/درآمد/سرمایه‌گذاری)
+     * حفظ می‌شود. اگر دسته اصلی باشد، زیردسته‌هایش هم به نام جدید
+     * وصل می‌شوند. «سایر» قابل تغییرنام نیست چون نقطه اتکای حذف
+     * دسته‌هاست؛ نام تکراری یا خالی رد می‌شود.
      */
     suspend fun renameCategory(oldName: String, newName: String): Boolean {
         if (newName.isBlank() || oldName == FALLBACK_CATEGORY) return false
@@ -137,10 +159,18 @@ internal class TransactionRepository(context: Context) {
         val all = categoryDao.getAll()
         val current = all.firstOrNull { it.name == oldName } ?: return false
         if (all.any { it.name == newName }) return false
-        categoryDao.upsert(CategoryEntity(newName, current.isIncome))
+        categoryDao.upsert(
+            CategoryEntity(
+                newName,
+                current.isIncome,
+                current.isInvestment,
+                current.parentId
+            )
+        )
         dao.reassignCategory(oldName, newName)
         budgetDao.renameCategory(oldName, newName)
         recurringDao.renameCategory(oldName, newName)
+        categoryDao.reassignParent(oldName, newName)
         categoryDao.deleteByName(oldName)
         return true
     }

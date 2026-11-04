@@ -93,6 +93,8 @@ private class LegacyJsonParser(private val text: String) {
             var limitAmount: Long? = null
             var name: String? = null
             var isIncome: Boolean? = null
+            var isInvestment: Boolean? = null
+            var parentId: String? = null
             var dayOfMonth: Long? = null
             var startYearMonth: String? = null
             var lastAppliedYearMonth: String? = null
@@ -120,6 +122,8 @@ private class LegacyJsonParser(private val text: String) {
                         "limitAmount" -> limitAmount = parseValueAsLong()
                         "name" -> name = parseValueAsString()
                         "isIncome" -> isIncome = parseValueAsBoolean()
+                        "isInvestment" -> isInvestment = parseValueAsBoolean()
+                        "parentId" -> parentId = parseValueAsString()
                         "dayOfMonth" -> dayOfMonth = parseValueAsLong()
                         "startYearMonth" -> startYearMonth = parseValueAsString()
                         "lastAppliedYearMonth" -> lastAppliedYearMonth = parseValueAsString()
@@ -164,7 +168,14 @@ private class LegacyJsonParser(private val text: String) {
                 }
                 "category" -> {
                     if (name != null && isIncome != null) {
-                        categories.add(CategoryEntity(name, isIncome))
+                        categories.add(
+                            CategoryEntity(
+                                name,
+                                isIncome,
+                                isInvestment ?: false,
+                                parentId
+                            )
+                        )
                     }
                 }
                 "account" -> {

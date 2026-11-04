@@ -19,7 +19,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         AssetEntity::class,
         SmsPatternEntity::class
     ],
-    version = 14,
+    version = 15,
     exportSchema = false
 )
 internal abstract class PolinoDatabase : RoomDatabase() {
@@ -224,6 +224,54 @@ internal abstract class PolinoDatabase : RoomDatabase() {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL(
                     "ALTER TABLE transactions ADD COLUMN store TEXT NOT NULL DEFAULT ''"
+                )
+            }
+        }
+        /**
+         * مهاجرت v14→v15: دو ستون نوع سرمایه‌گذاری و والد به جدول
+         * دسته‌ها اضافه می‌شود؛ دسته‌های موجود دقیقاً همان نوع قبلی
+         * (هزینه/درآمد) را نگه می‌دارند و دسته اصلی می‌مانند، و
+         * دسته‌های سرمایه‌گذاری پیش‌فرض پرگار یک بار اضافه می‌شوند.
+         * هیچ ردیف موجودی تغییر نمی‌کند.
+         */
+        val MIGRATION_14_15 = object : Migration(14, 15) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "ALTER TABLE categories " +
+                        "ADD COLUMN isInvestment INTEGER NOT NULL DEFAULT 0"
+                )
+                db.execSQL("ALTER TABLE categories ADD COLUMN parentId TEXT")
+                db.execSQL(
+                    "INSERT OR IGNORE INTO categories " +
+                        "(name, isIncome, isInvestment) VALUES ('طلا و جواهر', 0, 1)"
+                )
+                db.execSQL(
+                    "INSERT OR IGNORE INTO categories " +
+                        "(name, isIncome, isInvestment) VALUES ('سهام و بورس', 0, 1)"
+                )
+                db.execSQL(
+                    "INSERT OR IGNORE INTO categories " +
+                        "(name, isIncome, isInvestment) VALUES ('صندوق سرمایه‌گذاری', 0, 1)"
+                )
+                db.execSQL(
+                    "INSERT OR IGNORE INTO categories " +
+                        "(name, isIncome, isInvestment) VALUES ('ارز دیجیتال', 0, 1)"
+                )
+                db.execSQL(
+                    "INSERT OR IGNORE INTO categories " +
+                        "(name, isIncome, isInvestment) VALUES ('ارز', 0, 1)"
+                )
+                db.execSQL(
+                    "INSERT OR IGNORE INTO categories " +
+                        "(name, isIncome, isInvestment) VALUES ('ملک و املاک', 0, 1)"
+                )
+                db.execSQL(
+                    "INSERT OR IGNORE INTO categories " +
+                        "(name, isIncome, isInvestment) VALUES ('سپرده و اوراق', 0, 1)"
+                )
+                db.execSQL(
+                    "INSERT OR IGNORE INTO categories " +
+                        "(name, isIncome, isInvestment) VALUES ('سایر سرمایه‌گذاری', 0, 1)"
                 )
             }
         }

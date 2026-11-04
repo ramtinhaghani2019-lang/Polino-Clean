@@ -54,8 +54,9 @@ import com.polino.app.data.AccountEntity
 import com.polino.app.data.CategoryEntity
 import com.polino.app.data.MoneyTransaction
 import com.polino.app.data.TransactionRepository
-import com.polino.app.data.expenseCategoryNames
-import com.polino.app.data.incomeCategoryNames
+import com.polino.app.data.CategoryType
+import com.polino.app.data.mainCategories
+import com.polino.app.data.subcategoriesOf
 import com.polino.app.voice.parseSpokenAmount
 import java.util.UUID
 import kotlinx.coroutines.launch
@@ -92,8 +93,14 @@ fun EntryScreen(
         accounts = runCatching { repository.getAccounts() }.getOrDefault(emptyList())
         categories = runCatching { repository.getCategories() }.getOrDefault(emptyList())
     }
-    val categoryNames =
-        if (isExpense) expenseCategoryNames(categories) else incomeCategoryNames(categories)
+    val pickedType = if (isExpense) CategoryType.EXPENSE else CategoryType.INCOME
+    val groupedCategories: List<Pair<CategoryEntity, List<CategoryEntity>>> =
+        mainCategories(categories, pickedType).map { main ->
+            main to subcategoriesOf(categories, main.name)
+        }
+    val categoryNames = groupedCategories.flatMap { (main, subs) ->
+        listOf(main.name) + subs.map { it.name }
+    }
     LaunchedEffect(isExpense, categories) {
         if (selectedCategory == null || selectedCategory !in categoryNames) {
             selectedCategory = categoryNames.firstOrNull()
@@ -304,16 +311,25 @@ fun EntryScreen(
         item {
             Text("دسته", style = MaterialTheme.typography.titleMedium)
             Spacer(Modifier.height(8.dp))
-            Row(
-                modifier = Modifier.horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                categoryNames.forEach { category ->
-                    FilterChip(
-                        selected = selectedCategory == category,
-                        onClick = { selectedCategory = category },
-                        label = { Text(category) }
-                    )
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                groupedCategories.forEach { (main, subs) ->
+                    Row(
+                        modifier = Modifier.horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        FilterChip(
+                            selected = selectedCategory == main.name,
+                            onClick = { selectedCategory = main.name },
+                            label = { Text(main.name) }
+                        )
+                        subs.forEach { sub ->
+                            FilterChip(
+                                selected = selectedCategory == sub.name,
+                                onClick = { selectedCategory = sub.name },
+                                label = { Text(sub.name) }
+                            )
+                        }
+                    }
                 }
             }
         }
