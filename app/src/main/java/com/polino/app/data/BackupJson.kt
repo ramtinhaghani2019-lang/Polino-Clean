@@ -13,7 +13,9 @@ internal data class BackupData(
     /** اتصال‌های سرشماره پیامک به حساب‌ها؛ خالی یعنی نسخه قدیمی پشتیبان. */
     val accountSmsSenders: List<AccountSmsSenderEntity> = emptyList(),
     /** اقساط؛ خالی یعنی نسخه قدیمی پشتیبان. */
-    val installments: List<InstallmentEntity> = emptyList()
+    val installments: List<InstallmentEntity> = emptyList(),
+    /** برنامه‌ها؛ خالی یعنی نسخه قدیمی پشتیبان. */
+    val plans: List<PlanEntity> = emptyList()
 )
 
 /**
@@ -155,6 +157,17 @@ internal fun fullBackupToJson(data: BackupData): String = buildString {
                 "\"priority\":\"${escapeJsonString(g.priority)}\"," +
                 "\"category\":\"${escapeJsonString(g.category)}\"," +
                 "\"note\":\"${escapeJsonString(g.note)}\"}"
+        )
+    }
+    data.plans.forEach { p ->
+        val planDueJson = p.dueMillis?.toString() ?: "null"
+        append(
+            ",{\"type\":\"plan\"," +
+                "\"id\":\"${escapeJsonString(p.id)}\"," +
+                "\"title\":\"${escapeJsonString(p.title)}\"," +
+                "\"note\":\"${escapeJsonString(p.note)}\"," +
+                "\"dueMillis\":$planDueJson," +
+                "\"done\":${p.done}}"
         )
     }
     append(']')

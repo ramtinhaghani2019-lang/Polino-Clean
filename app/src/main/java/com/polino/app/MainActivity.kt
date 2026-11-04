@@ -54,6 +54,7 @@ import com.polino.app.dashboard.EntryScreen
 import com.polino.app.dashboard.FinanceDashboard
 import com.polino.app.dashboard.GoalsScreen
 import com.polino.app.dashboard.ManagementScreen
+import com.polino.app.dashboard.PlansScreen
 import com.polino.app.dashboard.RemindersScreen
 import com.polino.app.dashboard.ReportsScreen
 import com.polino.app.dashboard.SettingsScreen
@@ -153,6 +154,7 @@ private fun PolinoApp(
     var showReminders by remember { mutableStateOf(false) }
     var showTransactions by remember { mutableStateOf(false) }
     var showGoals by remember { mutableStateOf(false) }
+    var showPlans by remember { mutableStateOf(false) }
     var showSettings by remember { mutableStateOf(false) }
     var showDebts by remember { mutableStateOf(false) }
     var showCategories by remember { mutableStateOf(false) }
@@ -185,8 +187,14 @@ private fun PolinoApp(
         GoalsScreen(
             onBack = { showGoals = false },
             onNavigateToTasks = { showGoals = false; tab = Tab.Management },
-            onNavigateToReminders = { showGoals = false; showReminders = true }
+            onNavigateToReminders = { showGoals = false; showReminders = true },
+            onNavigateToPlans = { showGoals = false; showPlans = true }
         )
+        return
+    }
+
+    if (showPlans) {
+        PlansScreen(onBack = { showPlans = false })
         return
     }
 

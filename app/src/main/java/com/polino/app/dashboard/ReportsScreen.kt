@@ -125,7 +125,8 @@ fun ReportsScreen(onBack: () -> Unit) {
                         recurring = transactionRepository.getRecurring(),
                         goals = transactionRepository.getGoals(),
                         accountSmsSenders = transactionRepository.getAccountSmsLinks(),
-                        installments = transactionRepository.getInstallments()
+                        installments = transactionRepository.getInstallments(),
+                        plans = transactionRepository.getPlans()
                     )
                     context.contentResolver.openOutputStream(uri)?.use { stream ->
                         stream.write(fullBackupToJson(data).toByteArray(Charsets.UTF_8))

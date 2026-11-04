@@ -71,6 +71,7 @@ private class LegacyJsonParser(private val text: String) {
         val recurring = ArrayList<RecurringEntity>()
         val goals = ArrayList<GoalEntity>()
         val installments = ArrayList<InstallmentEntity>()
+        val plans = ArrayList<PlanEntity>()
         var isV2 = false
         skipWs()
         if (peek() == ']') {
@@ -101,6 +102,7 @@ private class LegacyJsonParser(private val text: String) {
             var startYearMonth: String? = null
             var lastAppliedYearMonth: String? = null
             var active: Boolean? = null
+            var done: Boolean? = null
             var target: Long? = null
             var savedAmount: Long? = null
             var dueMillis: Long? = null
@@ -140,6 +142,7 @@ private class LegacyJsonParser(private val text: String) {
                         "startYearMonth" -> startYearMonth = parseValueAsString()
                         "lastAppliedYearMonth" -> lastAppliedYearMonth = parseValueAsString()
                         "active" -> active = parseValueAsBoolean()
+                        "done" -> done = parseValueAsBoolean()
                         "target" -> target = parseValueAsLong()
                         "savedAmount" -> savedAmount = parseValueAsLong()
                         "dueMillis" -> dueMillis = parseValueAsLong()
@@ -265,6 +268,19 @@ private class LegacyJsonParser(private val text: String) {
                         )
                     }
                 }
+                "plan" -> {
+                    if (id != null && title != null) {
+                        plans.add(
+                            PlanEntity(
+                                id = id,
+                                title = title,
+                                note = note ?: "",
+                                dueMillis = dueMillis,
+                                done = done ?: false
+                            )
+                        )
+                    }
+                }
                 else -> {
                     // نشانگر نسخه یا نوع ناشناخته: نادیده گرفته می‌شود.
                 }
@@ -277,7 +293,7 @@ private class LegacyJsonParser(private val text: String) {
             }
         }
         if (!isV2) return null
-        return BackupData(transactions, budgets, categories, accounts, recurring, goals, accountSmsSenders, installments)
+        return BackupData(transactions, budgets, categories, accounts, recurring, goals, accountSmsSenders, installments, plans)
     }
 
     private fun parseObject(): MoneyTransaction? {

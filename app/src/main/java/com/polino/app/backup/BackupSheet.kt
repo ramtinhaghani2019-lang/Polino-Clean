@@ -144,7 +144,8 @@ internal fun BackupSheet(
                     recurring = transactionRepository.getRecurring(),
                     goals = transactionRepository.getGoals(),
                     accountSmsSenders = transactionRepository.getAccountSmsLinks(),
-                    installments = transactionRepository.getInstallments()
+                    installments = transactionRepository.getInstallments(),
+                    plans = transactionRepository.getPlans()
                 )
                 writeBackupFile(context, fullBackupToJson(data), System.currentTimeMillis())
             }.onSuccess {
@@ -177,6 +178,7 @@ internal fun BackupSheet(
                     backup.recurring.forEach { transactionRepository.addRecurring(it) }
                     backup.goals.forEach { transactionRepository.addGoal(it) }
                     backup.installments.forEach { transactionRepository.addInstallment(it) }
+                    backup.plans.forEach { transactionRepository.addPlan(it) }
                     backup.budgets.forEach {
                         budgetRepository.setBudget(it.yearMonth, it.category, it.limitAmount)
                     }
@@ -399,7 +401,8 @@ internal fun BackupSheet(
                         "بازیابی شود؟ ${backup.transactions.size} تراکنش، " +
                             "${backup.budgets.size} بودجه، ${backup.categories.size} دسته، " +
                             "${backup.accounts.size} حساب، ${backup.recurring.size} تکرارشونده، " +
-                            "${backup.installments.size} قسط و ${backup.goals.size} هدف. " +
+                            "${backup.installments.size} قسط، ${backup.goals.size} هدف و " +
+                            "${backup.plans.size} برنامه. " +
                             "داده‌های هم‌شناسه با نسخه فایل جایگزین می‌شوند."
                     } else {
                         val imported = parseLegacyTransactions(text)

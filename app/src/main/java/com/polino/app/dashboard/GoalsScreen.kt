@@ -21,6 +21,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.EventNote
 import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Notifications
@@ -63,6 +64,7 @@ import androidx.compose.ui.unit.dp
 import com.polino.app.data.ChequeReminderEntity
 import com.polino.app.data.GoalEntity
 import com.polino.app.data.InstallmentEntity
+import com.polino.app.data.PlanEntity
 import com.polino.app.data.TaskEntity
 import com.polino.app.data.TransactionRepository
 import com.polino.app.data.goalProgressFraction
@@ -96,16 +98,17 @@ private val goalPriorities = listOf("زیاد", "متوسط", "کم")
 
 /**
  * صفحه «اهداف و برنامه‌ریزی»: کارت وضعیت کل اهداف، کاشی‌های اهداف و
- * کارها و یادآورها، صافی‌های وضعیت و کارت‌های هدف با فرم ساخت و ویرایش.
- * فقط کاشی‌های قابلیت‌های موجود ساخته شده‌اند؛ برنامه‌ها و یادداشت‌ها
- * در پولینو وجود ندارند و کاشی‌شان ساخته نشده است.
+ * کارها و یادآورها و برنامه‌ها، صافی‌های وضعیت و کارت‌های هدف با فرم
+ * ساخت و ویرایش. کاشی برنامه‌ها به صفحه برنامه‌ها می‌رود؛ کاشی
+ * یادداشت‌ها در مرحله بعد به همین ردیف دوم اضافه می‌شود.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GoalsScreen(
     onBack: () -> Unit,
     onNavigateToTasks: () -> Unit,
-    onNavigateToReminders: () -> Unit
+    onNavigateToReminders: () -> Unit,
+    onNavigateToPlans: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val repository = remember { TransactionRepository(context) }
@@ -114,6 +117,7 @@ fun GoalsScreen(
     var tasks by remember { mutableStateOf<List<TaskEntity>>(emptyList()) }
     var cheques by remember { mutableStateOf<List<ChequeReminderEntity>>(emptyList()) }
     var installments by remember { mutableStateOf<List<InstallmentEntity>>(emptyList()) }
+    var plans by remember { mutableStateOf<List<PlanEntity>>(emptyList()) }
     var filter by remember { mutableStateOf("همه") }
     var showSheet by remember { mutableStateOf(false) }
     var goalToEdit by remember { mutableStateOf<GoalEntity?>(null) }
@@ -126,6 +130,7 @@ fun GoalsScreen(
             tasks = repository.getTasks()
             cheques = repository.getCheques()
             installments = repository.getInstallments()
+            plans = repository.getPlans()
         }
     }
 
@@ -144,6 +149,7 @@ fun GoalsScreen(
     val openTasks = tasks.count { !it.done }
     val openReminders = cheques.count { !it.settled } +
         installments.count { it.paidCount < it.monthCount }
+    val openPlans = plans.count { !it.done }
 
     Box(modifier = Modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize()) {
@@ -246,6 +252,20 @@ fun GoalsScreen(
                             active = false,
                             onClick = onNavigateToReminders
                         )
+                    }
+                }
+                item {
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        GoalHubTile(
+                            modifier = Modifier.weight(1f),
+                            label = "برنامه‌ها",
+                            subtitle = "$openPlans برنامه باز",
+                            icon = Icons.Default.EventNote,
+                            active = false,
+                            onClick = onNavigateToPlans
+                        )
+                        // ردیف دوم کاشی‌ها؛ کاشی یادداشت‌ها در مرحله بعد اینجا می‌نشیند.
+                        Spacer(Modifier.weight(2f))
                     }
                 }
                 item {
