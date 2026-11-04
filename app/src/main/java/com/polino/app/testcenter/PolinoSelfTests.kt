@@ -18,6 +18,7 @@ import com.polino.app.data.SmsPatternEntity
 import com.polino.app.data.assetCurrentValue
 import com.polino.app.data.dongiShares
 import com.polino.app.data.DongiMember
+import com.polino.app.data.DongiSettlement
 import com.polino.app.data.dongiSettlements
 import com.polino.app.data.installmentMonthlyAmount
 import com.polino.app.data.installmentProgressFraction
