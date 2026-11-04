@@ -56,6 +56,9 @@ import com.polino.app.testcenter.TestCenterScreen
 import com.polino.app.security.AppLockScreen
 import com.polino.app.security.LOCK_ENABLED_KEY
 import com.polino.app.security.LOCK_PREFS_NAME
+import com.polino.app.security.PIN_HASH_KEY
+import com.polino.app.security.PIN_SALT_KEY
+import com.polino.app.security.PinLockScreen
 import com.polino.app.ui.theme.PolinoTheme
 import com.polino.app.ui.theme.THEME_MODE_KEY
 import com.polino.app.ui.theme.THEME_PREFS_NAME
@@ -105,10 +108,20 @@ private fun PolinoApp(
             .getBoolean(LOCK_ENABLED_KEY, false)
     }
     var lockEnabled by remember { mutableStateOf(initialLockEnabled) }
-    var unlocked by remember { mutableStateOf(!initialLockEnabled) }
+    // قفل پین مستقل از قفل بیومتریک است؛ اگر پین تنظیم شده باشد، در شروع
+    // برنامه صفحه ورود پین نشان داده می‌شود، وگرنه قفل قبلی عین قبل رفتار می‌کند.
+    val pinSet = remember {
+        val prefs = context.getSharedPreferences(LOCK_PREFS_NAME, Context.MODE_PRIVATE)
+        prefs.contains(PIN_HASH_KEY) && prefs.contains(PIN_SALT_KEY)
+    }
+    var unlocked by remember { mutableStateOf(!initialLockEnabled && !pinSet) }
 
-    if (lockEnabled && !unlocked) {
-        AppLockScreen(onUnlocked = { unlocked = true })
+    if ((lockEnabled || pinSet) && !unlocked) {
+        if (pinSet) {
+            PinLockScreen(onUnlocked = { unlocked = true })
+        } else {
+            AppLockScreen(onUnlocked = { unlocked = true })
+        }
         return
     }
 

@@ -34,6 +34,7 @@ import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Link
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.Category
@@ -118,6 +119,7 @@ import com.polino.app.data.RecurringEntity
 import java.util.UUID
 import kotlinx.coroutines.launch
 import com.polino.app.data.TransactionRepository
+import com.polino.app.security.SecuritySheet
 
 @Composable
 fun ManagementScreen(
@@ -159,6 +161,7 @@ fun ManagementScreen(
     var showSenderDialog by remember { mutableStateOf(false) }
     var showCategoryDialog by remember { mutableStateOf(false) }
     var showAssetDialog by remember { mutableStateOf(false) }
+    var showSecuritySheet by remember { mutableStateOf(false) }
     var renameCategoryTarget by remember { mutableStateOf<CategoryEntity?>(null) }
     var selectedCategoryType by remember { mutableStateOf(CategoryType.EXPENSE) }
     var categoryMessage by remember { mutableStateOf("") }
@@ -303,6 +306,29 @@ fun ManagementScreen(
                         "با اثر انگشت یا رمز دستگاه باز می‌شود؛ از اجرای بعد فعال است.",
                         style = MaterialTheme.typography.bodySmall
                     )
+                }
+            }
+        }
+        item {
+            Card(
+                onClick = { showSecuritySheet = true },
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(20.dp),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+            ) {
+                Row(
+                    Modifier.padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Icon(Icons.Default.Lock, contentDescription = "امنیت و حریم خصوصی")
+                    Column(Modifier.weight(1f)) {
+                        Text("امنیت و حریم خصوصی", style = MaterialTheme.typography.titleMedium)
+                        Text(
+                            "قفل با پین‌کد، تشخیص چهره / اثر انگشت و بازنشانی کامل",
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
                 }
             }
         }
@@ -1221,6 +1247,14 @@ fun ManagementScreen(
                     showInstallmentDialog = false
                 }
             }
+        )
+    }
+
+    if (showSecuritySheet) {
+        SecuritySheet(
+            biometricEnabled = lockEnabled,
+            onBiometricChange = onLockChange,
+            onDismiss = { showSecuritySheet = false }
         )
     }
 
