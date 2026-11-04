@@ -17,10 +17,12 @@ import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.Calculate
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -28,6 +30,7 @@ import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -276,12 +279,26 @@ private fun PolinoApp(
         topBar = {
             if (BuildConfig.DEBUG) {
                 TopAppBar(
+                    // مرحله ۱۰۵: نوار بالای عین پرگار — همبرگر (بازکننده تنظیمات)
+                    // در سمت شروع، نام پولینو کنارش، و تست‌سنتر (موقت، تا نسخه‌های
+                    // بعد) در سمت پایان؛ آموزش و ویژه عمداً نیستند.
+                    navigationIcon = {
+                        IconButton(onClick = { showSettings = true }) {
+                            Icon(
+                                Icons.Default.Menu,
+                                contentDescription = "منو"
+                            )
+                        }
+                    },
                     title = { Text("پولینو") },
                     actions = {
                         TextButton(onClick = { showTestCenter = true }) {
                             Text("تست‌سنتر")
                         }
-                    }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = Color.Transparent
+                    )
                 )
             }
         },
