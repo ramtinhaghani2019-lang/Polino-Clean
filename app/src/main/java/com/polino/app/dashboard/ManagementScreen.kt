@@ -2989,7 +2989,6 @@ private fun AssetDialog(
     )
 }
 
-@Composable
 /** واحدهای هر نوع دارایی در فرم افزودن دارایی. */
 private fun assetUnitsFor(type: String): List<String> = when (type) {
     "طلا" -> listOf("گرم", "سوت", "مثقال", "اونس")
