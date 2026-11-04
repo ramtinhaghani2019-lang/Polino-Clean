@@ -48,6 +48,7 @@ import com.polino.app.dashboard.EntryScreen
 import com.polino.app.dashboard.FinanceDashboard
 import com.polino.app.dashboard.ManagementScreen
 import com.polino.app.dashboard.ReportsScreen
+import com.polino.app.dashboard.SmartBudgetScreen
 import com.polino.app.testcenter.TestCenterScreen
 import com.polino.app.security.AppLockScreen
 import com.polino.app.security.LOCK_ENABLED_KEY
@@ -111,11 +112,17 @@ private fun PolinoApp(
     var tab by remember { mutableStateOf(Tab.Home) }
     var entryScreen by remember { mutableStateOf(false) }
     var showTestCenter by remember { mutableStateOf(false) }
+    var showSmartBudget by remember { mutableStateOf(false) }
     var showCalculator by remember { mutableStateOf(false) }
     var calculatorAmount by remember { mutableStateOf("") }
 
     if (showTestCenter) {
         TestCenterScreen(onBack = { showTestCenter = false })
+        return
+    }
+
+    if (showSmartBudget) {
+        SmartBudgetScreen(onBack = { showSmartBudget = false })
         return
     }
 
@@ -247,6 +254,7 @@ private fun PolinoApp(
                 Tab.Management -> ManagementScreen(
                     onNavigateHome = { tab = Tab.Home },
                     onNavigateToReports = { tab = Tab.Reports },
+                    onNavigateToSmartBudget = { showSmartBudget = true },
                     themeMode = themeMode,
                     onThemeModeChange = onThemeModeChange,
                     lockEnabled = lockEnabled,

@@ -26,6 +26,7 @@ import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.Savings
+import androidx.compose.material.icons.filled.PieChart
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -82,6 +83,7 @@ import com.polino.app.data.TransactionRepository
 fun ManagementScreen(
     onNavigateHome: () -> Unit,
     onNavigateToReports: () -> Unit,
+    onNavigateToSmartBudget: () -> Unit = {},
     themeMode: String = "system",
     onThemeModeChange: (String) -> Unit = {},
     lockEnabled: Boolean = false,
@@ -370,6 +372,14 @@ fun ManagementScreen(
                 subtitle = "$budgetCount بودجه، ${goals.size} هدف",
                 icon = Icons.Default.Savings,
                 onClick = onNavigateToReports
+            )
+        }
+        item {
+            ManagementCard(
+                title = "بودجه‌بندی هوشمند",
+                subtitle = "$budgetCount بودجه ماه جاری",
+                icon = Icons.Default.PieChart,
+                onClick = onNavigateToSmartBudget
             )
         }
         item {
