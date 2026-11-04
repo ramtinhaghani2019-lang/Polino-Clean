@@ -304,6 +304,21 @@ internal abstract class PolinoDatabase : RoomDatabase() {
             }
         }
         /**
+         * مهاجرت v17→v18: ستون نام بانک به جدول حساب‌ها و جدول اتصال
+         * سرشماره‌های پیامک به حساب‌ها اضافه می‌شود؛ حساب‌های موجود نام
+         * بانک خالی می‌گیرند و هیچ اتصالی ساخته یا حدس زده نمی‌شود.
+         */
+        val MIGRATION_17_18 = object : Migration(17, 18) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE accounts ADD COLUMN bankName TEXT")
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS account_sms_senders " +
+                        "(accountId TEXT NOT NULL, sender TEXT NOT NULL, " +
+                        "PRIMARY KEY(accountId, sender))"
+                )
+            }
+        }
+        /**
          * مهاجرت v18→v19: پنج ستون مدل هدف پرگار به جدول هدف‌ها اضافه
          * می‌شود؛ هدف‌های موجود پس‌انداز صفر، بدون موعد، اولویت متوسط و
          * بدون دسته و یادداشت می‌گیرند و هیچ مقداری ساخته یا حدس زده
