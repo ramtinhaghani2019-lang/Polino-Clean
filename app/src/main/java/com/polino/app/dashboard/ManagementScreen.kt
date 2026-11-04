@@ -38,6 +38,7 @@ import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Link
+import androidx.compose.material.icons.filled.Backup
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.BarChart
@@ -123,6 +124,7 @@ import com.polino.app.data.RecurringEntity
 import java.util.UUID
 import kotlinx.coroutines.launch
 import com.polino.app.data.TransactionRepository
+import com.polino.app.backup.BackupSheet
 import com.polino.app.security.SecuritySheet
 
 @Composable
@@ -166,6 +168,7 @@ fun ManagementScreen(
     var showCategoryDialog by remember { mutableStateOf(false) }
     var showAssetDialog by remember { mutableStateOf(false) }
     var showSecuritySheet by remember { mutableStateOf(false) }
+    var showBackupSheet by remember { mutableStateOf(false) }
     var renameCategoryTarget by remember { mutableStateOf<CategoryEntity?>(null) }
     var selectedCategoryType by remember { mutableStateOf(CategoryType.EXPENSE) }
     var categoryMessage by remember { mutableStateOf("") }
@@ -409,6 +412,29 @@ fun ManagementScreen(
                         Text("امنیت و حریم خصوصی", style = MaterialTheme.typography.titleMedium)
                         Text(
                             "قفل با پین‌کد، تشخیص چهره / اثر انگشت و بازنشانی کامل",
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                }
+            }
+        }
+        item {
+            Card(
+                onClick = { showBackupSheet = true },
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(20.dp),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+            ) {
+                Row(
+                    Modifier.padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Icon(Icons.Default.Backup, contentDescription = "پشتیبان‌گیری و دارایی")
+                    Column(Modifier.weight(1f)) {
+                        Text("پشتیبان‌گیری و دارایی", style = MaterialTheme.typography.titleMedium)
+                        Text(
+                            "فهرست پشتیبان‌ها، ساخت، بازیابی و خروجی اکسل",
                             style = MaterialTheme.typography.bodySmall
                         )
                     }
@@ -1398,6 +1424,35 @@ fun ManagementScreen(
             biometricEnabled = lockEnabled,
             onBiometricChange = onLockChange,
             onDismiss = { showSecuritySheet = false }
+        )
+    }
+
+    if (showBackupSheet) {
+        BackupSheet(
+            transactionRepository = repository,
+            budgetRepository = budgetRepository,
+            onRestored = {
+                scope.launch {
+                    runCatching {
+                        transactions = repository.getAll()
+                        accounts = repository.getAccounts()
+                        categories = repository.getCategories()
+                        recurring = repository.getRecurring()
+                        goals = repository.getGoals()
+                        installments = repository.getInstallments()
+                        debts = repository.getDebts()
+                        tasks = repository.getTasks()
+                        cheques = repository.getCheques()
+                        assets = repository.getAssets()
+                        patterns = repository.getPatterns()
+                        allSenders = repository.getAccountSmsLinks()
+                        budgetCount = budgetRepository.getBudgets(
+                            JalaliDate.currentJalaliYearMonth()
+                        ).size
+                    }
+                }
+            },
+            onDismiss = { showBackupSheet = false }
         )
     }
 
