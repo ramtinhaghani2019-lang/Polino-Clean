@@ -46,7 +46,7 @@ fun detectSenders(rows: List<InboxSmsRow>): List<DetectedSender> {
  * داده‌ها باشد. اسکن مجدد و دریافت زنده هر دو همین تابع را صدا می‌زنند
  * تا دو قاعده متفاوت برای تکراری به وجود نیاید.
  */
-fun isSmsDuplicate(
+internal fun isSmsDuplicate(
     existing: List<MoneyTransaction>,
     amount: Long,
     timestampMillis: Long
@@ -98,7 +98,7 @@ suspend fun scanInboxSms(context: Context): List<InboxSmsRow> {
  * و حساب مقصد از همان اتصال‌های حساب↔فرستنده حل می‌شود. تعداد
  * تراکنش‌های تازه‌ثبت‌شده برمی‌گردد.
  */
-suspend fun rescanInboxSms(context: Context, repository: TransactionRepository): Int {
+internal suspend fun rescanInboxSms(context: Context, repository: TransactionRepository): Int {
     val rows = scanInboxSms(context)
     if (rows.isEmpty()) return 0
     val existing = runCatching { repository.getAll() }.getOrDefault(emptyList()).toMutableList()
