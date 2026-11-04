@@ -1,6 +1,7 @@
 package com.polino.app.backup
 
 import android.content.Intent
+import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
@@ -63,13 +64,13 @@ private val SheetPurple = Color(0xFFA855F7)
 private val SheetGreen = Color(0xFF64C0AB)
 
 /**
- * ورق «پشتیبان‌گیری و بازیابی» عین ورق پرگار: فهرست تاریخ‌دار پشتیبان‌ها
- * (تاریخ + ساعت + اندازه + اشتراک + دکمه سبز بازیابی برای هر فایل)، دکمه
- * بنفش «ایجاد پشتیبان جدید»، دکمه «انتخاب فایل پشتیبان از حافظه»، ردیف
- * «خروج گزارش مالی اکسل» و دکمه بنفش بستن. اسکن خودکار پوشه، حذف
- * خودکار هفت‌روزه و پشتیبان‌گیری زمان‌بندی‌شده در این مرحله ساخته نشده‌اند
- * (تصمیم‌گیری آن‌ها با کاربر مانده است)؛ فهرست فقط پشتیبان‌های ساخته‌شده
- * توسط خود برنامه را نشان می‌دهد.
+ * ورق «پشتیبان‌گیری و بازیابی» عین ورق پرگار: فهرست یکپارچه تاریخ‌دار
+ * پشتیبان‌ها (دستی + خودکار؛ تاریخ + ساعت + اندازه + اشتراک + دکمه سبز
+ * بازیابی برای هر فایل)، دکمه بنفش «ایجاد پشتیبان جدید»، دکمه «انتخاب
+ * فایل پشتیبان از حافظه»، ردیف «خروج گزارش مالی اکسل» و دکمه بنفش بستن.
+ * پشتیبان‌گیری خودکار روزانه در پوشه Documents/PolinoBackups فعال است و
+ * پشتیبان‌های خودکار قدیمی‌تر از ۷ روز در هر اسکن حذف می‌شوند؛ پشتیبان‌های
+ * دستی در حافظه داخلی برنامه‌اند و هرگز خودکار حذف نمی‌شوند.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -83,13 +84,18 @@ internal fun BackupSheet(
     val scope = rememberCoroutineScope()
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val timeFormat = remember { SimpleDateFormat("HH:mm", Locale.US) }
-    var files by remember { mutableStateOf<List<BackupFileInfo>>(emptyList()) }
+    var files by remember { mutableStateOf<List<ListedBackup>>(emptyList()) }
     var message by remember { mutableStateOf("") }
     var error by remember { mutableStateOf("") }
     var pendingRestoreText by remember { mutableStateOf<String?>(null) }
 
     fun refreshFiles() {
-        files = runCatching { listBackupFiles(context) }.getOrDefault(emptyList())
+        scope.launch {
+            runCatching { pruneDocumentsAutoBackups(context, System.currentTimeMillis()) }
+            val manual = runCatching { listBackupFiles(context) }.getOrDefault(emptyList())
+            val auto = listDocumentsAutoBackups(context)
+            files = mergeBackupLists(manual, auto)
+        }
     }
 
     LaunchedEffect(Unit) {
@@ -103,6 +109,19 @@ internal fun BackupSheet(
                 "${context.packageName}.fileprovider",
                 file
             )
+            val intent = Intent(Intent.ACTION_SEND).apply {
+                type = "application/json"
+                putExtra(Intent.EXTRA_STREAM, uri)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            context.startActivity(Intent.createChooser(intent, "اشتراک پشتیبان"))
+        }.onFailure {
+            error = "اشتراک‌گذاری ناموفق بود. دوباره تلاش کنید."
+        }
+    }
+
+    fun shareUri(uri: Uri) {
+        runCatching {
             val intent = Intent(Intent.ACTION_SEND).apply {
                 type = "application/json"
                 putExtra(Intent.EXTRA_STREAM, uri)
@@ -243,8 +262,9 @@ internal fun BackupSheet(
                 modifier = Modifier.fillMaxWidth()
             )
             Text(
-                "پشتیبان‌ها فقط در حافظه داخلی برنامه نگه داشته می‌شوند؛ " +
-                    "اسکن خودکار پوشه و حذف خودکار در این نسخه فعال نیست.",
+                "پشتیبان‌گیری خودکار روزانه در پوشه Documents/PolinoBackups فعال است؛ " +
+                    "پشتیبان‌های خودکار قدیمی‌تر از ۷ روز خودکار حذف می‌شوند. " +
+                    "پشتیبان‌های دستی در حافظه داخلی برنامه‌اند و هرگز خودکار حذف نمی‌شوند.",
                 style = MaterialTheme.typography.bodySmall,
                 color = SheetMuted
             )
@@ -261,12 +281,13 @@ internal fun BackupSheet(
             )
             if (files.isEmpty()) {
                 Text(
-                    "هنوز پشتیبانی ساخته نشده است؛ با دکمه زیر اولین پشتیبان را بسازید.",
+                    "هنوز پشتیبانی ساخته نشده است؛ با دکمه زیر اولین پشتیبان را بسازید " +
+                        "یا منتظر پشتیبان خودکار روزانه بمانید.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = SheetMuted
                 )
             } else {
-                files.forEach { info ->
+                files.forEach { listed ->
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
@@ -274,29 +295,42 @@ internal fun BackupSheet(
                     ) {
                         Column(Modifier.weight(1f)) {
                             Text(
-                                JalaliDate.formatJalali(info.createdMillis) +
-                                    " • " + timeFormat.format(Date(info.createdMillis)),
+                                JalaliDate.formatJalali(listed.info.createdMillis) +
+                                    " • " + timeFormat.format(Date(listed.info.createdMillis)),
                                 style = MaterialTheme.typography.bodyMedium,
                                 fontWeight = FontWeight.Bold
                             )
                             Text(
-                                backupDisplaySize(info.sizeBytes),
+                                backupDisplaySize(listed.info.sizeBytes) +
+                                    if (listed.isAuto) " • خودکار" else "",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = SheetMuted
                             )
                         }
                         IconButton(onClick = {
-                            shareFile(File(backupDir(context), info.name))
+                            val uri = listed.documentUri
+                            if (uri != null) {
+                                shareUri(uri)
+                            } else {
+                                shareFile(File(backupDir(context), listed.info.name))
+                            }
                         }) {
                             Icon(Icons.Filled.Share, contentDescription = "اشتراک پشتیبان")
                         }
                         Button(
                             onClick = {
-                                val file = File(backupDir(context), info.name)
-                                val text = runCatching {
-                                    file.readText(Charsets.UTF_8)
-                                }.getOrDefault("")
-                                queueRestore(text)
+                                val uri = listed.documentUri
+                                if (uri != null) {
+                                    scope.launch {
+                                        queueRestore(readDocumentsBackupText(context, uri))
+                                    }
+                                } else {
+                                    val file = File(backupDir(context), listed.info.name)
+                                    val text = runCatching {
+                                        file.readText(Charsets.UTF_8)
+                                    }.getOrDefault("")
+                                    queueRestore(text)
+                                }
                             },
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = SheetGreen,

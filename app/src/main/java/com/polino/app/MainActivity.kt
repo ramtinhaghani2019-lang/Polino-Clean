@@ -30,6 +30,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -42,6 +43,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import com.polino.app.backup.runDailyAutoBackupIfNeeded
 import com.polino.app.dashboard.CalendarScreen
 import com.polino.app.dashboard.CalculatorSheet
 import com.polino.app.dashboard.EntryScreen
@@ -53,6 +55,8 @@ import com.polino.app.dashboard.ReportsScreen
 import com.polino.app.dashboard.SettingsScreen
 import com.polino.app.dashboard.SmartBudgetScreen
 import com.polino.app.dashboard.TransactionsScreen
+import com.polino.app.data.BudgetRepository
+import com.polino.app.data.TransactionRepository
 import com.polino.app.testcenter.TestCenterScreen
 import com.polino.app.security.AppLockScreen
 import com.polino.app.security.LOCK_ENABLED_KEY
@@ -124,6 +128,18 @@ private fun PolinoApp(
             AppLockScreen(onUnlocked = { unlocked = true })
         }
         return
+    }
+
+    // پشتیبان‌گیری خودکار روزانه: در شروع برنامه، خارج از نخ اصلی، بی‌صدا؛
+    // اگر امروز هنوز ساخته نشده، یک نسخه در Documents/PolinoBackups می‌نویسد.
+    val autoBackupTransactionRepository = remember { TransactionRepository(context) }
+    val autoBackupBudgetRepository = remember { BudgetRepository(context) }
+    LaunchedEffect(Unit) {
+        runDailyAutoBackupIfNeeded(
+            context,
+            autoBackupTransactionRepository,
+            autoBackupBudgetRepository
+        )
     }
 
     var tab by remember { mutableStateOf(Tab.Home) }
