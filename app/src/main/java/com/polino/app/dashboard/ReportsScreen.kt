@@ -125,7 +125,8 @@ fun ReportsScreen(onBack: () -> Unit) {
                         categories = transactionRepository.getCategories(),
                         accounts = transactionRepository.getAccounts(),
                         recurring = transactionRepository.getRecurring(),
-                        goals = transactionRepository.getGoals()
+                        goals = transactionRepository.getGoals(),
+                        accountSmsSenders = transactionRepository.getAccountSmsLinks()
                     )
                     context.contentResolver.openOutputStream(uri)?.use { stream ->
                         stream.write(fullBackupToJson(data).toByteArray(Charsets.UTF_8))
@@ -264,6 +265,9 @@ fun ReportsScreen(onBack: () -> Unit) {
                             if (confirmedBackup != null) {
                                 runCatching {
                                     confirmedBackup.accounts.forEach { transactionRepository.upsertAccount(it) }
+                                    confirmedBackup.accountSmsSenders.forEach {
+                                        transactionRepository.upsertAccountSmsSender(it)
+                                    }
                                     confirmedBackup.transactions.forEach { transactionRepository.upsert(it) }
                                     confirmedBackup.categories.forEach {
                                         transactionRepository.addCategory(it.name, it.isIncome)

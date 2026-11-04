@@ -11,16 +11,27 @@ import androidx.core.content.ContextCompat
 import com.polino.app.sms.SMS_ENABLED_KEY
 import com.polino.app.sms.SMS_PREFS_NAME
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBalanceWallet
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowDownward
+import androidx.compose.material.icons.filled.ArrowUpward
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Link
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.ChevronLeft
@@ -31,6 +42,12 @@ import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Surface
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.CardDefaults
@@ -59,6 +76,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.polino.app.data.AccountEntity
+import com.polino.app.data.AccountSmsSenderEntity
 import com.polino.app.data.BudgetRepository
 import com.polino.app.data.CategoryEntity
 import com.polino.app.data.CategoryType
@@ -125,6 +143,10 @@ fun ManagementScreen(
     var showChequeDialog by remember { mutableStateOf(false) }
     var showAccountDialog by remember { mutableStateOf(false) }
     var renameAccountTarget by remember { mutableStateOf<AccountEntity?>(null) }
+    var detailAccount by remember { mutableStateOf<AccountEntity?>(null) }
+    var detailSenders by remember { mutableStateOf<List<AccountSmsSenderEntity>>(emptyList()) }
+    var allSenders by remember { mutableStateOf<List<AccountSmsSenderEntity>>(emptyList()) }
+    var showSenderDialog by remember { mutableStateOf(false) }
     var showCategoryDialog by remember { mutableStateOf(false) }
     var showAssetDialog by remember { mutableStateOf(false) }
     var renameCategoryTarget by remember { mutableStateOf<CategoryEntity?>(null) }
@@ -156,6 +178,7 @@ fun ManagementScreen(
             cheques = repository.getCheques()
             assets = repository.getAssets()
             patterns = repository.getPatterns()
+            allSenders = repository.getAccountSmsLinks()
             budgetCount = budgetRepository.getBudgets(JalaliDate.currentJalaliYearMonth()).size
         }
         smsEnabled = context.getSharedPreferences(SMS_PREFS_NAME, Context.MODE_PRIVATE)
@@ -891,8 +914,14 @@ fun ManagementScreen(
         }
         accounts.forEach { account ->
             item {
+                val linked = allSenders.any { it.accountId == account.id }
                 Card(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().clickable {
+                        detailAccount = account
+                        scope.launch {
+                            detailSenders = repository.getAccountSmsSenders(account.id)
+                        }
+                    },
                     shape = RoundedCornerShape(20.dp),
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
                 ) {
@@ -901,26 +930,22 @@ fun ManagementScreen(
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Text(account.name, style = MaterialTheme.typography.titleMedium)
+                        if (account.bankName != null) {
+                            Text(
+                                "بانک: ${account.bankName}",
+                                style = MaterialTheme.typography.labelLarge,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                         val balance = transactions.filter { it.accountId == account.id }
                             .sumOf { if (it.income) it.amount else -it.amount }
                         Text("مانده: ${money(balance)}")
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Button(onClick = { renameAccountTarget = account }) {
-                                Text("تغییر نام")
-                            }
-                            if (account.id != "main") {
-                                TextButton(
-                                    onClick = {
-                                        scope.launch {
-                                            repository.deleteAccount(account.id)
-                                            accounts = repository.getAccounts()
-                                            transactions = repository.getAll()
-                                        }
-                                    }
-                                ) {
-                                    Text("حذف")
-                                }
-                            }
+                        if (linked) {
+                            Text(
+                                "متصل به پیامک ✓",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = Color(0xFF2E9E6B)
+                            )
                         }
                     }
                 }
@@ -1198,9 +1223,9 @@ fun ManagementScreen(
         AccountDialog(
             existingNames = accounts.map { it.name },
             onDismiss = { showAccountDialog = false },
-            onSave = { name ->
+            onSave = { name, bankName ->
                 scope.launch {
-                    repository.addAccount(name)
+                    repository.addAccount(name, bankName)
                     accounts = repository.getAccounts()
                     showAccountDialog = false
                 }
@@ -1212,17 +1237,67 @@ fun ManagementScreen(
     if (accountToRename != null) {
         AccountRenameDialog(
             currentName = accountToRename.name,
+            currentBankName = accountToRename.bankName,
             existingNames = accounts.map { it.name },
             onDismiss = { renameAccountTarget = null },
-            onSave = { name ->
+            onSave = { name, bankName ->
                 scope.launch {
-                    if (repository.renameAccount(accountToRename.id, name)) {
+                    if (repository.renameAccount(accountToRename.id, name, bankName)) {
                         accounts = repository.getAccounts()
                         renameAccountTarget = null
                     }
                 }
             }
         )
+    }
+
+    val accountToDetail = detailAccount
+    if (accountToDetail != null) {
+        AccountDetailSheet(
+            account = accountToDetail,
+            senders = detailSenders,
+            transactions = transactions,
+            onDismiss = { detailAccount = null },
+            onRename = {
+                renameAccountTarget = accountToDetail
+                detailAccount = null
+            },
+            onDelete = {
+                scope.launch {
+                    repository.deleteAccount(accountToDetail.id)
+                    accounts = repository.getAccounts()
+                    transactions = repository.getAll()
+                    allSenders = repository.getAccountSmsLinks()
+                    detailAccount = null
+                }
+            },
+            onAddSender = { showSenderDialog = true },
+            onRemoveSender = { sender ->
+                scope.launch {
+                    repository.removeAccountSmsSender(accountToDetail.id, sender)
+                    detailSenders = repository.getAccountSmsSenders(accountToDetail.id)
+                    allSenders = repository.getAccountSmsLinks()
+                }
+            }
+        )
+    }
+
+    if (showSenderDialog && detailAccount != null) {
+        val senderAccount = detailAccount
+        if (senderAccount != null) {
+            AccountSenderDialog(
+                onDismiss = { showSenderDialog = false },
+                onSave = { sender ->
+                    scope.launch {
+                        if (repository.addAccountSmsSender(senderAccount.id, sender)) {
+                            detailSenders = repository.getAccountSmsSenders(senderAccount.id)
+                            allSenders = repository.getAccountSmsLinks()
+                            showSenderDialog = false
+                        }
+                    }
+                }
+            )
+        }
     }
 
     if (showCategoryDialog) {
@@ -1619,13 +1694,272 @@ private fun InstallmentDialog(
     )
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AccountDetailSheet(
+    account: AccountEntity,
+    senders: List<AccountSmsSenderEntity>,
+    transactions: List<MoneyTransaction>,
+    onDismiss: () -> Unit,
+    onRename: () -> Unit,
+    onDelete: () -> Unit,
+    onAddSender: () -> Unit,
+    onRemoveSender: (String) -> Unit
+) {
+    val sheetDark = Color(0xFF1E1438)
+    val sheetCard = Color(0xFF2A2150)
+    val sheetBorder = Color(0xFF3D3368)
+    val sheetMuted = Color(0xFFB3ACD6)
+    val sheetGreen = Color(0xFF34C89E)
+    val sheetGreenBg = Color(0xFF1E4436)
+    val sheetRed = Color(0xFFFF6B6B)
+    val sheetRedBg = Color(0xFF4A2020)
+    var showMenu by remember { mutableStateOf(false) }
+    val accountTransactions = transactions.filter { it.accountId == account.id }
+    val balance = accountTransactions.sumOf { if (it.income) it.amount else -it.amount }
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        containerColor = sheetDark
+    ) {
+        LazyColumn(
+            contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 32.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            item {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Text(
+                            account.name,
+                            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                            color = Color.White
+                        )
+                        if (account.bankName != null) {
+                            Text(
+                                "بانک: ${account.bankName}",
+                                style = MaterialTheme.typography.labelLarge,
+                                color = sheetMuted
+                            )
+                        }
+                    }
+                    Box {
+                        IconButton(onClick = { showMenu = true }) {
+                            Icon(Icons.Default.MoreVert, contentDescription = "گزینه‌ها", tint = Color.White)
+                        }
+                        DropdownMenu(
+                            expanded = showMenu,
+                            onDismissRequest = { showMenu = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("تغییر نام") },
+                                onClick = {
+                                    showMenu = false
+                                    onRename()
+                                }
+                            )
+                            if (account.id != "main") {
+                                DropdownMenuItem(
+                                    text = { Text("حذف", color = MaterialTheme.colorScheme.error) },
+                                    onClick = {
+                                        showMenu = false
+                                        onDelete()
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+            if (senders.isNotEmpty()) {
+                item {
+                    Surface(
+                        shape = RoundedCornerShape(16.dp),
+                        color = sheetGreenBg
+                    ) {
+                        Text(
+                            "متصل به پیامک ✓",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = sheetGreen,
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                        )
+                    }
+                }
+            }
+            item {
+                Card(
+                    shape = RoundedCornerShape(20.dp),
+                    colors = CardDefaults.cardColors(containerColor = sheetCard),
+                    border = BorderStroke(1.dp, sheetBorder)
+                ) {
+                    Column(
+                        Modifier.padding(20.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text("موجودی فعلی", style = MaterialTheme.typography.labelLarge, color = sheetMuted)
+                        Text(
+                            "${money(balance)} تومان",
+                            style = MaterialTheme.typography.displayMedium.copy(fontWeight = FontWeight.Bold),
+                            color = if (balance >= 0) sheetGreen else sheetRed
+                        )
+                    }
+                }
+            }
+            item {
+                Card(
+                    shape = RoundedCornerShape(20.dp),
+                    colors = CardDefaults.cardColors(containerColor = sheetCard),
+                    border = BorderStroke(1.dp, sheetBorder)
+                ) {
+                    Column(
+                        Modifier.padding(20.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Text(
+                            "اتصال شماره پیامک بانکی",
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                            color = Color.White
+                        )
+                        Text(
+                            "پیامک‌های واریز و برداشت این سرشماره‌ها به‌طور خودکار به این حساب متصل می‌شوند.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = sheetMuted
+                        )
+                        senders.forEach { link ->
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.Link, contentDescription = null, tint = sheetGreen)
+                                Text(
+                                    link.sender,
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = Color.White,
+                                    modifier = Modifier.weight(1f).padding(start = 8.dp)
+                                )
+                                IconButton(onClick = { onRemoveSender(link.sender) }) {
+                                    Icon(Icons.Default.Close, contentDescription = "قطع اتصال", tint = sheetRed)
+                                }
+                            }
+                        }
+                        OutlinedButton(onClick = onAddSender) {
+                            Icon(Icons.Default.Add, contentDescription = null)
+                            Text("افزودن شماره پیامک", modifier = Modifier.padding(start = 4.dp))
+                        }
+                    }
+                }
+            }
+            item {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        "تراکنش‌های این حساب",
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                        color = Color.White,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Surface(
+                        shape = RoundedCornerShape(16.dp),
+                        color = Color(0xFF372A63)
+                    ) {
+                        Text(
+                            "${accountTransactions.size} تراکنش",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = Color(0xFFD8D0F5),
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                        )
+                    }
+                }
+            }
+            if (accountTransactions.isEmpty()) {
+                item {
+                    Text(
+                        "برای این حساب تراکنشی ثبت نشده است.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = sheetMuted
+                    )
+                }
+            }
+            accountTransactions.forEach { tx ->
+                item {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier.size(40.dp).background(
+                                if (tx.income) sheetGreenBg else sheetRedBg,
+                                CircleShape
+                            ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                if (tx.income) Icons.Default.ArrowUpward else Icons.Default.ArrowDownward,
+                                contentDescription = null,
+                                tint = if (tx.income) sheetGreen else sheetRed
+                            )
+                        }
+                        Column(
+                            modifier = Modifier.weight(1f).padding(start = 12.dp),
+                            verticalArrangement = Arrangement.spacedBy(2.dp)
+                        ) {
+                            Text(tx.title, style = MaterialTheme.typography.titleMedium, color = Color.White)
+                            Text(
+                                "${tx.category} • ${JalaliDate.formatJalali(tx.dateMillis)}",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = sheetMuted
+                            )
+                        }
+                        Text(
+                            (if (tx.income) "+" else "−") + money(tx.amount) + " تومان",
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                            color = if (tx.income) sheetGreen else sheetRed
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AccountSenderDialog(
+    onDismiss: () -> Unit,
+    onSave: (sender: String) -> Unit
+) {
+    var sender by remember { mutableStateOf("") }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        shape = RoundedCornerShape(28.dp),
+        containerColor = if (MaterialTheme.colorScheme.background.luminance() < 0.5f) Color(0xFF1E1438) else MaterialTheme.colorScheme.surface,
+        title = { Text("افزودن شماره پیامک", fontWeight = FontWeight.Bold) },
+        text = {
+            TextField(
+                value = sender,
+                onValueChange = { sender = it },
+                label = { Text("سرشماره یا نام فرستنده") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+        },
+        confirmButton = {
+            Button(
+                onClick = { onSave(sender.trim()) },
+                enabled = sender.isNotBlank()
+            ) {
+                Text("ذخیره")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("لغو")
+            }
+        }
+    )
+}
+
 @Composable
 private fun AccountDialog(
     existingNames: List<String>,
     onDismiss: () -> Unit,
-    onSave: (name: String) -> Unit
+    onSave: (name: String, bankName: String?) -> Unit
 ) {
     var name by remember { mutableStateOf("") }
+    var bank by remember { mutableStateOf("") }
     val duplicate = name.isNotBlank() && existingNames.contains(name)
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -1641,6 +1975,13 @@ private fun AccountDialog(
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
+                TextField(
+                    value = bank,
+                    onValueChange = { bank = it },
+                    label = { Text("نام بانک یا مؤسسه (اختیاری)") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
                 if (duplicate) {
                     Text("این نام قبلاً استفاده شده است.", color = MaterialTheme.colorScheme.error)
                 }
@@ -1648,7 +1989,7 @@ private fun AccountDialog(
         },
         confirmButton = {
             Button(
-                onClick = { onSave(name) },
+                onClick = { onSave(name, bank.ifBlank { null }) },
                 enabled = name.isNotBlank() && !duplicate
             ) {
                 Text("ذخیره")
@@ -1665,11 +2006,13 @@ private fun AccountDialog(
 @Composable
 private fun AccountRenameDialog(
     currentName: String,
+    currentBankName: String?,
     existingNames: List<String>,
     onDismiss: () -> Unit,
-    onSave: (name: String) -> Unit
+    onSave: (name: String, bankName: String?) -> Unit
 ) {
     var name by remember { mutableStateOf(currentName) }
+    var bank by remember { mutableStateOf(currentBankName ?: "") }
     val duplicate = name.isNotBlank() && name != currentName && existingNames.contains(name)
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -1685,6 +2028,13 @@ private fun AccountRenameDialog(
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
+                TextField(
+                    value = bank,
+                    onValueChange = { bank = it },
+                    label = { Text("نام بانک یا مؤسسه (اختیاری)") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
                 if (duplicate) {
                     Text("این نام قبلاً استفاده شده است.", color = MaterialTheme.colorScheme.error)
                 }
@@ -1692,7 +2042,7 @@ private fun AccountRenameDialog(
         },
         confirmButton = {
             Button(
-                onClick = { onSave(name) },
+                onClick = { onSave(name, bank.ifBlank { null }) },
                 enabled = name.isNotBlank() && !duplicate
             ) {
                 Text("ذخیره")

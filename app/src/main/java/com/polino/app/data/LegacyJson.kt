@@ -67,6 +67,7 @@ private class LegacyJsonParser(private val text: String) {
         val budgets = ArrayList<BudgetEntity>()
         val categories = ArrayList<CategoryEntity>()
         val accounts = ArrayList<AccountEntity>()
+        val accountSmsSenders = ArrayList<AccountSmsSenderEntity>()
         val recurring = ArrayList<RecurringEntity>()
         val goals = ArrayList<GoalEntity>()
         var isV2 = false
@@ -100,6 +101,8 @@ private class LegacyJsonParser(private val text: String) {
             var lastAppliedYearMonth: String? = null
             var active: Boolean? = null
             var target: Long? = null
+            var bankName: String? = null
+            var sender: String? = null
             skipWs()
             if (peek() != '}') {
                 while (true) {
@@ -129,6 +132,8 @@ private class LegacyJsonParser(private val text: String) {
                         "lastAppliedYearMonth" -> lastAppliedYearMonth = parseValueAsString()
                         "active" -> active = parseValueAsBoolean()
                         "target" -> target = parseValueAsLong()
+                        "bankName" -> bankName = parseValueAsString()
+                        "sender" -> sender = parseValueAsString()
                         else -> skipValue()
                     }
                     skipWs()
@@ -180,7 +185,12 @@ private class LegacyJsonParser(private val text: String) {
                 }
                 "account" -> {
                     if (id != null && name != null) {
-                        accounts.add(AccountEntity(id, name))
+                        accounts.add(AccountEntity(id, name, bankName?.ifBlank { null }))
+                    }
+                }
+                "accountSmsSender" -> {
+                    if (accountId != null && !accountId.isBlank() && !sender.isNullOrBlank()) {
+                        accountSmsSenders.add(AccountSmsSenderEntity(accountId, sender))
                     }
                 }
                 "recurring" -> {
@@ -221,7 +231,7 @@ private class LegacyJsonParser(private val text: String) {
             }
         }
         if (!isV2) return null
-        return BackupData(transactions, budgets, categories, accounts, recurring, goals)
+        return BackupData(transactions, budgets, categories, accounts, recurring, goals, accountSmsSenders)
     }
 
     private fun parseObject(): MoneyTransaction? {

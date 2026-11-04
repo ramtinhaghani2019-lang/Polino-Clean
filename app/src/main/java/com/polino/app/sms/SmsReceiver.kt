@@ -27,6 +27,7 @@ class SmsReceiver : BroadcastReceiver() {
                 val repository = TransactionRepository(context)
                 val existing = runCatching { repository.getAll() }.getOrDefault(emptyList())
                 val patterns = runCatching { repository.getPatterns() }.getOrDefault(emptyList())
+                val smsLinks = runCatching { repository.getAccountSmsLinks() }.getOrDefault(emptyList())
                 Telephony.Sms.Intents.getMessagesFromIntent(intent).forEach { sms ->
                     val body = sms.messageBody ?: return@forEach
                     val originator = sms.originatingAddress ?: ""
@@ -52,7 +53,7 @@ class SmsReceiver : BroadcastReceiver() {
                             income = income,
                             category = "سایر",
                             dateMillis = sms.timestampMillis,
-                            accountId = "main",
+                            accountId = resolveSmsAccountId(smsLinks, originator),
                             note = body
                         )
                     )

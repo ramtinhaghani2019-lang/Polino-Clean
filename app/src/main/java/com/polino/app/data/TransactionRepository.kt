@@ -24,7 +24,8 @@ internal class TransactionRepository(context: Context) {
         PolinoDatabase.MIGRATION_13_14,
         PolinoDatabase.MIGRATION_14_15,
         PolinoDatabase.MIGRATION_15_16,
-        PolinoDatabase.MIGRATION_16_17
+        PolinoDatabase.MIGRATION_16_17,
+        PolinoDatabase.MIGRATION_17_18
     ).build()
     private val dao = database.transactionDao()
     private val accountDao = database.accountDao()
@@ -38,6 +39,7 @@ internal class TransactionRepository(context: Context) {
     private val assetDao = database.assetDao()
     private val smsPatternDao = database.smsPatternDao()
     private val chequeReminderDao = database.chequeReminderDao()
+    private val accountSmsSenderDao = database.accountSmsSenderDao()
     private val budgetDao = Room.databaseBuilder(
         appContext, BudgetDatabase::class.java, "polino_budgets_db"
     ).build().budgetDao()
@@ -66,24 +68,29 @@ internal class TransactionRepository(context: Context) {
     /** درج یا جایگزینی حساب با شناسه مشخص (برای بازیابی پشتیبان). */
     suspend fun upsertAccount(account: AccountEntity) = accountDao.upsert(account)
 
-    suspend fun addAccount(name: String): AccountEntity {
-        val account = AccountEntity(UUID.randomUUID().toString(), name)
+    suspend fun addAccount(name: String, bankName: String? = null): AccountEntity {
+        val account = AccountEntity(
+            UUID.randomUUID().toString(),
+            name,
+            bankName?.ifBlank { null }
+        )
         accountDao.upsert(account)
         return account
     }
 
     /**
-     * تغییر نام حساب؛ شناسه حساب ثابت می‌ماند پس همه تراکنش‌ها، بودجه‌ها و
-     * اهدافش سر جایشان می‌مانند. نام تکراری یا خالی رد می‌شود؛ تغییر نام به
-     * همان نام فعلی موفقِ بی‌اثر است.
+     * تغییر نام و نام بانک حساب؛ شناسه حساب ثابت می‌ماند پس همه
+     * تراکنش‌ها، بودجه‌ها و اهدافش سر جایشان می‌مانند. نام تکراری یا
+     * خالی رد می‌شود؛ تغییر نام به همان نام فعلی موفقِ بی‌اثر است.
+     * نام بانک خالی یعنی بدون بانک.
      */
-    suspend fun renameAccount(id: String, newName: String): Boolean {
+    suspend fun renameAccount(id: String, newName: String, newBankName: String?): Boolean {
         if (newName.isBlank()) return false
         val all = accountDao.getAll()
         val current = all.firstOrNull { it.id == id } ?: return false
-        if (current.name == newName) return true
+        if (current.name == newName && current.bankName == newBankName) return true
         if (all.any { it.id != id && it.name == newName }) return false
-        accountDao.upsert(AccountEntity(id, newName))
+        accountDao.upsert(current.copy(name = newName, bankName = newBankName))
         return true
     }
 
@@ -97,8 +104,37 @@ internal class TransactionRepository(context: Context) {
         accountDao.reassignTransactions(id, "main")
         goalDao.reassignAccounts(id, "main")
         recurringDao.reassignAccounts(id, "main")
+        accountSmsSenderDao.deleteForAccount(id)
         accountDao.deleteById(id)
         return true
+    }
+
+    /** همه اتصال‌های سرشماره پیامک به حساب‌ها (مرتب بر اساس حساب و فرستنده). */
+    suspend fun getAccountSmsLinks(): List<AccountSmsSenderEntity> =
+        accountSmsSenderDao.getAll()
+
+    /** سرشماره‌های متصل به یک حساب. */
+    suspend fun getAccountSmsSenders(accountId: String): List<AccountSmsSenderEntity> =
+        accountSmsSenderDao.getForAccount(accountId)
+
+    /** اتصال یک سرشماره به یک حساب؛ سرشماره خالی رد می‌شود. */
+    suspend fun addAccountSmsSender(accountId: String, sender: String): Boolean {
+        val trimmed = sender.trim()
+        if (trimmed.isEmpty()) return false
+        if (accountDao.getAll().none { it.id == accountId }) return false
+        accountSmsSenderDao.upsert(AccountSmsSenderEntity(accountId, trimmed))
+        return true
+    }
+
+    /** قطع اتصال یک سرشماره از یک حساب. */
+    suspend fun removeAccountSmsSender(accountId: String, sender: String) {
+        accountSmsSenderDao.deleteByAccountAndSender(accountId, sender)
+    }
+
+    /** درج یا جایگزینی اتصال سرشماره (برای بازیابی پشتیبان). */
+    suspend fun upsertAccountSmsSender(link: AccountSmsSenderEntity) {
+        if (link.sender.isBlank()) return
+        accountSmsSenderDao.upsert(link)
     }
 
     /** دسته‌ها؛ اگر جدول خالی باشد دسته‌های پیش‌فرض ساخته می‌شوند. */

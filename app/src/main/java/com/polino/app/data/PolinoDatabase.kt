@@ -18,9 +18,10 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         EventEntity::class,
         AssetEntity::class,
         SmsPatternEntity::class,
-        ChequeReminderEntity::class
+        ChequeReminderEntity::class,
+        AccountSmsSenderEntity::class
     ],
-    version = 17,
+    version = 18,
     exportSchema = false
 )
 internal abstract class PolinoDatabase : RoomDatabase() {
@@ -36,6 +37,7 @@ internal abstract class PolinoDatabase : RoomDatabase() {
     abstract fun assetDao(): AssetDao
     abstract fun smsPatternDao(): SmsPatternDao
     abstract fun chequeReminderDao(): ChequeReminderDao
+    abstract fun accountSmsSenderDao(): AccountSmsSenderDao
 
     companion object {
         /**
@@ -299,6 +301,21 @@ internal abstract class PolinoDatabase : RoomDatabase() {
         val MIGRATION_16_17 = object : Migration(16, 17) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE debts ADD COLUMN dueMillis INTEGER")
+            }
+        }
+        /**
+         * مهاجرت v17→v18: ستون نام بانک به جدول حساب‌ها و جدول اتصال
+         * سرشماره‌های پیامک به حساب‌ها اضافه می‌شود؛ حساب‌های موجود نام
+         * بانک خالی می‌گیرند و هیچ اتصالی ساخته یا حدس زده نمی‌شود.
+         */
+        val MIGRATION_17_18 = object : Migration(17, 18) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE accounts ADD COLUMN bankName TEXT")
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS account_sms_senders " +
+                        "(accountId TEXT NOT NULL, sender TEXT NOT NULL, " +
+                        "PRIMARY KEY(accountId, sender))"
+                )
             }
         }
     }

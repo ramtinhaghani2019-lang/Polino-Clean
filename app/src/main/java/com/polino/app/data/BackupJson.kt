@@ -9,7 +9,9 @@ internal data class BackupData(
     val categories: List<CategoryEntity>,
     val accounts: List<AccountEntity>,
     val recurring: List<RecurringEntity>,
-    val goals: List<GoalEntity>
+    val goals: List<GoalEntity>,
+    /** اتصال‌های سرشماره پیامک به حساب‌ها؛ خالی یعنی نسخه قدیمی پشتیبان. */
+    val accountSmsSenders: List<AccountSmsSenderEntity> = emptyList()
 )
 
 /**
@@ -92,10 +94,19 @@ internal fun fullBackupToJson(data: BackupData): String = buildString {
         )
     }
     data.accounts.forEach { a ->
+        val bankJson = a.bankName?.let { "\"${escapeJsonString(it)}\"" } ?: "null"
         append(
             ",{\"type\":\"account\"," +
                 "\"id\":\"${escapeJsonString(a.id)}\"," +
-                "\"name\":\"${escapeJsonString(a.name)}\"}"
+                "\"name\":\"${escapeJsonString(a.name)}\"," +
+                "\"bankName\":$bankJson}"
+        )
+    }
+    data.accountSmsSenders.forEach { link ->
+        append(
+            ",{\"type\":\"accountSmsSender\"," +
+                "\"accountId\":\"${escapeJsonString(link.accountId)}\"," +
+                "\"sender\":\"${escapeJsonString(link.sender)}\"}"
         )
     }
     data.recurring.forEach { r ->
