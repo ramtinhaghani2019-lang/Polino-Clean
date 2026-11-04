@@ -425,9 +425,6 @@ fun EntryScreen(
                                 leadingIcon = {
                                     Icon(categoryIcon(main.name), contentDescription = null)
                                 },
-                                selectedIcon = {
-                                    Icon(categoryIcon(main.name), contentDescription = null)
-                                },
                                 colors = FilterChipDefaults.filterChipColors(
                                     selectedContainerColor = MaterialTheme.colorScheme.primary,
                                     selectedLabelColor = Color.White
@@ -439,9 +436,6 @@ fun EntryScreen(
                                     onClick = { selectedCategory = sub.name },
                                     label = { Text(sub.name) },
                                     leadingIcon = {
-                                        Icon(categoryIcon(sub.name), contentDescription = null)
-                                    },
-                                    selectedIcon = {
                                         Icon(categoryIcon(sub.name), contentDescription = null)
                                     },
                                     colors = FilterChipDefaults.filterChipColors(
