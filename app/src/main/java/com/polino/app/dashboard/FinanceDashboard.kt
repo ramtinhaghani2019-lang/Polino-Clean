@@ -14,6 +14,7 @@ import androidx.compose.material.icons.filled.Savings
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import com.polino.app.R
@@ -185,8 +186,9 @@ fun FinanceDashboard(
             }
             .toMap()
     }
-    val income = accountTransactions.filter { it.income }.sumOf { it.amount }
-    val expense = accountTransactions.filterNot { it.income }.sumOf { it.amount }
+    // جمع همه حساب‌ها برای کارت قهرمان خانه (نه حساب انتخاب‌شده).
+    val income = transactions.filter { it.income }.sumOf { it.amount }
+    val expense = transactions.filterNot { it.income }.sumOf { it.amount }
     // بودجه‌ها سراسریِ ماه جاری‌اند (مثل صفحه گزارش)؛ هشدار هم بر اساس
     // همه حساب‌ها محاسبه می‌شود تا با همان بودجه‌ها هم‌خوان باشد.
     val overspent = remember(transactions, budgets) {
@@ -226,16 +228,16 @@ fun FinanceDashboard(
         SortOrder.AMOUNT_ASC -> filtered.sortedBy { it.amount }
     }
 
-    // موجودی پایان ۶ ماه اخیر شمسی برای نمودار کارت قهرمان؛ بر اساس
-    // همان حساب انتخاب‌شده (یا همه حساب‌ها) محاسبه می‌شود.
+    // کارت قهرمان خانه: موجودی کل همه حساب‌ها + موجودی پایان ۶ ماه اخیر
+    // شمسی برای نمودار داخل کارت، بر اساس همه تراکنش‌ها (نه حساب انتخاب‌شده).
     val currentMonth = JalaliDate.currentJalaliYearMonth()
-    val heroMonths = remember(accountTransactions, currentMonth) {
+    val heroMonths = remember(currentMonth) {
         JalaliDate.lastJalaliYearMonths(6, currentMonth)
     }
-    val heroBalances = remember(accountTransactions, heroMonths) {
+    val heroBalances = remember(transactions, heroMonths) {
         heroMonths.map { month ->
             val key = ymKey(month)
-            accountTransactions
+            transactions
                 .filter { ymKey(JalaliDate.jalaliYearMonthOf(it.dateMillis)) <= key }
                 .sumOf { if (it.income) it.amount else -it.amount }
         }
@@ -317,11 +319,18 @@ fun FinanceDashboard(
             }
         }
         item {
+            // تم تیره: کارت تیره با بوردر بنفش؛ تم روشن: کارت روشن با بوردر بنفش.
+            val isDarkHero = MaterialTheme.colorScheme.background.luminance() < 0.5f
+            val heroContainer = if (isDarkHero) PurpleHero else MaterialTheme.colorScheme.surface
+            val heroBorderColor = if (isDarkHero) HeroBorder else MaterialTheme.colorScheme.outline
+            val heroLabelColor = if (isDarkHero) HeroMuted else MaterialTheme.colorScheme.onSurfaceVariant
+            val heroNumberColor = if (isDarkHero) Color.White else MaterialTheme.colorScheme.onSurface
+            val heroChartColor = if (isDarkHero) HeroChart else MaterialTheme.colorScheme.primary
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(28.dp),
-                colors = CardDefaults.cardColors(containerColor = PurpleHero),
-                border = BorderStroke(1.dp, HeroBorder)
+                colors = CardDefaults.cardColors(containerColor = heroContainer),
+                border = BorderStroke(1.dp, heroBorderColor)
             ) {
                 Column(
                     Modifier.padding(20.dp),
@@ -330,14 +339,19 @@ fun FinanceDashboard(
                     Text(
                         "موجودی کل",
                         style = MaterialTheme.typography.labelLarge,
-                        color = HeroMuted
+                        color = heroLabelColor
                     )
                     Text(
                         money(income - expense),
-                        style = MaterialTheme.typography.displayMedium.copy(fontWeight = FontWeight.Bold),
-                        color = Color.White
+                        style = MaterialTheme.typography.displayLarge.copy(fontWeight = FontWeight.Bold),
+                        color = heroNumberColor
                     )
-                    BalanceChart(months = heroMonths, balances = heroBalances)
+                    BalanceChart(
+                        months = heroMonths,
+                        balances = heroBalances,
+                        lineColor = heroChartColor,
+                        labelColor = heroLabelColor
+                    )
                 }
             }
         }
@@ -1270,7 +1284,12 @@ private fun RecurringDialog(
 }
 
 @Composable
-private fun BalanceChart(months: List<String>, balances: List<Long>) {
+private fun BalanceChart(
+    months: List<String>,
+    balances: List<Long>,
+    lineColor: Color = HeroChart,
+    labelColor: Color = HeroMuted
+) {
     if (balances.isEmpty()) return
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Canvas(
@@ -1289,9 +1308,9 @@ private fun BalanceChart(months: List<String>, balances: List<Long>) {
                 )
             }
             for (index in 0 until points.size - 1) {
-                drawLine(HeroChart, points[index], points[index + 1], strokeWidth = 3f)
+                drawLine(lineColor, points[index], points[index + 1], strokeWidth = 3f)
             }
-            points.forEach { drawCircle(HeroChart, radius = 5f, center = it) }
+            points.forEach { drawCircle(lineColor, radius = 5f, center = it) }
         }
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -1301,7 +1320,7 @@ private fun BalanceChart(months: List<String>, balances: List<Long>) {
                 Text(
                     JalaliDate.jalaliMonthDisplay(month).substringBefore(" "),
                     style = MaterialTheme.typography.bodySmall,
-                    color = HeroMuted
+                    color = labelColor
                 )
             }
         }
