@@ -51,6 +51,10 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.PieChart
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Flag
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Group
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -940,28 +944,116 @@ fun ManagementScreen(
                         "مبلغی که هر نفر پرداخته را وارد کنید تا سهم مساوی و تسویه‌ها حساب شود؛ باقیمانده یکی‌یکی به نفرات اول می‌رسد.",
                         style = MaterialTheme.typography.bodySmall
                     )
-                    Text(
-                        "جمع کل هزینه‌ها: ${money(dongiTotal)}",
-                        style = MaterialTheme.typography.titleMedium
-                    )
-                    Text(
-                        if (dongiSharesList.isEmpty()) {
-                            "${dongiMembers.size} نفر"
-                        } else {
-                            val minShare = dongiSharesList.min()
-                            val maxShare = dongiSharesList.max()
-                            if (minShare == maxShare) {
-                                "${dongiMembers.size} نفر · سهم مساوی هر نفر: ${money(minShare)}"
-                            } else {
-                                "${dongiMembers.size} نفر · سهم مساوی هر نفر: ${money(minShare)} تا ${money(maxShare)}"
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(28.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFF1E1438)),
+                        border = BorderStroke(1.dp, Color(0xFF3D3368))
+                    ) {
+                        Column(
+                            Modifier.padding(20.dp),
+                            verticalArrangement = Arrangement.spacedBy(16.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                ) {
+                                    Box(
+                                        modifier = Modifier.size(48.dp)
+                                            .background(Color(0xFF2A2150), CircleShape),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            Icons.Default.Group,
+                                            contentDescription = null,
+                                            tint = Color(0xFFA855F7)
+                                        )
+                                    }
+                                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                        Text(
+                                            "جمع کل هزینه‌ها",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = Color(0xFFB3ACD6)
+                                        )
+                                        Text(
+                                            money(dongiTotal),
+                                            style = MaterialTheme.typography.headlineSmall.copy(
+                                                fontWeight = FontWeight.Bold
+                                            ),
+                                            color = Color.White
+                                        )
+                                    }
+                                }
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Surface(
+                                        shape = RoundedCornerShape(12.dp),
+                                        color = Color(0xFF2A2150)
+                                    ) {
+                                        Text(
+                                            dongiPersonCountText(dongiMembers.size),
+                                            color = Color(0xFFC084FC),
+                                            style = MaterialTheme.typography.labelMedium,
+                                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                                        )
+                                    }
+                                    IconButton(
+                                        onClick = { dongiMembers = dongiMembers.toList() }
+                                    ) {
+                                        Icon(
+                                            Icons.Default.Refresh,
+                                            contentDescription = "به‌روزرسانی محاسبه",
+                                            tint = Color.White
+                                        )
+                                    }
+                                }
                             }
-                        },
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                    Text(
-                        "تعداد تسویه‌ها: ${dongiSettlementsList.size}",
-                        style = MaterialTheme.typography.bodyMedium
-                    )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.Top
+                            ) {
+                                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    Text(
+                                        "سهم مساوی هر نفر",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = Color(0xFFB3ACD6)
+                                    )
+                                    Text(
+                                        dongiShareSummary(dongiSharesList).ifBlank { money(0L) },
+                                        style = MaterialTheme.typography.titleMedium.copy(
+                                            fontWeight = FontWeight.Bold
+                                        ),
+                                        color = Color(0xFF64C0AB)
+                                    )
+                                }
+                                Column(
+                                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                                    horizontalAlignment = Alignment.End
+                                ) {
+                                    Text(
+                                        "تعداد تسویه‌ها",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = Color(0xFFB3ACD6)
+                                    )
+                                    Text(
+                                        dongiSettlementCountText(dongiSettlementsList.size),
+                                        style = MaterialTheme.typography.titleMedium.copy(
+                                            fontWeight = FontWeight.Bold
+                                        ),
+                                        color = Color.White
+                                    )
+                                }
+                            }
+                        }
+                    }
                     Text("اعضای گروه و مبالغ پرداختی", style = MaterialTheme.typography.titleMedium)
                     dongiMembers.forEachIndexed { index, member ->
                         val share = dongiSharesList.getOrNull(index) ?: 0L
@@ -991,12 +1083,18 @@ fun ManagementScreen(
                                         singleLine = true,
                                         modifier = Modifier.weight(1f)
                                     )
-                                    TextButton(
+                                    IconButton(
                                         onClick = {
                                             dongiMembers = dongiMembers.filterIndexed { i, _ -> i != index }
                                             dongiSaved = false
                                         }
-                                    ) { Text("حذف") }
+                                    ) {
+                                        Icon(
+                                            Icons.Default.Delete,
+                                            contentDescription = "حذف شخص",
+                                            tint = MaterialTheme.colorScheme.error
+                                        )
+                                    }
                                 }
                                 TextField(
                                     value = if (member.paid == 0L) "" else member.paid.toString(),
@@ -1015,6 +1113,7 @@ fun ManagementScreen(
                                 )
                                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                     listOf(
+                                        0L to "۰",
                                         50_000L to "+۵۰ هزار",
                                         100_000L to "+۱۰۰ هزار",
                                         500_000L to "+۵۰۰ هزار"
@@ -1023,7 +1122,9 @@ fun ManagementScreen(
                                             selected = false,
                                             onClick = {
                                                 dongiMembers = dongiMembers.toMutableList().also {
-                                                    it[index] = member.copy(paid = member.paid + quick)
+                                                    it[index] = member.copy(
+                                                        paid = if (quick == 0L) 0L else member.paid + quick
+                                                    )
                                                 }
                                                 dongiSaved = false
                                             },
@@ -1031,46 +1132,94 @@ fun ManagementScreen(
                                         )
                                     }
                                 }
-                                Text("سهم: ${money(share)}", style = MaterialTheme.typography.bodyMedium)
-                                Text(
-                                    when {
-                                        member.settled -> "تسویه شده"
-                                        balance > 0 -> "باید بگیرد: ${money(balance)}"
-                                        balance < 0 -> "باید بدهد: ${money(-balance)}"
-                                        else -> "متوازن"
-                                    },
-                                    style = MaterialTheme.typography.bodySmall
-                                )
+                                val dongiBalanceText = dongiBalanceLabel(member.settled, balance)
+                                if (dongiBalanceText.isNotEmpty()) {
+                                    Text(dongiBalanceText, style = MaterialTheme.typography.bodySmall)
+                                }
                                 Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Text("تسویه شده")
-                                    Switch(
-                                        checked = member.settled,
-                                        onCheckedChange = { settled ->
+                                    Text("سهم: ${money(share)}", style = MaterialTheme.typography.bodyMedium)
+                                    FilterChip(
+                                        selected = member.settled,
+                                        onClick = {
                                             dongiMembers = dongiMembers.toMutableList().also {
-                                                it[index] = member.copy(settled = settled)
+                                                it[index] = member.copy(settled = !member.settled)
                                             }
                                             dongiSaved = false
-                                        }
+                                        },
+                                        label = { Text("تسویه شده") },
+                                        colors = FilterChipDefaults.filterChipColors(
+                                            selectedContainerColor = Color(0xFF16A34A),
+                                            selectedLabelColor = Color.White
+                                        )
                                     )
                                 }
                             }
                         }
                     }
-                    Button(
-                        onClick = {
-                            dongiMembers = dongiMembers + DongiMember("نفر ${dongiMembers.size + 1}", 0L)
-                            dongiSaved = false
-                        }
-                    ) { Text("افزودن شخص") }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End
+                    ) {
+                        Button(
+                            onClick = {
+                                dongiMembers = dongiMembers + DongiMember("نفر ${dongiMembers.size + 1}", 0L)
+                                dongiSaved = false
+                            },
+                            shape = RoundedCornerShape(28.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color(0xFFA855F7),
+                                contentColor = Color.White
+                            )
+                        ) { Text("+ افزودن شخص") }
+                    }
                     Text("تسویه‌حساب و پرداخت‌ها", style = MaterialTheme.typography.titleMedium)
                     if (dongiSettlementsList.isEmpty()) {
-                        Text("تمام حساب‌ها متوازن است و هیچ پرداختی لازم نیست.")
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(20.dp),
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFF1E1438)),
+                            border = BorderStroke(1.dp, Color(0xFF3D3368))
+                        ) {
+                            Row(
+                                Modifier.padding(16.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Icon(
+                                    Icons.Default.Check,
+                                    contentDescription = null,
+                                    tint = Color(0xFF34C89E)
+                                )
+                                Text(
+                                    "تمام حساب‌ها متوازن است و هیچ پرداختی لازم نیست.",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = Color(0xFF34C89E)
+                                )
+                            }
+                        }
                     } else {
-                        dongiSettlementsList.forEach { settlement ->
-                            Text("${settlement.from} به ${settlement.to}: ${money(settlement.amount)}")
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(20.dp),
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFF1E1438)),
+                            border = BorderStroke(1.dp, Color(0xFF3D3368))
+                        ) {
+                            Column(
+                                Modifier.padding(16.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                dongiSettlementsList.forEach { settlement ->
+                                    Text(
+                                        "${settlement.from} به ${settlement.to}: ${money(settlement.amount)}",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = Color.White
+                                    )
+                                }
+                            }
                         }
                     }
                     if (dongiMembers.isNotEmpty() && dongiSharesList.isNotEmpty()) {
