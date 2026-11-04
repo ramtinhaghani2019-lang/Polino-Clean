@@ -47,6 +47,7 @@ import com.polino.app.dashboard.CalculatorSheet
 import com.polino.app.dashboard.EntryScreen
 import com.polino.app.dashboard.FinanceDashboard
 import com.polino.app.dashboard.ManagementScreen
+import com.polino.app.dashboard.RemindersScreen
 import com.polino.app.dashboard.ReportsScreen
 import com.polino.app.dashboard.SmartBudgetScreen
 import com.polino.app.testcenter.TestCenterScreen
@@ -113,6 +114,7 @@ private fun PolinoApp(
     var entryScreen by remember { mutableStateOf(false) }
     var showTestCenter by remember { mutableStateOf(false) }
     var showSmartBudget by remember { mutableStateOf(false) }
+    var showReminders by remember { mutableStateOf(false) }
     var showCalculator by remember { mutableStateOf(false) }
     var calculatorAmount by remember { mutableStateOf("") }
 
@@ -123,6 +125,11 @@ private fun PolinoApp(
 
     if (showSmartBudget) {
         SmartBudgetScreen(onBack = { showSmartBudget = false })
+        return
+    }
+
+    if (showReminders) {
+        RemindersScreen(onBack = { showReminders = false })
         return
     }
 
@@ -255,6 +262,7 @@ private fun PolinoApp(
                     onNavigateHome = { tab = Tab.Home },
                     onNavigateToReports = { tab = Tab.Reports },
                     onNavigateToSmartBudget = { showSmartBudget = true },
+                    onNavigateToReminders = { showReminders = true },
                     themeMode = themeMode,
                     onThemeModeChange = onThemeModeChange,
                     lockEnabled = lockEnabled,

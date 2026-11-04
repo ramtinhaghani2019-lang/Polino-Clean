@@ -27,6 +27,7 @@ import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.Savings
 import androidx.compose.material.icons.filled.PieChart
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -96,6 +97,7 @@ fun ManagementScreen(
     onNavigateHome: () -> Unit,
     onNavigateToReports: () -> Unit,
     onNavigateToSmartBudget: () -> Unit = {},
+    onNavigateToReminders: () -> Unit = {},
     themeMode: String = "system",
     onThemeModeChange: (String) -> Unit = {},
     lockEnabled: Boolean = false,
@@ -406,6 +408,14 @@ fun ManagementScreen(
                 subtitle = "$budgetCount بودجه ماه جاری",
                 icon = Icons.Default.PieChart,
                 onClick = onNavigateToSmartBudget
+            )
+        }
+        item {
+            ManagementCard(
+                title = "یادآورها",
+                subtitle = "یک‌جا، همه سررسیدها",
+                icon = Icons.Default.Notifications,
+                onClick = onNavigateToReminders
             )
         }
         item {
