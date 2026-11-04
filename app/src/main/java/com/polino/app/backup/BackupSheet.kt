@@ -43,9 +43,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
+import com.polino.app.dashboard.ExportContent
+import com.polino.app.dashboard.ExportRange
+import com.polino.app.dashboard.ExportSheet
 import com.polino.app.dashboard.JalaliDate
-import com.polino.app.dashboard.transactionsInMonth
-import com.polino.app.dashboard.transactionsToXlsx
+import com.polino.app.dashboard.buildExportSections
+import com.polino.app.dashboard.exportRangeBounds
+import com.polino.app.dashboard.sectionsToXlsx
 import com.polino.app.data.BackupData
 import com.polino.app.data.BudgetRepository
 import com.polino.app.data.TransactionRepository
@@ -88,6 +92,10 @@ internal fun BackupSheet(
     var message by remember { mutableStateOf("") }
     var error by remember { mutableStateOf("") }
     var pendingRestoreText by remember { mutableStateOf<String?>(null) }
+    var showExportSheet by remember { mutableStateOf(false) }
+    var pendingExport by remember {
+        mutableStateOf<Pair<ExportRange, ExportContent>?>(null)
+    }
 
     fun refreshFiles() {
         scope.launch {
@@ -231,14 +239,20 @@ internal fun BackupSheet(
         if (uri != null) {
             scope.launch {
                 runCatching {
+                    val (range, content) = pendingExport
+                        ?: (ExportRange.THIS_MONTH to ExportContent())
+                    val bounds = exportRangeBounds(range, JalaliDate.currentJalaliYearMonth())
                     val all = transactionRepository.getAll()
-                    val viewed = transactionsInMonth(all, JalaliDate.currentJalaliYearMonth())
+                    val viewed = all.filter {
+                        it.dateMillis in bounds.startMillis until bounds.endExclusiveMillis
+                    }
+                    val debts = transactionRepository.getDebts()
+                    val sections = buildExportSections(viewed, debts, content)
                     context.contentResolver.openOutputStream(uri)?.use { stream ->
-                        stream.write(transactionsToXlsx(viewed))
+                        stream.write(sectionsToXlsx(sections))
                     } ?: throw IllegalStateException("no output stream")
-                    viewed.size
-                }.onSuccess { count ->
-                    message = "خروجی اکسل $count تراکنش انجام شد."
+                }.onSuccess {
+                    message = "خروجی اکسل انجام شد."
                 }.onFailure {
                     error = "خروجی اکسل ناموفق بود. دوباره تلاش کنید."
                 }
@@ -366,7 +380,7 @@ internal fun BackupSheet(
                 Text("انتخاب فایل پشتیبان از حافظه (Import)", fontWeight = FontWeight.Bold)
             }
             OutlinedButton(
-                onClick = { xlsxLauncher.launch("polino-report.xlsx") },
+                onClick = { showExportSheet = true },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(56.dp),
@@ -430,6 +444,17 @@ internal fun BackupSheet(
                 }) {
                     Text("انصراف")
                 }
+            }
+        )
+    }
+
+    if (showExportSheet) {
+        ExportSheet(
+            onDismiss = { showExportSheet = false },
+            onConfirm = { range, content ->
+                pendingExport = range to content
+                showExportSheet = false
+                xlsxLauncher.launch("polino-report.xlsx")
             }
         )
     }

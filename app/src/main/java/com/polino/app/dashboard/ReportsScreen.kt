@@ -64,6 +64,7 @@ import com.polino.app.data.AccountEntity
 import com.polino.app.data.BudgetEntity
 import com.polino.app.data.BudgetRepository
 import com.polino.app.data.CategoryEntity
+import com.polino.app.data.DebtEntity
 import com.polino.app.data.expenseCategoryNames
 import com.polino.app.data.MoneyTransaction
 import com.polino.app.data.TransactionRepository
@@ -90,6 +91,11 @@ fun ReportsScreen(onBack: () -> Unit) {
     var info by remember { mutableStateOf("") }
     var showBudgetDialog by remember { mutableStateOf(false) }
     var pendingImportText by remember { mutableStateOf<String?>(null) }
+    var debts by remember { mutableStateOf<List<DebtEntity>>(emptyList()) }
+    var showExportSheet by remember { mutableStateOf(false) }
+    var pendingExport by remember {
+        mutableStateOf<Pair<ExportRange, ExportContent>?>(null)
+    }
 
     var selectedYearMonth by remember { mutableStateOf(JalaliDate.currentJalaliYearMonth()) }
     var period by remember { mutableStateOf(ReportPeriod.MONTHLY) }
@@ -102,6 +108,7 @@ fun ReportsScreen(onBack: () -> Unit) {
             transactions = transactionRepository.getAll()
             accounts = transactionRepository.getAccounts()
             categories = transactionRepository.getCategories()
+            debts = transactionRepository.getDebts()
         }.onFailure {
             error = "بارگذاری اطلاعات ناموفق بود. دوباره تلاش کنید."
         }
@@ -203,14 +210,21 @@ fun ReportsScreen(onBack: () -> Unit) {
         if (uri != null) {
             scope.launch {
                 runCatching {
-                    val viewed = transactionsInMonth(transactions, selectedYearMonth).filter {
+                    val (range, content) = pendingExport
+                        ?: (ExportRange.THIS_MONTH to ExportContent())
+                    val bounds = exportRangeBounds(range, JalaliDate.currentJalaliYearMonth())
+                    val viewed = transactions.filter {
+                        it.dateMillis in bounds.startMillis until bounds.endExclusiveMillis &&
+                            (selectedAccountId == "all" || it.accountId == selectedAccountId)
+                    }
+                    val debtList = debts.filter {
                         selectedAccountId == "all" || it.accountId == selectedAccountId
                     }
+                    val sections = buildExportSections(viewed, debtList, content)
                     context.contentResolver.openOutputStream(uri)?.use { stream ->
-                        stream.write(transactionsToXlsx(viewed))
+                        stream.write(sectionsToXlsx(sections))
                     } ?: throw IllegalStateException("no output stream")
-                    viewed.size
-                }.onSuccess { count -> info = "خروجی اکسل $count تراکنش انجام شد." }
+                }.onSuccess { info = "خروجی اکسل انجام شد." }
                     .onFailure { error = "خروجی اکسل ناموفق بود. دوباره تلاش کنید." }
             }
         }
@@ -731,7 +745,7 @@ fun ReportsScreen(onBack: () -> Unit) {
             }
             item {
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Button(onClick = { xlsxExportLauncher.launch("polino-transactions.xlsx") }) {
+                    Button(onClick = { showExportSheet = true }) {
                         Text("خروجی اکسل (.xlsx)")
                     }
                 }
@@ -753,6 +767,17 @@ fun ReportsScreen(onBack: () -> Unit) {
                     budgets = budgetRepository.getBudgets(selectedYearMonth)
                     showBudgetDialog = false
                 }
+            }
+        )
+    }
+
+    if (showExportSheet) {
+        ExportSheet(
+            onDismiss = { showExportSheet = false },
+            onConfirm = { range, content ->
+                pendingExport = range to content
+                showExportSheet = false
+                xlsxExportLauncher.launch("polino-transactions.xlsx")
             }
         )
     }

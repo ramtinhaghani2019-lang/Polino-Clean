@@ -80,8 +80,8 @@ private val SettingsRed = Color(0xFFFB7185)
  * خصوصی، پشتیبان‌گیری و دارایی، خروجی اطلاعات، خوانش پیامک، مدیریت
  * الگوهای پیامک، درباره پولینو و ارتباط با ما. هر ردیف قابلیتِ موجود را
  * باز می‌کند و چیزی را دوباره نمی‌سازد: قفل و پشتیبان ورق‌های خودشان را
- * دارند، خوانش پیامک و الگوها در مدیریت زندگی می‌کنند، خروجی اکسل همان
- * خروجی ماه جاریِ همه حساب‌هاست. کارت حساب کاربری و بنر ویژه پرگار عمداً
+ * دارند، خوانش پیامک و الگوها در مدیریت زندگی می‌کنند، خروجی اکسل ورق
+ * انتخاب بازه و محتوا را باز می‌کند و فایل چندبرگی می‌سازد. کارت حساب کاربری و بنر ویژه پرگار عمداً
  * ساخته نشده‌اند (پولینو حساب کاربری و پرداخت درون‌برنامه‌ای ندارد و همه
  * امکاناتش باز است) و هیچ کانال پشتیبانی‌ای اختراع نشده است.
  */
@@ -102,6 +102,10 @@ internal fun SettingsScreen(
     var showAboutSheet by remember { mutableStateOf(false) }
     var showContactSheet by remember { mutableStateOf(false) }
     var showPatternSheet by remember { mutableStateOf(false) }
+    var showExportSheet by remember { mutableStateOf(false) }
+    var pendingExport by remember {
+        mutableStateOf<Pair<ExportRange, ExportContent>?>(null)
+    }
     var patterns by remember { mutableStateOf<List<SmsPatternEntity>>(emptyList()) }
     var detectedSenders by remember { mutableStateOf<List<DetectedSender>?>(null) }
     var smsDetectMessage by remember { mutableStateOf("") }
@@ -162,14 +166,20 @@ internal fun SettingsScreen(
         if (uri != null) {
             scope.launch {
                 runCatching {
+                    val (range, content) = pendingExport
+                        ?: (ExportRange.THIS_MONTH to ExportContent())
+                    val bounds = exportRangeBounds(range, JalaliDate.currentJalaliYearMonth())
                     val all = repository.getAll()
-                    val viewed = transactionsInMonth(all, JalaliDate.currentJalaliYearMonth())
+                    val viewed = all.filter {
+                        it.dateMillis in bounds.startMillis until bounds.endExclusiveMillis
+                    }
+                    val debts = repository.getDebts()
+                    val sections = buildExportSections(viewed, debts, content)
                     context.contentResolver.openOutputStream(uri)?.use { stream ->
-                        stream.write(transactionsToXlsx(viewed))
+                        stream.write(sectionsToXlsx(sections))
                     } ?: throw IllegalStateException("no output stream")
-                    viewed.size
-                }.onSuccess { count ->
-                    message = "خروجی اکسل $count تراکنش انجام شد."
+                }.onSuccess {
+                    message = "خروجی اکسل انجام شد."
                 }.onFailure {
                     error = "خروجی اکسل ناموفق بود. دوباره تلاش کنید."
                 }
@@ -239,9 +249,9 @@ internal fun SettingsScreen(
                 item {
                     SettingsRow(
                         title = "خروجی اطلاعات",
-                        subtitle = "خروجی اکسل ماه جاری، همه حساب‌ها",
+                        subtitle = "انتخاب بازه و محتوای فایل اکسل",
                         icon = Icons.Default.FileDownload,
-                        onClick = { xlsxLauncher.launch("polino-report.xlsx") }
+                        onClick = { showExportSheet = true }
                     )
                 }
                 item {
@@ -343,6 +353,16 @@ internal fun SettingsScreen(
                 }
             },
             onDismiss = { showPatternSheet = false }
+        )
+    }
+    if (showExportSheet) {
+        ExportSheet(
+            onDismiss = { showExportSheet = false },
+            onConfirm = { range, content ->
+                pendingExport = range to content
+                showExportSheet = false
+                xlsxExportLauncher.launch("polino-report.xlsx")
+            }
         )
     }
 }
