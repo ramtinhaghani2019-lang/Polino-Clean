@@ -54,7 +54,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -204,13 +203,9 @@ fun EntryScreen(
             }
         }
         item {
-            val isDarkEntry = MaterialTheme.colorScheme.background.luminance() < 0.5f
-            val amountContainer =
-                if (isDarkEntry) EntryDark else MaterialTheme.colorScheme.surface
-            val amountBorder =
-                if (isDarkEntry) Color(0xFF3D3368) else MaterialTheme.colorScheme.outline
-            val amountLabel =
-                if (isDarkEntry) Color(0xFF9AA3B8) else MaterialTheme.colorScheme.onSurfaceVariant
+            val amountContainer = EntryDark
+            val amountBorder = Color(0xFF3D3368)
+            val amountLabel = Color(0xFF9AA3B8)
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(28.dp),
@@ -274,7 +269,7 @@ fun EntryScreen(
                     }
                     Text(
                         money(amount),
-                        style = MaterialTheme.typography.displayMedium.copy(
+                        style = MaterialTheme.typography.displayLarge.copy(
                             fontWeight = FontWeight.Bold
                         ),
                         color = if (isExpense) EntryRed else EntryGreen
@@ -298,11 +293,11 @@ fun EntryScreen(
                                     onClick = { amountText = amountText.dropLast(1) },
                                     modifier = Modifier
                                         .weight(1f)
-                                        .height(76.dp),
-                                    shape = RoundedCornerShape(20.dp),
+                                        .height(84.dp),
+                                    shape = RoundedCornerShape(24.dp),
                                     colors = ButtonDefaults.buttonColors(
-                                        containerColor = MaterialTheme.colorScheme.errorContainer,
-                                        contentColor = MaterialTheme.colorScheme.error
+                                        containerColor = Color(0xFF4A2020),
+                                        contentColor = EntryRed
                                     )
                                 ) {
                                     Icon(
@@ -315,12 +310,13 @@ fun EntryScreen(
                                     onClick = { appendDigits(key.second) },
                                     modifier = Modifier
                                         .weight(1f)
-                                        .height(76.dp),
-                                    shape = RoundedCornerShape(20.dp),
+                                        .height(84.dp),
+                                    shape = RoundedCornerShape(24.dp),
                                     colors = ButtonDefaults.buttonColors(
-                                        containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                                        contentColor = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
+                                        containerColor = Color(0xFF2A2150),
+                                        contentColor = Color(0xFFD8D0F5)
+                                    ),
+                                    border = BorderStroke(1.dp, Color(0xFF3D3368))
                                 ) {
                                     Text(key.first, style = MaterialTheme.typography.titleLarge)
                                 }
@@ -482,7 +478,7 @@ fun EntryScreen(
                 },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(56.dp),
+                    .height(60.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = EntryGold,
                     contentColor = Color.White

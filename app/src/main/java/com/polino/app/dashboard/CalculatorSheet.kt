@@ -1,5 +1,6 @@
 package com.polino.app.dashboard
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -7,12 +8,12 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -23,6 +24,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 
 /**
@@ -100,9 +102,10 @@ fun CalculatorSheet(
         action()
         shown = calc.display
     }
+    val isDarkCalc = MaterialTheme.colorScheme.background.luminance() < 0.5f
     ModalBottomSheet(
         onDismissRequest = onDismiss,
-        containerColor = if (MaterialTheme.colorScheme.background.luminance() < 0.5f) Color(0xFF1E1438) else MaterialTheme.colorScheme.surface
+        containerColor = if (isDarkCalc) Color(0xFF1E1438) else MaterialTheme.colorScheme.surface
     ) {
         Column(
             Modifier
@@ -112,7 +115,8 @@ fun CalculatorSheet(
         ) {
             Text(
                 if (shown.isEmpty()) "۰ تومان" else money(shown.toLongOrNull() ?: 0L),
-                style = MaterialTheme.typography.displaySmall
+                style = MaterialTheme.typography.displaySmall.copy(fontWeight = FontWeight.Bold),
+                color = if (isDarkCalc) Color.White else MaterialTheme.colorScheme.onSurface
             )
             val rows = listOf(
                 listOf("۱" to "1", "۲" to "2", "۳" to "3", "÷" to "÷"),
@@ -123,7 +127,7 @@ fun CalculatorSheet(
             rows.forEach { row ->
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     row.forEach { (label, value) ->
-                        OutlinedButton(
+                        Button(
                             onClick = {
                                 when (value) {
                                     "C" -> press { calc.clear() }
@@ -136,7 +140,13 @@ fun CalculatorSheet(
                             },
                             modifier = Modifier
                                 .weight(1f)
-                                .height(56.dp)
+                                .height(56.dp),
+                            shape = RoundedCornerShape(16.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color(0xFF2A2150),
+                                contentColor = Color(0xFFD8D0F5)
+                            ),
+                            border = BorderStroke(1.dp, Color(0xFF3D3368))
                         ) {
                             Text(label, style = MaterialTheme.typography.titleMedium)
                         }
