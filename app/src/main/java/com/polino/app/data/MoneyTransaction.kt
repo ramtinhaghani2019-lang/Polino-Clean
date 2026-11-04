@@ -11,5 +11,7 @@ internal data class MoneyTransaction(
     /** حساب مالک تراکنش؛ پیش‌فرض «اصلی» است تا تراکنش‌های قدیمی همین‌جا بنشینند. */
     val accountId: String = "main",
     /** یادداشت اختیاری تراکنش؛ مثلاً «قرض به علی». */
-    val note: String = ""
+    val note: String = "",
+    /** فروشگاه یا مبدأ اختیاری تراکنش؛ مثلاً نام مغازه یا شخص پرداخت‌کننده. */
+    val store: String = ""
 )

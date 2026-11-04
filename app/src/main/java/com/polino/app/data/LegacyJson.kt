@@ -88,6 +88,7 @@ private class LegacyJsonParser(private val text: String) {
             var dateMillis: Long? = null
             var accountId: String? = null
             var note: String? = null
+            var store: String? = null
             var yearMonth: String? = null
             var limitAmount: Long? = null
             var name: String? = null
@@ -114,6 +115,7 @@ private class LegacyJsonParser(private val text: String) {
                         "dateMillis" -> dateMillis = parseValueAsLong()
                         "accountId" -> accountId = parseValueAsString()
                         "note" -> note = parseValueAsString()
+                        "store" -> store = parseValueAsString()
                         "yearMonth" -> yearMonth = parseValueAsString()
                         "limitAmount" -> limitAmount = parseValueAsLong()
                         "name" -> name = parseValueAsString()
@@ -149,7 +151,8 @@ private class LegacyJsonParser(private val text: String) {
                                 category = category?.ifBlank { "سایر" } ?: "سایر",
                                 dateMillis = dateMillis ?: 0L,
                                 accountId = accountId?.ifBlank { "main" } ?: "main",
-                                note = note ?: ""
+                                note = note ?: "",
+                                store = store ?: ""
                             )
                         )
                     }

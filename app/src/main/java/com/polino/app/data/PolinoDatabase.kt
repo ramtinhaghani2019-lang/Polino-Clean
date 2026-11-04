@@ -19,7 +19,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         AssetEntity::class,
         SmsPatternEntity::class
     ],
-    version = 13,
+    version = 14,
     exportSchema = false
 )
 internal abstract class PolinoDatabase : RoomDatabase() {
@@ -212,6 +212,18 @@ internal abstract class PolinoDatabase : RoomDatabase() {
                         "(id TEXT NOT NULL PRIMARY KEY, sender TEXT NOT NULL, " +
                         "keywords TEXT NOT NULL, isFinancial INTEGER NOT NULL, " +
                         "isIncome INTEGER NOT NULL)"
+                )
+            }
+        }
+        /**
+         * مهاجرت v13→v14: ستون فروشگاه/مبدأ به جدول تراکنش‌ها اضافه
+         * می‌شود؛ تراکنش‌های موجود فروشگاه خالی می‌گیرند و هیچ ردیفی
+         * تغییر نمی‌کند.
+         */
+        val MIGRATION_13_14 = object : Migration(13, 14) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "ALTER TABLE transactions ADD COLUMN store TEXT NOT NULL DEFAULT ''"
                 )
             }
         }

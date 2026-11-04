@@ -11,7 +11,7 @@ class BackupV2Test {
     fun fullBackup_roundTripsAllSections() {
         val data = BackupData(
             transactions = listOf(
-                MoneyTransaction("t1", "خرید", 50000, false, "خوراک", 1000L, "main", "قرض به علی")
+                MoneyTransaction("t1", "خرید", 50000, false, "خوراک", 1000L, "main", "قرض به علی", "فروشگاه الف")
             ),
             budgets = listOf(BudgetEntity("1405-08", "خوراک", 200000)),
             categories = listOf(CategoryEntity("کرایه", false)),

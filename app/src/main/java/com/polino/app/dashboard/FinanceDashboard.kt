@@ -641,6 +641,9 @@ fun FinanceDashboard(
                         if (transaction.note.isNotBlank()) {
                             Text(transaction.note, style = MaterialTheme.typography.bodySmall)
                         }
+                        if (transaction.store.isNotBlank()) {
+                            Text("فروشگاه: ${transaction.store}", style = MaterialTheme.typography.bodySmall)
+                        }
                         runningBalances[transaction.id]?.let { balance ->
                             Text("موجودی: ${money(balance)}", style = MaterialTheme.typography.bodySmall)
                         }
@@ -659,7 +662,7 @@ fun FinanceDashboard(
             expenseCategories = expenseCategoryNames(categories),
             incomeCategories = incomeCategoryNames(categories),
             onDismiss = { showDialog = false; editing = null; error = "" },
-            onSave = { title, amount, isIncome, category, dateMillis, note, accountId ->
+            onSave = { title, amount, isIncome, category, dateMillis, note, store, accountId ->
                 val transaction = if (editing == null) {
                     MoneyTransaction(
                         id = UUID.randomUUID().toString(),
@@ -669,7 +672,8 @@ fun FinanceDashboard(
                         category = category,
                         dateMillis = dateMillis,
                         accountId = accountId,
-                        note = note
+                        note = note,
+                        store = store
                     )
                 } else {
                     editing!!.copy(
@@ -679,7 +683,8 @@ fun FinanceDashboard(
                         category = category,
                         dateMillis = dateMillis,
                         accountId = accountId,
-                        note = note
+                        note = note,
+                        store = store
                     )
                 }
                 val ok = runCatching {
@@ -1337,7 +1342,7 @@ private fun TransactionDialog(
     expenseCategories: List<String>,
     incomeCategories: List<String>,
     onDismiss: () -> Unit,
-    onSave: suspend (title: String, amount: Long, income: Boolean, category: String, dateMillis: Long, note: String, accountId: String) -> Boolean,
+    onSave: suspend (title: String, amount: Long, income: Boolean, category: String, dateMillis: Long, note: String, store: String, accountId: String) -> Boolean,
     onDelete: suspend (MoneyTransaction) -> Boolean,
     onDuplicate: suspend (MoneyTransaction) -> Boolean
 ) {
@@ -1355,6 +1360,7 @@ private fun TransactionDialog(
         )
     }
     var note by remember { mutableStateOf(initial?.note ?: "") }
+    var store by remember { mutableStateOf(initial?.store ?: "") }
     var validation by remember { mutableStateOf("") }
     var showDeleteConfirm by remember { mutableStateOf(false) }
     var showDatePicker by remember { mutableStateOf(false) }
@@ -1424,6 +1430,12 @@ private fun TransactionDialog(
                     value = note,
                     onValueChange = { note = it },
                     label = { Text("یادداشت (اختیاری)") },
+                    singleLine = true
+                )
+                OutlinedTextField(
+                    value = store,
+                    onValueChange = { store = it },
+                    label = { Text("فروشگاه/مبدأ (اختیاری)") },
                     singleLine = true
                 )
                 Row {
@@ -1511,7 +1523,7 @@ private fun TransactionDialog(
                     validation = "عنوان و مبلغ معتبر وارد کنید."
                 } else {
                     scope.launch {
-                        if (!onSave(title.trim(), value, isIncome, category, dateMillis, note.trim(), accountId)) {
+                        if (!onSave(title.trim(), value, isIncome, category, dateMillis, note.trim(), store.trim(), accountId)) {
                             validation = "ذخیره اطلاعات ناموفق بود. دوباره تلاش کنید."
                         }
                     }

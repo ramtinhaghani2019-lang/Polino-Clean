@@ -82,6 +82,7 @@ fun EntryScreen(
     var selectedCategory by remember { mutableStateOf<String?>(null) }
     var title by remember { mutableStateOf("") }
     var note by remember { mutableStateOf("") }
+    var store by remember { mutableStateOf("") }
     var dateMillis by remember { mutableStateOf(System.currentTimeMillis()) }
     var showDatePicker by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf("") }
@@ -335,6 +336,15 @@ fun EntryScreen(
             )
         }
         item {
+            OutlinedTextField(
+                value = store,
+                onValueChange = { store = it },
+                label = { Text("فروشگاه/مبدأ (اختیاری)") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+        item {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -367,7 +377,8 @@ fun EntryScreen(
                                             category = category,
                                             dateMillis = dateMillis,
                                             accountId = selectedAccountId,
-                                            note = note
+                                            note = note,
+                                            store = store.trim()
                                         )
                                     )
                                 }.isSuccess

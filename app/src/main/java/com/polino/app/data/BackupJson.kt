@@ -69,7 +69,8 @@ internal fun fullBackupToJson(data: BackupData): String = buildString {
                 "\"category\":\"${escapeJsonString(t.category)}\"," +
                 "\"dateMillis\":${t.dateMillis}," +
                 "\"accountId\":\"${escapeJsonString(t.accountId)}\"," +
-                "\"note\":\"${escapeJsonString(t.note)}\"}"
+                "\"note\":\"${escapeJsonString(t.note)}\"," +
+                "\"store\":\"${escapeJsonString(t.store)}\"}"
         )
     }
     data.budgets.forEach { b ->
