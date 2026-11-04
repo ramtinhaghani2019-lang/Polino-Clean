@@ -5,6 +5,7 @@ import android.content.Intent
 import android.speech.RecognizerIntent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -21,6 +22,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Backspace
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -30,11 +33,14 @@ import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDatePickerState
@@ -48,7 +54,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.polino.app.data.AccountEntity
 import com.polino.app.data.CategoryEntity
@@ -86,6 +94,7 @@ fun EntryScreen(
     var store by remember { mutableStateOf("") }
     var dateMillis by remember { mutableStateOf(System.currentTimeMillis()) }
     var showDatePicker by remember { mutableStateOf(false) }
+    var showExtra by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf("") }
     val scope = rememberCoroutineScope()
 
@@ -195,10 +204,18 @@ fun EntryScreen(
             }
         }
         item {
+            val isDarkEntry = MaterialTheme.colorScheme.background.luminance() < 0.5f
+            val amountContainer =
+                if (isDarkEntry) EntryDark else MaterialTheme.colorScheme.surface
+            val amountBorder =
+                if (isDarkEntry) Color(0xFF3D3368) else MaterialTheme.colorScheme.outline
+            val amountLabel =
+                if (isDarkEntry) Color(0xFF9AA3B8) else MaterialTheme.colorScheme.onSurfaceVariant
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(28.dp),
-                colors = CardDefaults.cardColors(containerColor = EntryDark)
+                colors = CardDefaults.cardColors(containerColor = amountContainer),
+                border = BorderStroke(1.dp, amountBorder)
             ) {
                 Column(
                     Modifier.padding(20.dp),
@@ -212,9 +229,21 @@ fun EntryScreen(
                         Text(
                             "مبلغ تراکنش (تومان)",
                             style = MaterialTheme.typography.labelLarge,
-                            color = Color(0xFF9AA3B8),
+                            color = amountLabel,
                             modifier = Modifier.weight(1f)
                         )
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = MaterialTheme.colorScheme.error
+                        ) {
+                            Text(
+                                "اجباری",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = Color.White,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                            )
+                        }
+                        Spacer(Modifier.width(8.dp))
                         IconButton(onClick = {
                             val intent =
                                 Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
@@ -245,7 +274,9 @@ fun EntryScreen(
                     }
                     Text(
                         money(amount),
-                        style = MaterialTheme.typography.displaySmall,
+                        style = MaterialTheme.typography.displayMedium.copy(
+                            fontWeight = FontWeight.Bold
+                        ),
                         color = if (isExpense) EntryRed else EntryGreen
                     )
                 }
@@ -258,17 +289,19 @@ fun EntryScreen(
                 listOf("۷" to "7", "۸" to "8", "۹" to "9"),
                 listOf("۰۰۰" to "000", "۰" to "0", null)
             )
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 keys.forEach { row ->
-                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         row.forEach { key ->
                             if (key == null) {
-                                OutlinedButton(
+                                Button(
                                     onClick = { amountText = amountText.dropLast(1) },
                                     modifier = Modifier
                                         .weight(1f)
-                                        .height(64.dp),
-                                    colors = ButtonDefaults.outlinedButtonColors(
+                                        .height(76.dp),
+                                    shape = RoundedCornerShape(20.dp),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = MaterialTheme.colorScheme.errorContainer,
                                         contentColor = MaterialTheme.colorScheme.error
                                     )
                                 ) {
@@ -278,13 +311,18 @@ fun EntryScreen(
                                     )
                                 }
                             } else {
-                                OutlinedButton(
+                                Button(
                                     onClick = { appendDigits(key.second) },
                                     modifier = Modifier
                                         .weight(1f)
-                                        .height(64.dp)
+                                        .height(76.dp),
+                                    shape = RoundedCornerShape(20.dp),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                                        contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
                                 ) {
-                                    Text(key.first, style = MaterialTheme.typography.titleMedium)
+                                    Text(key.first, style = MaterialTheme.typography.titleLarge)
                                 }
                             }
                         }
@@ -293,7 +331,7 @@ fun EntryScreen(
             }
         }
         item {
-            Text("حساب", style = MaterialTheme.typography.titleMedium)
+            Text("انتخاب حساب بانکی", style = MaterialTheme.typography.titleMedium)
             Spacer(Modifier.height(8.dp))
             Row(
                 modifier = Modifier.horizontalScroll(rememberScrollState()),
@@ -303,7 +341,11 @@ fun EntryScreen(
                     FilterChip(
                         selected = selectedAccountId == account.id,
                         onClick = { selectedAccountId = account.id },
-                        label = { Text(account.name) }
+                        label = { Text(account.name) },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = MaterialTheme.colorScheme.primary,
+                            selectedLabelColor = Color.White
+                        )
                     )
                 }
             }
@@ -320,13 +362,21 @@ fun EntryScreen(
                         FilterChip(
                             selected = selectedCategory == main.name,
                             onClick = { selectedCategory = main.name },
-                            label = { Text(main.name) }
+                            label = { Text(main.name) },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = MaterialTheme.colorScheme.primary,
+                                selectedLabelColor = Color.White
+                            )
                         )
                         subs.forEach { sub ->
                             FilterChip(
                                 selected = selectedCategory == sub.name,
                                 onClick = { selectedCategory = sub.name },
-                                label = { Text(sub.name) }
+                                label = { Text(sub.name) },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = MaterialTheme.colorScheme.primary,
+                                    selectedLabelColor = Color.White
+                                )
                             )
                         }
                     }
@@ -334,40 +384,66 @@ fun EntryScreen(
             }
         }
         item {
-            OutlinedTextField(
-                value = title,
-                onValueChange = { title = it },
-                label = { Text("عنوان (اختیاری؛ خالی = نام دسته)") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth()
-            )
-        }
-        item {
-            OutlinedTextField(
-                value = note,
-                onValueChange = { note = it },
-                label = { Text("توضیحات یا بابت (اختیاری)") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth()
-            )
-        }
-        item {
-            OutlinedTextField(
-                value = store,
-                onValueChange = { store = it },
-                label = { Text("فروشگاه/مبدأ (اختیاری)") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth()
-            )
-        }
-        item {
-            Row(
+            OutlinedCard(
+                onClick = { showExtra = !showExtra },
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                shape = RoundedCornerShape(20.dp)
             ) {
-                Text("تاریخ تراکنش: ${JalaliDate.formatJalali(dateMillis)}")
-                TextButton(onClick = { showDatePicker = true }) { Text("تغییر تاریخ") }
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 14.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        "اطلاعات تکمیلی (تاریخ، بابت، فروشگاه)",
+                        style = MaterialTheme.typography.titleSmall
+                    )
+                    Icon(
+                        if (showExtra) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                        contentDescription = if (showExtra) "بستن" else "باز کردن"
+                    )
+                }
+            }
+        }
+        if (showExtra) {
+            item {
+                OutlinedTextField(
+                    value = title,
+                    onValueChange = { title = it },
+                    label = { Text("عنوان (اختیاری؛ خالی = نام دسته)") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+            item {
+                OutlinedTextField(
+                    value = note,
+                    onValueChange = { note = it },
+                    label = { Text("توضیحات یا بابت (اختیاری)") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+            item {
+                OutlinedTextField(
+                    value = store,
+                    onValueChange = { store = it },
+                    label = { Text("فروشگاه/مبدأ (اختیاری)") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("تاریخ تراکنش: ${JalaliDate.formatJalali(dateMillis)}")
+                    TextButton(onClick = { showDatePicker = true }) { Text("تغییر تاریخ") }
+                }
             }
         }
         if (error.isNotEmpty()) {
@@ -404,13 +480,15 @@ fun EntryScreen(
                         }
                     }
                 },
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = EntryGold,
                     contentColor = Color.White
                 )
             ) {
-                Text("ثبت و ذخیره تراکنش ✓", style = MaterialTheme.typography.titleMedium)
+                Text("ثبت و ذخیره تراکنش ✓", style = MaterialTheme.typography.titleLarge)
             }
         }
     }
