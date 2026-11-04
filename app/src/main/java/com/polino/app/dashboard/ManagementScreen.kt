@@ -139,6 +139,7 @@ fun ManagementScreen(
     onShowSettings: () -> Unit = {},
     onShowDebts: () -> Unit = {},
     onShowCategories: () -> Unit = {},
+    onShowInvestments: () -> Unit = {},
     themeMode: String = "system",
     onThemeModeChange: (String) -> Unit = {},
     lockEnabled: Boolean = false,
@@ -1243,7 +1244,16 @@ fun ManagementScreen(
                 }
             }
         }
-        item { Text("سرمایه‌گذاری و دارایی‌ها", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)) }
+        item {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("سرمایه‌گذاری و دارایی‌ها", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
+                TextButton(onClick = onShowInvestments) { Text("مشاهده همه") }
+            }
+        }
         item {
             val totals = portfolioTotals(assets)
             Card(
@@ -2861,19 +2871,20 @@ private fun ManagementCard(
 }
 
 @Composable
-private fun AssetDialog(
+internal fun AssetDialog(
     accounts: List<AccountEntity>,
     onDismiss: () -> Unit,
-    onSave: (name: String, type: String, unit: String, quantity: Double, buyPrice: Double, currentPrice: Double?, accountId: String, note: String) -> Unit
+    onSave: (name: String, type: String, unit: String, quantity: Double, buyPrice: Double, currentPrice: Double?, accountId: String, note: String) -> Unit,
+    initial: AssetEntity? = null
 ) {
-    var name by remember { mutableStateOf("") }
-    var type by remember { mutableStateOf("طلا") }
-    var unit by remember { mutableStateOf("گرم") }
-    var quantityText by remember { mutableStateOf("") }
-    var buyPriceText by remember { mutableStateOf("") }
-    var currentPriceText by remember { mutableStateOf("") }
-    var selectedAccount by remember { mutableStateOf(accounts.firstOrNull()?.id ?: "main") }
-    var note by remember { mutableStateOf("") }
+    var name by remember { mutableStateOf(initial?.name ?: "") }
+    var type by remember { mutableStateOf(initial?.type ?: "طلا") }
+    var unit by remember { mutableStateOf(initial?.unit ?: "گرم") }
+    var quantityText by remember { mutableStateOf(initial?.let { formatAssetQuantity(it.quantity) } ?: "") }
+    var buyPriceText by remember { mutableStateOf(initial?.let { formatAssetQuantity(it.buyPrice) } ?: "") }
+    var currentPriceText by remember { mutableStateOf(initial?.currentPrice?.let { formatAssetQuantity(it) } ?: "") }
+    var selectedAccount by remember { mutableStateOf(initial?.accountId ?: accounts.firstOrNull()?.id ?: "main") }
+    var note by remember { mutableStateOf(initial?.note ?: "") }
     val types = listOf("طلا", "ارز", "ارز دیجیتال", "سهام و سایر", "سایر")
     val units = assetUnitsFor(type)
     val quickPicks = assetQuickPicksFor(type)
@@ -2886,7 +2897,7 @@ private fun AssetDialog(
         onDismissRequest = onDismiss,
         shape = RoundedCornerShape(28.dp),
         containerColor = if (MaterialTheme.colorScheme.background.luminance() < 0.5f) Color(0xFF1E1438) else MaterialTheme.colorScheme.surface,
-        title = { Text("افزودن دارایی جدید", fontWeight = FontWeight.Bold) },
+        title = { Text(if (initial == null) "افزودن دارایی جدید" else "ویرایش دارایی", fontWeight = FontWeight.Bold) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 TextField(
@@ -3019,7 +3030,7 @@ private fun assetQuickPicksFor(type: String): List<String> = when (type) {
 }
 
 /** نمایش مقدار دارایی بدون اعشار اضافی. */
-private fun formatAssetQuantity(quantity: Double): String {
+internal fun formatAssetQuantity(quantity: Double): String {
     val whole = quantity.toLong()
     return if (quantity == whole.toDouble()) whole.toString() else quantity.toString()
 }

@@ -48,6 +48,7 @@ import com.polino.app.dashboard.CalendarScreen
 import com.polino.app.dashboard.CalculatorSheet
 import com.polino.app.dashboard.CategoryManagerScreen
 import com.polino.app.dashboard.DebtsScreen
+import com.polino.app.dashboard.InvestmentsScreen
 import com.polino.app.dashboard.EntryScreen
 import com.polino.app.dashboard.FinanceDashboard
 import com.polino.app.dashboard.GoalsScreen
@@ -154,6 +155,7 @@ private fun PolinoApp(
     var showSettings by remember { mutableStateOf(false) }
     var showDebts by remember { mutableStateOf(false) }
     var showCategories by remember { mutableStateOf(false) }
+    var showInvestments by remember { mutableStateOf(false) }
     var showCalculator by remember { mutableStateOf(false) }
     var calculatorAmount by remember { mutableStateOf("") }
 
@@ -208,6 +210,11 @@ private fun PolinoApp(
 
     if (showCategories) {
         CategoryManagerScreen(onBack = { showCategories = false })
+        return
+    }
+
+    if (showInvestments) {
+        InvestmentsScreen(onBack = { showInvestments = false })
         return
     }
 
@@ -353,6 +360,7 @@ private fun PolinoApp(
                     onShowSettings = { showSettings = true },
                     onShowDebts = { showDebts = true },
                     onShowCategories = { showCategories = true },
+                    onShowInvestments = { showInvestments = true },
                     themeMode = themeMode,
                     onThemeModeChange = onThemeModeChange,
                     lockEnabled = lockEnabled,
