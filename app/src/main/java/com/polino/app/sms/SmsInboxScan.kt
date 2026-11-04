@@ -58,8 +58,6 @@ internal fun isSmsDuplicate(
     }
 }
 
-private val SMS_INBOX_URI: Uri = Uri.parse("content://sms/inbox")
-
 /**
  * صندوق پیامک دستگاه را می‌خواند. باید با دسترسی READ_SMS و خارج از
  * نخ اصلی صدا زده شود؛ در صورت هر خطایی (مثلاً نبود برنامه پیامک)
@@ -70,7 +68,7 @@ suspend fun scanInboxSms(context: Context): List<InboxSmsRow> {
         runCatching {
             val rows = mutableListOf<InboxSmsRow>()
             context.contentResolver.query(
-                SMS_INBOX_URI,
+                Uri.parse("content://sms/inbox"),
                 arrayOf("address", "body", "date"),
                 null,
                 null,
