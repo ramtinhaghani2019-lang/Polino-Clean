@@ -138,6 +138,7 @@ fun ManagementScreen(
     onShowGoals: () -> Unit = {},
     onShowSettings: () -> Unit = {},
     onShowDebts: () -> Unit = {},
+    onShowCategories: () -> Unit = {},
     themeMode: String = "system",
     onThemeModeChange: (String) -> Unit = {},
     lockEnabled: Boolean = false,
@@ -533,7 +534,7 @@ fun ManagementScreen(
                 title = "دسته‌ها",
                 subtitle = "${categories.size} دسته",
                 icon = Icons.Default.Category,
-                onClick = onNavigateHome
+                onClick = onShowCategories
             )
         }
         item {

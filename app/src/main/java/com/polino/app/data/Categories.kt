@@ -29,18 +29,23 @@ internal val INVESTMENT_CATEGORIES = listOf(
     "سایر سرمایه‌گذاری"
 )
 
-/** دسته‌های پیش‌فرض؛ در نصب تازه یا مهاجرت، همین‌ها ساخته می‌شوند. */
+/** دسته‌های پیش‌فرض؛ در نصب تازه یا مهاجرت، همین‌ها ساخته می‌شوند.
+ * نام‌های هزینه/درآمد با دسته‌های پیش‌فرض پرگار هم‌تراز شده‌اند؛ دسته‌های
+ * موجود کاربر هرگز با این فهرست بازنویسی نمی‌شوند (بذرها فقط وقتی جدول
+ * خالی است درج می‌شوند). */
 internal val DEFAULT_CATEGORIES = listOf(
-    CategoryEntity("خوراک", false),
-    CategoryEntity("مسکن", false),
-    CategoryEntity("حمل‌ونقل", false),
-    CategoryEntity("سلامت", false),
-    CategoryEntity("آموزش", false),
-    CategoryEntity("تفریح", false),
-    CategoryEntity("پوشاک", false),
-    CategoryEntity("حقوق", true),
-    CategoryEntity("فروش", true),
-    CategoryEntity("هدیه", true),
+    CategoryEntity("درمان و سلامت", false),
+    CategoryEntity("تفریح و ورزش", false),
+    CategoryEntity("خریدهای روزانه", false),
+    CategoryEntity("تعهدات و اقساط", false),
+    CategoryEntity("خوراک و پوشاک", false),
+    CategoryEntity("حمل و نقل", false),
+    CategoryEntity("قبوض و ارتباطات", false),
+    CategoryEntity("خیریه", false),
+    CategoryEntity("اقساط", false),
+    CategoryEntity("حقوق و دستمزد", true),
+    CategoryEntity("پاداش و کارانه", true),
+    CategoryEntity("فروش و درآمد جانبی", true),
     CategoryEntity("سایر", false)
 ) + INVESTMENT_CATEGORIES.map { CategoryEntity(it, false, true) }
 

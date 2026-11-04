@@ -46,6 +46,7 @@ import androidx.compose.ui.unit.dp
 import com.polino.app.backup.runDailyAutoBackupIfNeeded
 import com.polino.app.dashboard.CalendarScreen
 import com.polino.app.dashboard.CalculatorSheet
+import com.polino.app.dashboard.CategoryManagerScreen
 import com.polino.app.dashboard.DebtsScreen
 import com.polino.app.dashboard.EntryScreen
 import com.polino.app.dashboard.FinanceDashboard
@@ -152,6 +153,7 @@ private fun PolinoApp(
     var showGoals by remember { mutableStateOf(false) }
     var showSettings by remember { mutableStateOf(false) }
     var showDebts by remember { mutableStateOf(false) }
+    var showCategories by remember { mutableStateOf(false) }
     var showCalculator by remember { mutableStateOf(false) }
     var calculatorAmount by remember { mutableStateOf("") }
 
@@ -201,6 +203,11 @@ private fun PolinoApp(
 
     if (showDebts) {
         DebtsScreen(onBack = { showDebts = false })
+        return
+    }
+
+    if (showCategories) {
+        CategoryManagerScreen(onBack = { showCategories = false })
         return
     }
 
@@ -345,6 +352,7 @@ private fun PolinoApp(
                     onShowGoals = { showGoals = true },
                     onShowSettings = { showSettings = true },
                     onShowDebts = { showDebts = true },
+                    onShowCategories = { showCategories = true },
                     themeMode = themeMode,
                     onThemeModeChange = onThemeModeChange,
                     lockEnabled = lockEnabled,
