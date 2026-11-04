@@ -39,6 +39,19 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -364,6 +377,10 @@ fun ReportsScreen(onBack: () -> Unit) {
                         FilterChip(
                             selected = period == entry,
                             onClick = { period = entry },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = MaterialTheme.colorScheme.primary,
+                                selectedLabelColor = Color.White
+                            ),
                             label = {
                                 Text(
                                     when (entry) {
@@ -404,17 +421,34 @@ fun ReportsScreen(onBack: () -> Unit) {
                 }
             }
             item {
-                Card(modifier = Modifier.fillMaxWidth()) {
+                // تم تیره: کارت تیره با بوردر بنفش؛ تم روشن: کارت روشن با بوردر بنفش.
+                val isDarkSummary = MaterialTheme.colorScheme.background.luminance() < 0.5f
+                val summaryContainer = if (isDarkSummary) ReportDarkCard else MaterialTheme.colorScheme.surface
+                val summaryBorder = if (isDarkSummary) ReportDarkBorder else MaterialTheme.colorScheme.outline
+                val summaryLabel = if (isDarkSummary) ReportDarkMuted else MaterialTheme.colorScheme.onSurfaceVariant
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(28.dp),
+                    colors = CardDefaults.cardColors(containerColor = summaryContainer),
+                    border = BorderStroke(1.dp, summaryBorder)
+                ) {
                     Column(
                         Modifier.padding(20.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Text(
                             "گزارش $periodTitle",
-                            style = MaterialTheme.typography.titleMedium
+                            style = MaterialTheme.typography.titleMedium,
+                            color = summaryLabel
                         )
-                        Text("درآمد: ${money(periodTotals.income)}")
-                        Text("هزینه: ${money(periodTotals.expense)}")
+                        Text(
+                            "درآمد: ${money(periodTotals.income)}",
+                            color = IncomeGreen
+                        )
+                        Text(
+                            "هزینه: ${money(periodTotals.expense)}",
+                            color = ExpenseRed
+                        )
                         Text(
                             "مانده: ${money(periodTotals.income - periodTotals.expense)}",
                             style = MaterialTheme.typography.titleMedium,
@@ -478,42 +512,8 @@ fun ReportsScreen(onBack: () -> Unit) {
             val trend = monthlyTrend(trendBase, JalaliDate.lastJalaliYearMonths(6, selectedYearMonth))
             val maxTrend = (trend.maxOfOrNull { maxOf(it.income, it.expense) } ?: 0L)
                 .takeIf { it > 0 } ?: 1L
-            trend.forEach { month ->
-                item {
-                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text(
-                            JalaliDate.jalaliMonthDisplay(month.yearMonth),
-                            style = MaterialTheme.typography.titleSmall
-                        )
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Text("درآمد")
-                            LinearProgressIndicator(
-                                progress = {
-                                    (month.income.toFloat() / maxTrend.toFloat()).coerceIn(0f, 1f)
-                                },
-                                modifier = Modifier.weight(1f)
-                            )
-                            Text(money(month.income))
-                        }
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Text("هزینه")
-                            LinearProgressIndicator(
-                                progress = {
-                                    (month.expense.toFloat() / maxTrend.toFloat()).coerceIn(0f, 1f)
-                                },
-                                color = MaterialTheme.colorScheme.error,
-                                modifier = Modifier.weight(1f)
-                            )
-                            Text(money(month.expense))
-                        }
-                    }
-                }
+            item {
+                CashFlowBarChartCard(months = trend, maxValue = maxTrend)
             }
             item { Text("بودجه‌های ماه ${JalaliDate.jalaliMonthDisplay(selectedYearMonth)}", style = MaterialTheme.typography.titleMedium) }
             if (budgets.isEmpty()) {
@@ -886,4 +886,102 @@ private fun BudgetDialog(
             TextButton(onClick = onDismiss) { Text("انصراف") }
         }
     )
+}
+
+private val ReportDarkCard = Color(0xFF1E1438)
+private val ReportDarkBorder = Color(0xFF3D3368)
+private val ReportDarkMuted = Color(0xFFB3ACD6)
+private val IncomeGreen = Color(0xFF34C89E)
+private val ExpenseRed = Color(0xFFFF6B6B)
+
+@Composable
+private fun CashFlowBarChartCard(months: List<MonthTrend>, maxValue: Long) {
+    var selectedIndex by remember { mutableStateOf(months.indices.lastOrNull() ?: -1) }
+    val isDarkChart = MaterialTheme.colorScheme.background.luminance() < 0.5f
+    val chartContainer = if (isDarkChart) ReportDarkCard else MaterialTheme.colorScheme.surface
+    val chartBorder = if (isDarkChart) ReportDarkBorder else MaterialTheme.colorScheme.outline
+    val chartLabel = if (isDarkChart) ReportDarkMuted else MaterialTheme.colorScheme.onSurfaceVariant
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(28.dp),
+        colors = CardDefaults.cardColors(containerColor = chartContainer),
+        border = BorderStroke(1.dp, chartBorder)
+    ) {
+        Column(
+            Modifier.padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text(
+                "نمودار جریان مالی",
+                style = MaterialTheme.typography.titleMedium,
+                color = chartLabel
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                months.forEachIndexed { index, month ->
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clickable { selectedIndex = index },
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Canvas(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(140.dp)
+                        ) {
+                            val barWidth = size.width * 0.28f
+                            val incomeHeight =
+                                if (maxValue > 0) (month.income.toFloat() / maxValue.toFloat()) * size.height else 0f
+                            val expenseHeight =
+                                if (maxValue > 0) (month.expense.toFloat() / maxValue.toFloat()) * size.height else 0f
+                            drawRect(
+                                color = IncomeGreen,
+                                topLeft = Offset(size.width * 0.12f, size.height - incomeHeight),
+                                size = Size(barWidth, incomeHeight)
+                            )
+                            drawRect(
+                                color = ExpenseRed,
+                                topLeft = Offset(size.width * 0.60f, size.height - expenseHeight),
+                                size = Size(barWidth, expenseHeight)
+                            )
+                        }
+                        Text(
+                            JalaliDate.jalaliMonthDisplay(month.yearMonth).substringBefore(" "),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = chartLabel,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                }
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Canvas(modifier = Modifier.size(10.dp)) { drawRect(color = IncomeGreen) }
+                    Text("درآمد", style = MaterialTheme.typography.labelSmall, color = chartLabel)
+                }
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Canvas(modifier = Modifier.size(10.dp)) { drawRect(color = ExpenseRed) }
+                    Text("هزینه", style = MaterialTheme.typography.labelSmall, color = chartLabel)
+                }
+            }
+            val selected = months.getOrNull(selectedIndex)
+            if (selected != null) {
+                Text(
+                    "${JalaliDate.jalaliMonthDisplay(selected.yearMonth)}: " +
+                        "درآمد ${money(selected.income)} · هزینه ${money(selected.expense)}",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
+        }
+    }
 }
