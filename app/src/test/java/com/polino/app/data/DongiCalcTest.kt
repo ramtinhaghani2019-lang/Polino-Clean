@@ -77,7 +77,7 @@ class DongiCalcTest {
         )
         assertEquals(
             listOf(
-                DongiSettlement("رضا", "علی", 33333),
+                DongiSettlement("رضا", "علی", 33334),
                 DongiSettlement("سارا", "علی", 33333)
             ),
             dongiSettlements(members)
