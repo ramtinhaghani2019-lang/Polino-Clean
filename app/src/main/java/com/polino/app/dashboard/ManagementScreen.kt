@@ -46,6 +46,7 @@ import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.Savings
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.PieChart
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Flag
@@ -134,6 +135,7 @@ fun ManagementScreen(
     onNavigateToSmartBudget: () -> Unit = {},
     onNavigateToReminders: () -> Unit = {},
     onShowGoals: () -> Unit = {},
+    onShowSettings: () -> Unit = {},
     themeMode: String = "system",
     onThemeModeChange: (String) -> Unit = {},
     lockEnabled: Boolean = false,
@@ -293,6 +295,14 @@ fun ManagementScreen(
         item {
             Text("مدیریت مالی", style = MaterialTheme.typography.headlineSmall)
             Text("ابزارهای یکپارچه مالی", style = MaterialTheme.typography.labelMedium)
+        }
+        item {
+            ManagementCard(
+                title = "تنظیمات",
+                subtitle = "امنیت، پشتیبان‌گیری، خروجی، پیامک و درباره برنامه",
+                icon = Icons.Default.Settings,
+                onClick = onShowSettings
+            )
         }
         item {
             val isDarkHub = MaterialTheme.colorScheme.background.luminance() < 0.5f

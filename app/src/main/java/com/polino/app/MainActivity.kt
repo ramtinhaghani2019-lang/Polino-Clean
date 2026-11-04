@@ -50,6 +50,7 @@ import com.polino.app.dashboard.GoalsScreen
 import com.polino.app.dashboard.ManagementScreen
 import com.polino.app.dashboard.RemindersScreen
 import com.polino.app.dashboard.ReportsScreen
+import com.polino.app.dashboard.SettingsScreen
 import com.polino.app.dashboard.SmartBudgetScreen
 import com.polino.app.dashboard.TransactionsScreen
 import com.polino.app.testcenter.TestCenterScreen
@@ -132,6 +133,7 @@ private fun PolinoApp(
     var showReminders by remember { mutableStateOf(false) }
     var showTransactions by remember { mutableStateOf(false) }
     var showGoals by remember { mutableStateOf(false) }
+    var showSettings by remember { mutableStateOf(false) }
     var showCalculator by remember { mutableStateOf(false) }
     var calculatorAmount by remember { mutableStateOf("") }
 
@@ -160,6 +162,21 @@ private fun PolinoApp(
             onBack = { showGoals = false },
             onNavigateToTasks = { showGoals = false; tab = Tab.Management },
             onNavigateToReminders = { showGoals = false; showReminders = true }
+        )
+        return
+    }
+
+    if (showSettings) {
+        SettingsScreen(
+            onBack = { showSettings = false },
+            onNavigateToManagement = { showSettings = false; tab = Tab.Management },
+            lockEnabled = lockEnabled,
+            onLockChange = { enabled ->
+                lockEnabled = enabled
+                if (enabled) unlocked = true
+                context.getSharedPreferences(LOCK_PREFS_NAME, Context.MODE_PRIVATE)
+                    .edit().putBoolean(LOCK_ENABLED_KEY, enabled).apply()
+            }
         )
         return
     }
@@ -303,6 +320,7 @@ private fun PolinoApp(
                     onNavigateToSmartBudget = { showSmartBudget = true },
                     onNavigateToReminders = { showReminders = true },
                     onShowGoals = { showGoals = true },
+                    onShowSettings = { showSettings = true },
                     themeMode = themeMode,
                     onThemeModeChange = onThemeModeChange,
                     lockEnabled = lockEnabled,
