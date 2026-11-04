@@ -2,6 +2,8 @@ package com.polino.app.dashboard
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,7 +17,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
@@ -31,10 +39,12 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -182,16 +192,17 @@ internal fun CategoryManagerScreen(
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
+                            val tileColor = categoryColorFor(category, tabColor)
                             Box(
                                 modifier = Modifier
                                     .size(48.dp)
-                                    .background(tabColor.copy(alpha = 0.18f), RoundedCornerShape(16.dp)),
+                                    .background(tileColor.copy(alpha = 0.18f), RoundedCornerShape(16.dp)),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
-                                    categoryIcon(category.name),
+                                    categoryIconFor(category),
                                     contentDescription = category.name,
-                                    tint = tabColor,
+                                    tint = tileColor,
                                     modifier = Modifier.size(28.dp)
                                 )
                             }
@@ -317,13 +328,14 @@ internal fun CategoryManagerScreen(
     }
     val target = renameTarget
     if (target != null) {
-        CategoryNameDialog(
-            title = "تغییر نام دسته",
-            initialName = target.name,
+        CategoryEditSheet(
+            target = target,
             onDismiss = { renameTarget = null },
-            onConfirm = { name ->
+            onConfirm = { name, iconKey, colorArgb ->
                 scope.launch {
-                    val ok = repository.renameCategory(target.name, name)
+                    var ok = true
+                    if (name != target.name) ok = repository.renameCategory(target.name, name)
+                    if (ok) ok = repository.updateCategoryStyle(name, iconKey, colorArgb)
                     if (ok) {
                         message = ""
                         renameTarget = null
@@ -367,4 +379,182 @@ private fun CategoryNameDialog(
             TextButton(onClick = onDismiss) { Text("انصراف") }
         }
     )
+}
+
+/**
+ * برگه ویرایش دسته به سبک پرگار (فریم‌های g_26 و g_27): پیش‌نمایش
+ * آیکون و نام، فیلد نام با نشان «اجباری»، شبکه ۵ ستونی آیکون‌ها،
+ * پالت رنگ شاخص در دو ردیف، و دکمه‌های انصراف و ذخیره. نوع و والد
+ * دسته در این برگه تغییر نمی‌کنند؛ فقط نام و سبک (آیکون و رنگ).
+ */
+@Composable
+private fun CategoryEditSheet(
+    target: CategoryEntity,
+    onDismiss: () -> Unit,
+    onConfirm: (String, String, Long) -> Unit
+) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    var name by remember { mutableStateOf(target.name) }
+    var iconKey by remember { mutableStateOf(target.iconKey) }
+    var colorArgb by remember { mutableStateOf(target.colorArgb) }
+    val typeColor = categoryTypeColor(categoryType(target))
+    val selectedColor = if (colorArgb != 0L) Color(colorArgb) else typeColor
+    val previewIcon = categoryIconByKey(iconKey) ?: categoryIcon(target.name)
+    val scopeText = if (target.parentId == null) "دسته اصلی" else "زیردسته"
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+        containerColor = Color(0xFF1E1438)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Text(
+                "ویرایش دسته‌بندی",
+                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
+            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(48.dp)
+                        .background(selectedColor.copy(alpha = 0.18f), RoundedCornerShape(16.dp)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        previewIcon,
+                        contentDescription = null,
+                        tint = selectedColor,
+                        modifier = Modifier.size(28.dp)
+                    )
+                }
+                Spacer(Modifier.width(12.dp))
+                Column {
+                    Text(
+                        name.ifBlank { target.name },
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                    )
+                    Text(
+                        "$scopeText · ${categoryTypeLabel(categoryType(target))}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = CategoryManagerMuted
+                    )
+                }
+            }
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        "نام دسته‌بندی",
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                    )
+                    Box(
+                        modifier = Modifier
+                            .background(CategoryExpense.copy(alpha = 0.18f), RoundedCornerShape(8.dp))
+                            .padding(horizontal = 8.dp, vertical = 2.dp)
+                    ) {
+                        Text("اجباری", style = MaterialTheme.typography.labelSmall, color = CategoryExpense)
+                    }
+                }
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text("نام دسته") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    "انتخاب آیکون دسته‌بندی:",
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                )
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(5),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(280.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(CATEGORY_ICON_OPTIONS) { option ->
+                        val selected = option.key == iconKey
+                        Box(
+                            modifier = Modifier
+                                .size(48.dp)
+                                .background(
+                                    if (selected) CategoryManagerPurple else Color(0xFF2A2150),
+                                    RoundedCornerShape(16.dp)
+                                )
+                                .clickable { iconKey = option.key },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                option.icon,
+                                contentDescription = option.key,
+                                tint = Color.White,
+                                modifier = Modifier.size(28.dp)
+                            )
+                        }
+                    }
+                }
+                TextButton(onClick = { iconKey = "" }) { Text("آیکون پیش‌فرض") }
+            }
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    "رنگ شاخص:",
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                )
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(8),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(104.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(CATEGORY_COLOR_PALETTE) { argb ->
+                        val selected = argb == colorArgb
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .background(Color(argb), CircleShape)
+                                .border(
+                                    width = if (selected) 2.dp else 1.dp,
+                                    color = if (selected) Color.White else CategoryManagerBorder,
+                                    shape = CircleShape
+                                )
+                                .clickable { colorArgb = argb }
+                        )
+                    }
+                }
+                TextButton(onClick = { colorArgb = 0L }) { Text("بدون رنگ شخصی") }
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                OutlinedButton(
+                    onClick = onDismiss,
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(16.dp)
+                ) { Text("انصراف") }
+                Button(
+                    onClick = { onConfirm(name.trim(), iconKey, colorArgb) },
+                    enabled = name.isNotBlank(),
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = CategoryManagerPurple,
+                        contentColor = Color.White
+                    )
+                ) { Text("ذخیره") }
+            }
+            Spacer(Modifier.height(8.dp))
+        }
+    }
 }

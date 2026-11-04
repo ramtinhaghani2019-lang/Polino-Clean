@@ -99,6 +99,8 @@ private class LegacyJsonParser(private val text: String) {
             var isIncome: Boolean? = null
             var isInvestment: Boolean? = null
             var parentId: String? = null
+            var iconKey: String? = null
+            var colorArgb: Long? = null
             var dayOfMonth: Long? = null
             var startYearMonth: String? = null
             var lastAppliedYearMonth: String? = null
@@ -142,6 +144,8 @@ private class LegacyJsonParser(private val text: String) {
                         "isIncome" -> isIncome = parseValueAsBoolean()
                         "isInvestment" -> isInvestment = parseValueAsBoolean()
                         "parentId" -> parentId = parseValueAsString()
+                        "iconKey" -> iconKey = parseValueAsString()
+                        "colorArgb" -> colorArgb = parseValueAsLong()
                         "dayOfMonth" -> dayOfMonth = parseValueAsLong()
                         "startYearMonth" -> startYearMonth = parseValueAsString()
                         "lastAppliedYearMonth" -> lastAppliedYearMonth = parseValueAsString()
@@ -205,7 +209,9 @@ private class LegacyJsonParser(private val text: String) {
                                 name,
                                 isIncome,
                                 isInvestment ?: false,
-                                parentId
+                                parentId,
+                                iconKey ?: "",
+                                colorArgb ?: 0L
                             )
                         )
                     }

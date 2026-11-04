@@ -29,7 +29,8 @@ internal class TransactionRepository(context: Context) {
         PolinoDatabase.MIGRATION_18_19,
         PolinoDatabase.MIGRATION_19_20,
         PolinoDatabase.MIGRATION_20_21,
-        PolinoDatabase.MIGRATION_21_22
+        PolinoDatabase.MIGRATION_21_22,
+        PolinoDatabase.MIGRATION_22_23
     ).build()
     private val dao = database.transactionDao()
     private val accountDao = database.accountDao()
@@ -209,7 +210,9 @@ internal class TransactionRepository(context: Context) {
                 newName,
                 current.isIncome,
                 current.isInvestment,
-                current.parentId
+                current.parentId,
+                current.iconKey,
+                current.colorArgb
             )
         )
         dao.reassignCategory(oldName, newName)
@@ -217,6 +220,21 @@ internal class TransactionRepository(context: Context) {
         recurringDao.renameCategory(oldName, newName)
         categoryDao.reassignParent(oldName, newName)
         categoryDao.deleteByName(oldName)
+        return true
+    }
+
+    /**
+     * تغییر سبک دسته (آیکون و رنگ شاخص)؛ نام، نوع و والد دسته دست
+     * نمی‌خورند. کلید آیکون ناشناخته یا رنگ صفر به معنی «بدون سبک
+     * شخصی» است و رفتار قبلی برمی‌گردد.
+     */
+    suspend fun updateCategoryStyle(
+        name: String,
+        iconKey: String,
+        colorArgb: Long
+    ): Boolean {
+        val current = categoryDao.getAll().firstOrNull { it.name == name } ?: return false
+        categoryDao.upsert(current.copy(iconKey = iconKey, colorArgb = colorArgb))
         return true
     }
 

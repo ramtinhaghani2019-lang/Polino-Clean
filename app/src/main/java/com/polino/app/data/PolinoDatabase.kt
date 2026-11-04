@@ -23,7 +23,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         PlanEntity::class,
         NoteEntity::class
     ],
-    version = 22,
+    version = 23,
     exportSchema = false
 )
 internal abstract class PolinoDatabase : RoomDatabase() {
@@ -381,6 +381,25 @@ internal abstract class PolinoDatabase : RoomDatabase() {
                         "body TEXT NOT NULL DEFAULT '', " +
                         "createdMillis INTEGER NOT NULL, " +
                         "updatedMillis INTEGER NOT NULL)"
+                )
+            }
+        }
+
+        /**
+         * مهاجرت v22→v23: دو ستون سبک پرگاری (کلید آیکون و رنگ شاخص)
+         * به جدول دسته‌ها اضافه می‌شود؛ دسته‌های موجود آیکون تهی و رنگ
+         * صفر می‌گیرند یعنی رفتار قبلی (آیکون از روی نام، رنگ نوع دسته)
+         * دقیقاً حفظ می‌شود و هیچ ردیفی تغییر نمی‌کند.
+         */
+        val MIGRATION_22_23 = object : Migration(22, 23) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "ALTER TABLE categories " +
+                        "ADD COLUMN iconKey TEXT NOT NULL DEFAULT ''"
+                )
+                db.execSQL(
+                    "ALTER TABLE categories " +
+                        "ADD COLUMN colorArgb INTEGER NOT NULL DEFAULT 0"
                 )
             }
         }

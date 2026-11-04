@@ -55,6 +55,34 @@ class BackupV2Test {
     }
 
     @Test
+    fun categoryStyle_roundTripsThroughBackup() {
+        val data = BackupData(
+            transactions = emptyList(),
+            budgets = emptyList(),
+            categories = listOf(
+                CategoryEntity("خیریه", false, iconKey = "bag", colorArgb = 0xFFE53935L),
+                CategoryEntity("حقوق و دستمزد", true)
+            ),
+            accounts = emptyList(),
+            recurring = emptyList(),
+            goals = emptyList()
+        )
+        val parsed = parseBackup(fullBackupToJson(data))
+        assertTrue(parsed != null)
+        assertEquals(data.categories, parsed!!.categories)
+    }
+
+    @Test
+    fun categoryWithoutStyleFields_parsesWithDefaults() {
+        val raw = "[{\"backupVersion\":2}," +
+            "{\"type\":\"category\",\"name\":\"کرایه\",\"isIncome\":false," +
+            "\"isInvestment\":false,\"parentId\":null}]"
+        val parsed = parseBackup(raw)
+        assertTrue(parsed != null)
+        assertEquals(listOf(CategoryEntity("کرایه", false)), parsed!!.categories)
+    }
+
+    @Test
     fun garbage_isNotFullBackup() {
         assertNull(parseBackup("not json"))
         assertNull(parseBackup(""))

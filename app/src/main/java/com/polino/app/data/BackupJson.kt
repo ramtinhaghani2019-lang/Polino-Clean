@@ -96,7 +96,9 @@ internal fun fullBackupToJson(data: BackupData): String = buildString {
                 "\"name\":\"${escapeJsonString(c.name)}\"," +
                 "\"isIncome\":${c.isIncome}," +
                 "\"isInvestment\":${c.isInvestment}," +
-                "\"parentId\":$parentJson}"
+                "\"parentId\":$parentJson," +
+                "\"iconKey\":\"${escapeJsonString(c.iconKey)}\"," +
+                "\"colorArgb\":${c.colorArgb}}"
         )
     }
     data.accounts.forEach { a ->
