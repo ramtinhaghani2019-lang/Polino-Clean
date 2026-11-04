@@ -17,9 +17,10 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         TaskEntity::class,
         EventEntity::class,
         AssetEntity::class,
-        SmsPatternEntity::class
+        SmsPatternEntity::class,
+        ChequeReminderEntity::class
     ],
-    version = 15,
+    version = 16,
     exportSchema = false
 )
 internal abstract class PolinoDatabase : RoomDatabase() {
@@ -34,6 +35,7 @@ internal abstract class PolinoDatabase : RoomDatabase() {
     abstract fun eventDao(): EventDao
     abstract fun assetDao(): AssetDao
     abstract fun smsPatternDao(): SmsPatternDao
+    abstract fun chequeReminderDao(): ChequeReminderDao
 
     companion object {
         /**
@@ -272,6 +274,20 @@ internal abstract class PolinoDatabase : RoomDatabase() {
                 db.execSQL(
                     "INSERT OR IGNORE INTO categories " +
                         "(name, isIncome, isInvestment) VALUES ('سایر سرمایه‌گذاری', 0, 1)"
+                )
+            }
+        }
+        /**
+         * مهاجرت v15→v16: جدول یادآورهای چک و قبض ساخته می‌شود؛
+         * بقیه جدول‌ها دست نمی‌خورند.
+         */
+        val MIGRATION_15_16 = object : Migration(15, 16) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS cheque_reminders " +
+                        "(id TEXT NOT NULL PRIMARY KEY, title TEXT NOT NULL, " +
+                        "amount INTEGER NOT NULL, dueMillis INTEGER NOT NULL, " +
+                        "settled INTEGER NOT NULL, note TEXT NOT NULL)"
                 )
             }
         }

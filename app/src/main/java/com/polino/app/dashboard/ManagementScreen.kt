@@ -68,6 +68,9 @@ import com.polino.app.data.GoalEntity
 import com.polino.app.data.InstallmentEntity
 import com.polino.app.data.DebtEntity
 import com.polino.app.data.TaskEntity
+import com.polino.app.data.ChequeReminderEntity
+import com.polino.app.data.isChequeReminderOverdue
+import com.polino.app.data.openChequeRemindersTotal
 import com.polino.app.data.AssetEntity
 import com.polino.app.data.SmsPatternEntity
 import com.polino.app.data.assetCurrentValue
@@ -106,12 +109,14 @@ fun ManagementScreen(
     var installments by remember { mutableStateOf<List<InstallmentEntity>>(emptyList()) }
     var debts by remember { mutableStateOf<List<DebtEntity>>(emptyList()) }
     var tasks by remember { mutableStateOf<List<TaskEntity>>(emptyList()) }
+    var cheques by remember { mutableStateOf<List<ChequeReminderEntity>>(emptyList()) }
     var assets by remember { mutableStateOf<List<AssetEntity>>(emptyList()) }
     var patterns by remember { mutableStateOf<List<SmsPatternEntity>>(emptyList()) }
     var showPatternDialog by remember { mutableStateOf(false) }
     var showInstallmentDialog by remember { mutableStateOf(false) }
     var showDebtDialog by remember { mutableStateOf(false) }
     var showTaskDialog by remember { mutableStateOf(false) }
+    var showChequeDialog by remember { mutableStateOf(false) }
     var showAccountDialog by remember { mutableStateOf(false) }
     var renameAccountTarget by remember { mutableStateOf<AccountEntity?>(null) }
     var showCategoryDialog by remember { mutableStateOf(false) }
@@ -142,6 +147,7 @@ fun ManagementScreen(
             installments = repository.getInstallments()
             debts = repository.getDebts()
             tasks = repository.getTasks()
+            cheques = repository.getCheques()
             assets = repository.getAssets()
             patterns = repository.getPatterns()
             budgetCount = budgetRepository.getBudgets(JalaliDate.currentJalaliYearMonth()).size
@@ -453,6 +459,75 @@ fun ManagementScreen(
                                         scope.launch {
                                             repository.deleteInstallment(installment.id)
                                             installments = repository.getInstallments()
+                                        }
+                                    }
+                                ) {
+                                    Text("حذف")
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        item { Text("یادآور چک و قبض", style = MaterialTheme.typography.titleMedium) }
+        item {
+            Text("مبلغ سررسید باز: ${money(openChequeRemindersTotal(cheques))}")
+        }
+        item {
+            Button(onClick = { showChequeDialog = true }) {
+                Text("ثبت یادآور جدید")
+            }
+        }
+        if (cheques.isEmpty()) {
+            item { Text("هنوز یادآوری ثبت نشده است.") }
+        } else {
+            cheques.forEach { cheque ->
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(20.dp)
+                    ) {
+                        Column(
+                            Modifier.padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            val overdue = isChequeReminderOverdue(
+                                cheque.dueMillis, System.currentTimeMillis(), cheque.settled
+                            )
+                            Text(
+                                cheque.title,
+                                style = MaterialTheme.typography.titleMedium,
+                                color = if (overdue) {
+                                    MaterialTheme.colorScheme.error
+                                } else {
+                                    MaterialTheme.colorScheme.onSurface
+                                }
+                            )
+                            Text(
+                                "مبلغ: ${money(cheque.amount)} — " +
+                                    "سررسید: ${JalaliDate.formatJalali(cheque.dueMillis)}" +
+                                    if (overdue) " — سررسید گذشته" else "" +
+                                    if (cheque.settled) " — پرداخت شد" else "" +
+                                    if (cheque.note.isNotBlank()) " — ${cheque.note}" else ""
+                            )
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Button(
+                                    onClick = {
+                                        scope.launch {
+                                            repository.settleCheque(cheque)
+                                            cheques = repository.getCheques()
+                                        }
+                                    },
+                                    enabled = !cheque.settled
+                                ) {
+                                    Text(if (cheque.settled) "پرداخت شد" else "پرداخت")
+                                }
+                                TextButton(
+                                    onClick = {
+                                        scope.launch {
+                                            repository.deleteCheque(cheque.id)
+                                            cheques = repository.getCheques()
                                         }
                                     }
                                 ) {
@@ -956,6 +1031,28 @@ fun ManagementScreen(
         )
     }
 
+    if (showChequeDialog) {
+        ChequeReminderDialog(
+            onDismiss = { showChequeDialog = false },
+            onSave = { title, amount, dueMillis, note ->
+                scope.launch {
+                    repository.addCheque(
+                        ChequeReminderEntity(
+                            id = UUID.randomUUID().toString(),
+                            title = title,
+                            amount = amount,
+                            dueMillis = dueMillis,
+                            settled = false,
+                            note = note
+                        )
+                    )
+                    cheques = repository.getCheques()
+                    showChequeDialog = false
+                }
+            }
+        )
+    }
+
     if (showAccountDialog) {
         AccountDialog(
             existingNames = accounts.map { it.name },
@@ -1116,6 +1213,80 @@ private fun TaskDialog(
             TextButton(
                 onClick = {
                     if (title.isNotBlank()) onSave(title.trim(), dueMillis)
+                }
+            ) {
+                Text("ذخیره")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("لغو") }
+        }
+    )
+    if (showDatePicker) {
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        datePickerState.selectedDateMillis?.let { dueMillis = it }
+                        showDatePicker = false
+                    }
+                ) {
+                    Text("تأیید")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) { Text("لغو") }
+            }
+        ) {
+            DatePicker(state = datePickerState)
+        }
+    }
+}
+
+@Composable
+private fun ChequeReminderDialog(
+    onDismiss: () -> Unit,
+    onSave: (title: String, amount: Long, dueMillis: Long, note: String) -> Unit
+) {
+    var title by remember { mutableStateOf("") }
+    var amountText by remember { mutableStateOf("") }
+    var note by remember { mutableStateOf("") }
+    var dueMillis by remember { mutableStateOf(System.currentTimeMillis()) }
+    var showDatePicker by remember { mutableStateOf(false) }
+    val datePickerState = rememberDatePickerState(initialSelectedDateMillis = dueMillis)
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("یادآور جدید") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                TextField(
+                    value = title,
+                    onValueChange = { title = it },
+                    label = { Text("عنوان (مثلاً چک صیادی یا قبض برق)") }
+                )
+                TextField(
+                    value = amountText,
+                    onValueChange = { amountText = it },
+                    label = { Text("مبلغ (تومان)") }
+                )
+                TextField(
+                    value = note,
+                    onValueChange = { note = it },
+                    label = { Text("یادداشت (اختیاری)") }
+                )
+                Button(onClick = { showDatePicker = true }) {
+                    Text("سررسید: ${JalaliDate.formatJalali(dueMillis)}")
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    val amount = normalizeDigits(amountText).toLongOrNull() ?: 0L
+                    if (title.isNotBlank() && amount > 0) {
+                        onSave(title.trim(), amount, dueMillis, note.trim())
+                    }
                 }
             ) {
                 Text("ذخیره")
