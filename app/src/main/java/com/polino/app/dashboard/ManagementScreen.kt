@@ -132,7 +132,13 @@ import kotlinx.coroutines.launch
 import com.polino.app.data.TransactionRepository
 import com.polino.app.backup.BackupSheet
 import com.polino.app.security.SecuritySheet
+import androidx.compose.material.icons.filled.CreditCard
+import androidx.compose.material.icons.filled.EventNote
+import androidx.compose.material.icons.filled.People
+import androidx.compose.material.icons.filled.Receipt
+import androidx.compose.material.icons.filled.TrendingUp
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ManagementScreen(
     onNavigateHome: () -> Unit,
@@ -166,6 +172,9 @@ fun ManagementScreen(
     var assets by remember { mutableStateOf<List<AssetEntity>>(emptyList()) }
     var patterns by remember { mutableStateOf<List<SmsPatternEntity>>(emptyList()) }
     var showPatternSheet by remember { mutableStateOf(false) }
+    var showInstallmentsSheet by remember { mutableStateOf(false) }
+    var showTasksSheet by remember { mutableStateOf(false) }
+    var showDongiSheet by remember { mutableStateOf(false) }
     var showInstallmentDialog by remember { mutableStateOf(false) }
     var showDebtDialog by remember { mutableStateOf(false) }
     var showTaskDialog by remember { mutableStateOf(false) }
@@ -494,19 +503,6 @@ fun ManagementScreen(
             }
         }
         item {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(
-                    onClick = { runRescanSms() },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("بررسی مجدد پیامک‌ها")
-                }
-                if (smsRescanMessage.isNotEmpty()) {
-                    Text(smsRescanMessage, style = MaterialTheme.typography.bodySmall)
-                }
-            }
-        }
-        item {
             ManagementCard(
                 title = "مدیریت الگوهای پیامک",
                 subtitle = "فرستنده‌های شناسایی‌شده و قوانین ثبت پیامک",
@@ -520,7 +516,7 @@ fun ManagementScreen(
                 title = "حساب‌ها و کارت‌ها",
                 subtitle = "${accounts.size} حساب",
                 icon = Icons.Default.AccountBalanceWallet,
-                onClick = onNavigateHome
+                onClick = onShowAccounts
             )
         }
         item {
@@ -579,6 +575,62 @@ fun ManagementScreen(
                 onClick = onNavigateToReports
             )
         }
+        item {
+            ManagementCard(
+                title = "اقساط",
+                subtitle = "وام‌ها و خریدهای اقساطی",
+                icon = Icons.Default.CreditCard,
+                onClick = { showInstallmentsSheet = true },
+                statusChip = "${installments.size} قسط"
+            )
+        }
+        item {
+            val (receivableTotal, payableTotal) = unsettledTotals(debts)
+            ManagementCard(
+                title = "طلب و بدهی",
+                subtitle = "طلب‌های باز: ${money(receivableTotal)} — بدهی‌های باز: ${money(payableTotal)}",
+                icon = Icons.Default.People,
+                onClick = onShowDebts
+            )
+        }
+        item {
+            ManagementCard(
+                title = "کارها و یادآورها",
+                subtitle = "${tasks.size} کار",
+                icon = Icons.Default.EventNote,
+                onClick = { showTasksSheet = true }
+            )
+        }
+        item {
+            ManagementCard(
+                title = "محاسبه دنگی",
+                subtitle = "تقسیم هزینه‌های مشترک بین نفرات",
+                icon = Icons.Default.Group,
+                onClick = { showDongiSheet = true }
+            )
+        }
+        item {
+            val totals = portfolioTotals(assets)
+            ManagementCard(
+                title = "سرمایه‌گذاری و دارایی‌ها",
+                subtitle = "ارزش کل پرتفوی: ${money(totals.totalValue.toLong())}",
+                icon = Icons.Default.TrendingUp,
+                onClick = onShowInvestments,
+                statusChip = "${assets.size} دارایی"
+            )
+        }
+    }
+
+    if (showInstallmentsSheet) {
+        val installmentsSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        ModalBottomSheet(
+            onDismissRequest = { showInstallmentsSheet = false },
+            sheetState = installmentsSheetState
+        ) {
+            LazyColumn(
+                contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 32.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
         item { Text("اقساط", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)) }
         item {
             Button(onClick = { showInstallmentDialog = true }) {
@@ -696,155 +748,20 @@ fun ManagementScreen(
                 }
             }
         }
-        item { Text("یادآور چک و قبض", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)) }
-        item {
-            Text("مبلغ سررسید باز: ${money(openChequeRemindersTotal(cheques))}")
-        }
-        item {
-            Button(onClick = { showChequeDialog = true }) {
-                Text("ثبت یادآور جدید")
             }
         }
-        if (cheques.isEmpty()) {
-            item { Text("هنوز یادآوری ثبت نشده است.") }
-        } else {
-            cheques.forEach { cheque ->
-                item {
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(20.dp),
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
-                    ) {
-                        Column(
-                            Modifier.padding(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            val overdue = isChequeReminderOverdue(
-                                cheque.dueMillis, System.currentTimeMillis(), cheque.settled
-                            )
-                            Text(
-                                cheque.title,
-                                style = MaterialTheme.typography.titleMedium,
-                                color = if (overdue) {
-                                    MaterialTheme.colorScheme.error
-                                } else {
-                                    MaterialTheme.colorScheme.onSurface
-                                }
-                            )
-                            Text(
-                                "مبلغ: ${money(cheque.amount)} — " +
-                                    "سررسید: ${JalaliDate.formatJalali(cheque.dueMillis)}" +
-                                    if (overdue) " — سررسید گذشته" else "" +
-                                    if (cheque.settled) " — پرداخت شد" else "" +
-                                    if (cheque.note.isNotBlank()) " — ${cheque.note}" else ""
-                            )
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Button(
-                                    onClick = {
-                                        scope.launch {
-                                            repository.settleCheque(cheque)
-                                            cheques = repository.getCheques()
-                                        }
-                                    },
-                                    enabled = !cheque.settled
-                                ) {
-                                    Text(if (cheque.settled) "پرداخت شد" else "پرداخت")
-                                }
-                                TextButton(
-                                    onClick = {
-                                        scope.launch {
-                                            repository.deleteCheque(cheque.id)
-                                            cheques = repository.getCheques()
-                                        }
-                                    }
-                                ) {
-                                    Text("حذف")
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        item {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+    }
+
+    if (showTasksSheet) {
+        val tasksSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        ModalBottomSheet(
+            onDismissRequest = { showTasksSheet = false },
+            sheetState = tasksSheetState
+        ) {
+            LazyColumn(
+                contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 32.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                Text("طلب و بدهی", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
-                TextButton(onClick = onShowDebts) { Text("مشاهده همه") }
-            }
-        }
-        item {
-            val (receivableTotal, payableTotal) = unsettledTotals(debts)
-            Text("طلب‌های باز: ${money(receivableTotal)} — بدهی‌های باز: ${money(payableTotal)}")
-        }
-        item {
-            Button(onClick = { showDebtDialog = true }) {
-                Text("طلب یا بدهی جدید")
-            }
-        }
-        if (debts.isEmpty()) {
-            item { Text("هنوز طلب یا بدهی ثبت نشده است.") }
-        } else {
-            debts.forEach { debt ->
-                item {
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(20.dp),
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
-                    ) {
-                        Column(
-                            Modifier.padding(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            val overdue = isDebtOverdue(
-                                debt.dueMillis, System.currentTimeMillis(), debt.settled
-                            )
-                            Text(
-                                debt.personName,
-                                style = MaterialTheme.typography.titleMedium,
-                                color = if (overdue) {
-                                    MaterialTheme.colorScheme.error
-                                } else {
-                                    MaterialTheme.colorScheme.onSurface
-                                }
-                            )
-                            Text(
-                                "${if (debt.isReceivable) "طلب" else "بدهی"}: ${money(debt.amount)}" +
-                                    if (debt.dueMillis != null) " — سررسید: ${JalaliDate.formatJalali(debt.dueMillis)}" else "" +
-                                    if (overdue) " — سررسید گذشته" else "" +
-                                    if (debt.settled) " — تسویه شد" else ""
-                            )
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Button(
-                                    onClick = {
-                                        scope.launch {
-                                            repository.settleDebt(debt)
-                                            debts = repository.getDebts()
-                                        }
-                                    },
-                                    enabled = !debt.settled
-                                ) {
-                                    Text(if (debt.settled) "تسویه شد" else "تسویه")
-                                }
-                                TextButton(
-                                    onClick = {
-                                        scope.launch {
-                                            repository.deleteDebt(debt.id)
-                                            debts = repository.getDebts()
-                                        }
-                                    }
-                                ) {
-                                    Text("حذف")
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
         item { Text("کارها و یادآورها", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)) }
         item {
             Button(onClick = { showTaskDialog = true }) {
@@ -909,6 +826,20 @@ fun ManagementScreen(
                 }
             }
         }
+            }
+        }
+    }
+
+    if (showDongiSheet) {
+        val dongiSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        ModalBottomSheet(
+            onDismissRequest = { showDongiSheet = false },
+            sheetState = dongiSheetState
+        ) {
+            LazyColumn(
+                contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 32.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
         item { Text("محاسبه دنگی", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)) }
         item {
             var dongiMembers by remember {
@@ -1240,244 +1171,6 @@ fun ManagementScreen(
                 }
             }
         }
-        item {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text("مدیریت حساب‌ها", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
-                TextButton(onClick = onShowAccounts) { Text("مشاهده همه") }
-            }
-        }
-        item {
-            Button(onClick = { showAccountDialog = true }) {
-                Text("حساب جدید")
-            }
-        }
-        accounts.forEach { account ->
-            item {
-                val linked = allSenders.any { it.accountId == account.id }
-                Card(
-                    modifier = Modifier.fillMaxWidth().clickable {
-                        detailAccount = account
-                        scope.launch {
-                            detailSenders = repository.getAccountSmsSenders(account.id)
-                        }
-                    },
-                    shape = RoundedCornerShape(20.dp),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
-                ) {
-                    Column(
-                        Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Text(account.name, style = MaterialTheme.typography.titleMedium)
-                        if (account.bankName != null) {
-                            Text(
-                                "بانک: ${account.bankName}",
-                                style = MaterialTheme.typography.labelLarge,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                        val balance = transactions.filter { it.accountId == account.id }
-                            .sumOf { if (it.income) it.amount else -it.amount }
-                        Text("مانده: ${money(balance)}")
-                        if (linked) {
-                            Text(
-                                "متصل به پیامک ✓",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = Color(0xFF2E9E6B)
-                            )
-                        }
-                    }
-                }
-            }
-        }
-        item { Text("مدیریت دسته‌ها", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)) }
-        item {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                CategoryType.entries.forEach { type ->
-                    val count = mainCategories(categories, type).size
-                    FilterChip(
-                        selected = selectedCategoryType == type,
-                        onClick = { selectedCategoryType = type },
-                        label = { Text("${categoryTypeLabel(type)} ($count)") }
-                    )
-                }
-            }
-        }
-        item {
-            Button(onClick = { showCategoryDialog = true }) {
-                Text("دسته جدید")
-            }
-        }
-        if (categoryMessage.isNotEmpty()) {
-            item {
-                Text(categoryMessage, color = MaterialTheme.colorScheme.error)
-            }
-        }
-        mainCategories(categories, selectedCategoryType).forEach { category ->
-            item {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(20.dp),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
-                ) {
-                    Column(
-                        Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            Icon(
-                                categoryIcon(category.name),
-                                contentDescription = category.name
-                            )
-                            Column {
-                                Text(category.name, style = MaterialTheme.typography.titleMedium)
-                                Text("دسته اصلی · ${categoryTypeLabel(categoryType(category))}")
-                            }
-                        }
-                        subcategoriesOf(categories, category.name).forEach { sub ->
-                            Row(
-                                modifier = Modifier.padding(start = 12.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                Text(sub.name, modifier = Modifier.weight(1f))
-                                TextButton(onClick = { renameCategoryTarget = sub }) {
-                                    Text("تغییر نام")
-                                }
-                                TextButton(
-                                    onClick = {
-                                        scope.launch {
-                                            repository.deleteCategory(sub.name)
-                                            categories = repository.getCategories()
-                                        }
-                                    }
-                                ) {
-                                    Text("حذف")
-                                }
-                            }
-                        }
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            TextButton(onClick = { subcategoryParent = category }) {
-                                Text("زیردسته جدید")
-                            }
-                            if (category.name != "سایر") {
-                                TextButton(onClick = { renameCategoryTarget = category }) {
-                                    Text("تغییر نام")
-                                }
-                                TextButton(
-                                    onClick = {
-                                        scope.launch {
-                                            if (subcategoriesOf(categories, category.name).isNotEmpty()) {
-                                                categoryMessage = "اول زیردسته‌های این دسته را حذف کنید."
-                                            } else if (repository.deleteCategory(category.name)) {
-                                                categoryMessage = ""
-                                                categories = repository.getCategories()
-                                            }
-                                        }
-                                    }
-                                ) {
-                                    Text("حذف")
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        item {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text("سرمایه‌گذاری و دارایی‌ها", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
-                TextButton(onClick = onShowInvestments) { Text("مشاهده همه") }
-            }
-        }
-        item {
-            val totals = portfolioTotals(assets)
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(20.dp),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
-            ) {
-                Column(
-                    Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Text("ارزش کل پرتفوی: ${money(totals.totalValue.toLong())}")
-                    Text("دارایی‌های فعال: ${assets.size}")
-                    Text("ارزش روز: ${money(totals.totalValue.toLong())}")
-                    val profitLoss = totals.profitLoss
-                    val percent = Math.round(totals.profitLossPercent * 10) / 10.0
-                    Text(
-                        "سود/زیان: ${money(profitLoss.toLong())} ($percent٪)",
-                        color = if (profitLoss >= 0) {
-                            Color(0xFF2E7D32)
-                        } else {
-                            MaterialTheme.colorScheme.error
-                        }
-                    )
-                }
-            }
-        }
-        item {
-            Button(onClick = { showAssetDialog = true }) {
-                Text("افزودن دارایی جدید")
-            }
-        }
-        if (assets.isEmpty()) {
-            item { Text("هنوز دارایی ثبت نشده است.") }
-        } else {
-            assets.forEach { asset ->
-                item {
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(20.dp),
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
-                    ) {
-                        Column(
-                            Modifier.padding(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Text(asset.name, style = MaterialTheme.typography.titleMedium)
-                            Text("${asset.type} — ${formatAssetQuantity(asset.quantity)} ${asset.unit}")
-                            Text("ارزش روز: ${money(assetCurrentValue(asset).toLong())}")
-                            val assetProfitLoss =
-                                assetCurrentValue(asset) - asset.quantity * asset.buyPrice
-                            Text(
-                                "سود/زیان: ${money(assetProfitLoss.toLong())}",
-                                color = if (assetProfitLoss >= 0) {
-                                    Color(0xFF2E7D32)
-                                } else {
-                                    MaterialTheme.colorScheme.error
-                                }
-                            )
-                            if (asset.note.isNotBlank()) {
-                                Text(asset.note, style = MaterialTheme.typography.bodySmall)
-                            }
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                TextButton(
-                                    onClick = {
-                                        scope.launch {
-                                            repository.deleteAsset(asset.id)
-                                            assets = repository.getAssets()
-                                        }
-                                    }
-                                ) {
-                                    Text("حذف")
-                                }
-                            }
-                        }
-                    }
-                }
             }
         }
     }
