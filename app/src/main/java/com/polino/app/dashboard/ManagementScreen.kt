@@ -52,6 +52,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -170,11 +171,16 @@ fun ManagementScreen(
             Text("ابزارهای یکپارچه مالی", style = MaterialTheme.typography.labelMedium)
         }
         item {
+            val isDarkHub = MaterialTheme.colorScheme.background.luminance() < 0.5f
+            val hubContainer = if (isDarkHub) Color(0xFF1E1438) else MaterialTheme.colorScheme.surface
+            val hubBorder = if (isDarkHub) Color(0xFF3D3368) else MaterialTheme.colorScheme.outline
+            val hubLabel = if (isDarkHub) Color(0xFFB3ACD6) else MaterialTheme.colorScheme.onSurfaceVariant
+            val hubNumber = if (isDarkHub) Color.White else MaterialTheme.colorScheme.onSurface
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(28.dp),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFF1E1438)),
-                border = BorderStroke(1.dp, Color(0xFF3D3368))
+                colors = CardDefaults.cardColors(containerColor = hubContainer),
+                border = BorderStroke(1.dp, hubBorder)
             ) {
                 Column(
                     Modifier.padding(20.dp),
@@ -183,13 +189,13 @@ fun ManagementScreen(
                     Text(
                         "خلاصه دارایی",
                         style = MaterialTheme.typography.labelLarge,
-                        color = Color(0xFFB3ACD6)
+                        color = hubLabel
                     )
-                    Text("مجموع مانده نقدی", color = Color.White)
+                    Text("مجموع مانده نقدی", color = hubNumber)
                     Text(
                         money(totalBalance),
                         style = MaterialTheme.typography.displayMedium.copy(fontWeight = FontWeight.Bold),
-                        color = Color.White
+                        color = hubNumber
                     )
                 }
             }
@@ -216,7 +222,8 @@ fun ManagementScreen(
         item {
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(20.dp)
+                shape = RoundedCornerShape(20.dp),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
             ) {
                 Column(
                     Modifier.padding(16.dp),
@@ -239,7 +246,8 @@ fun ManagementScreen(
         item {
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(20.dp)
+                shape = RoundedCornerShape(20.dp),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
             ) {
                 Column(
                     Modifier.padding(16.dp),
@@ -263,11 +271,12 @@ fun ManagementScreen(
                 }
             }
         }
-        item { Text("بخش‌ها", style = MaterialTheme.typography.titleMedium) }
+        item { Text("بخش‌ها", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)) }
         item {
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(20.dp)
+                shape = RoundedCornerShape(20.dp),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
             ) {
                 Row(
                     Modifier.padding(16.dp),
@@ -308,7 +317,7 @@ fun ManagementScreen(
                 }
             }
         }
-        item { Text("مدیریت الگوهای پیامک", style = MaterialTheme.typography.titleMedium) }
+        item { Text("مدیریت الگوهای پیامک", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)) }
         item {
             Text(
                 "تعیین فرستنده‌ها، کلمات کلیدی و قوانین تراکنش",
@@ -407,7 +416,7 @@ fun ManagementScreen(
                 onClick = onNavigateToReports
             )
         }
-        item { Text("اقساط", style = MaterialTheme.typography.titleMedium) }
+        item { Text("اقساط", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)) }
         item {
             Button(onClick = { showInstallmentDialog = true }) {
                 Text("قسط جدید")
@@ -420,7 +429,8 @@ fun ManagementScreen(
                 item {
                     Card(
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(20.dp)
+                        shape = RoundedCornerShape(20.dp),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
                     ) {
                         Column(
                             Modifier.padding(16.dp),
@@ -473,7 +483,7 @@ fun ManagementScreen(
                 }
             }
         }
-        item { Text("یادآور چک و قبض", style = MaterialTheme.typography.titleMedium) }
+        item { Text("یادآور چک و قبض", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)) }
         item {
             Text("مبلغ سررسید باز: ${money(openChequeRemindersTotal(cheques))}")
         }
@@ -489,7 +499,8 @@ fun ManagementScreen(
                 item {
                     Card(
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(20.dp)
+                        shape = RoundedCornerShape(20.dp),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
                     ) {
                         Column(
                             Modifier.padding(16.dp),
@@ -542,7 +553,7 @@ fun ManagementScreen(
                 }
             }
         }
-        item { Text("طلب و بدهی", style = MaterialTheme.typography.titleMedium) }
+        item { Text("طلب و بدهی", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)) }
         item {
             val (receivableTotal, payableTotal) = unsettledTotals(debts)
             Text("طلب‌های باز: ${money(receivableTotal)} — بدهی‌های باز: ${money(payableTotal)}")
@@ -559,7 +570,8 @@ fun ManagementScreen(
                 item {
                     Card(
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(20.dp)
+                        shape = RoundedCornerShape(20.dp),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
                     ) {
                         Column(
                             Modifier.padding(16.dp),
@@ -611,7 +623,7 @@ fun ManagementScreen(
                 }
             }
         }
-        item { Text("کارها و یادآورها", style = MaterialTheme.typography.titleMedium) }
+        item { Text("کارها و یادآورها", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)) }
         item {
             Button(onClick = { showTaskDialog = true }) {
                 Text("کار جدید")
@@ -624,7 +636,8 @@ fun ManagementScreen(
                 item {
                     Card(
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(20.dp)
+                        shape = RoundedCornerShape(20.dp),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
                     ) {
                         Column(
                             Modifier.padding(16.dp),
@@ -674,7 +687,7 @@ fun ManagementScreen(
                 }
             }
         }
-        item { Text("محاسبه دنگی", style = MaterialTheme.typography.titleMedium) }
+        item { Text("محاسبه دنگی", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)) }
         item {
             var dongiMembers by remember {
                 mutableStateOf(
@@ -860,7 +873,7 @@ fun ManagementScreen(
                 }
             }
         }
-        item { Text("مدیریت حساب‌ها", style = MaterialTheme.typography.titleMedium) }
+        item { Text("مدیریت حساب‌ها", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)) }
         item {
             Button(onClick = { showAccountDialog = true }) {
                 Text("حساب جدید")
@@ -903,7 +916,7 @@ fun ManagementScreen(
                 }
             }
         }
-        item { Text("مدیریت دسته‌ها", style = MaterialTheme.typography.titleMedium) }
+        item { Text("مدیریت دسته‌ها", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)) }
         item {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 CategoryType.entries.forEach { type ->
@@ -1000,7 +1013,7 @@ fun ManagementScreen(
                 }
             }
         }
-        item { Text("سرمایه‌گذاری و دارایی‌ها", style = MaterialTheme.typography.titleMedium) }
+        item { Text("سرمایه‌گذاری و دارایی‌ها", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)) }
         item {
             val totals = portfolioTotals(assets)
             Card(
@@ -1832,7 +1845,7 @@ private fun MiniStat(modifier: Modifier = Modifier, label: String, value: String
             Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
-            Text(value, style = MaterialTheme.typography.titleMedium)
+            Text(value, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
             Text(label, style = MaterialTheme.typography.bodySmall)
         }
     }
