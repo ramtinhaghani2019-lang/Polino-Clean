@@ -36,7 +36,10 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.polino.app.data.BudgetEntity
@@ -248,7 +251,9 @@ private fun SmartBudgetDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("بودجه جدید") },
+        shape = RoundedCornerShape(28.dp),
+        containerColor = if (MaterialTheme.colorScheme.background.luminance() < 0.5f) Color(0xFF1E1438) else MaterialTheme.colorScheme.surface,
+        title = { Text("بودجه جدید", fontWeight = FontWeight.Bold) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Box {
@@ -287,7 +292,7 @@ private fun SmartBudgetDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = {
+            Button(onClick = {
                 val value = normalizeDigits(amount).toLongOrNull()
                 if (value == null || value <= 0L) {
                     validation = "مبلغ معتبر وارد کنید."

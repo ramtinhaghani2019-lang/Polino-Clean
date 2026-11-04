@@ -820,7 +820,9 @@ fun FinanceDashboard(
     if (showDeleteAccountConfirm) {
         AlertDialog(
             onDismissRequest = { showDeleteAccountConfirm = false },
-            title = { Text("حذف حساب") },
+            shape = RoundedCornerShape(28.dp),
+            containerColor = if (MaterialTheme.colorScheme.background.luminance() < 0.5f) Color(0xFF1E1438) else MaterialTheme.colorScheme.surface,
+            title = { Text("حذف حساب", fontWeight = FontWeight.Bold) },
             text = {
                 Text("تراکنش‌های این حساب به حساب «اصلی» منتقل می‌شوند و حساب حذف می‌شود.")
             },
@@ -850,7 +852,9 @@ private fun AccountDialog(
     var validation by remember { mutableStateOf("") }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("حساب جدید") },
+        shape = RoundedCornerShape(28.dp),
+        containerColor = if (MaterialTheme.colorScheme.background.luminance() < 0.5f) Color(0xFF1E1438) else MaterialTheme.colorScheme.surface,
+        title = { Text("حساب جدید", fontWeight = FontWeight.Bold) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 OutlinedTextField(
@@ -865,7 +869,7 @@ private fun AccountDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = {
+            Button(onClick = {
                 if (name.isBlank()) {
                     validation = "نام حساب را وارد کنید."
                 } else {
@@ -890,7 +894,9 @@ private fun RenameAccountDialog(
     val scope = rememberCoroutineScope()
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("تغییر نام حساب") },
+        shape = RoundedCornerShape(28.dp),
+        containerColor = if (MaterialTheme.colorScheme.background.luminance() < 0.5f) Color(0xFF1E1438) else MaterialTheme.colorScheme.surface,
+        title = { Text("تغییر نام حساب", fontWeight = FontWeight.Bold) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 OutlinedTextField(
@@ -905,7 +911,7 @@ private fun RenameAccountDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = {
+            Button(onClick = {
                 if (name.isBlank()) {
                     validation = "نام حساب را وارد کنید."
                 } else {
@@ -939,7 +945,9 @@ private fun CategoryDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("دسته‌ها") },
+        shape = RoundedCornerShape(28.dp),
+        containerColor = if (MaterialTheme.colorScheme.background.luminance() < 0.5f) Color(0xFF1E1438) else MaterialTheme.colorScheme.surface,
+        title = { Text("دسته‌ها", fontWeight = FontWeight.Bold) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(
@@ -984,7 +992,7 @@ private fun CategoryDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = {
+            Button(onClick = {
                 if (name.isBlank()) {
                     validation = "نام دسته را وارد کنید."
                 } else {
@@ -1017,7 +1025,9 @@ private fun CategoryDialog(
     if (categoryToDelete != null) {
         AlertDialog(
             onDismissRequest = { categoryToDelete = null },
-            title = { Text("حذف دسته") },
+            shape = RoundedCornerShape(28.dp),
+            containerColor = if (MaterialTheme.colorScheme.background.luminance() < 0.5f) Color(0xFF1E1438) else MaterialTheme.colorScheme.surface,
+            title = { Text("حذف دسته", fontWeight = FontWeight.Bold) },
             text = {
                 Text("دسته «$categoryToDelete» حذف شود؟ تراکنش‌هایش به «سایر» می‌روند و بودجه‌هایش پاک می‌شوند.")
             },
@@ -1048,7 +1058,9 @@ private fun RenameCategoryDialog(
     val scope = rememberCoroutineScope()
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("تغییر نام دسته") },
+        shape = RoundedCornerShape(28.dp),
+        containerColor = if (MaterialTheme.colorScheme.background.luminance() < 0.5f) Color(0xFF1E1438) else MaterialTheme.colorScheme.surface,
+        title = { Text("تغییر نام دسته", fontWeight = FontWeight.Bold) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 OutlinedTextField(
@@ -1063,7 +1075,7 @@ private fun RenameCategoryDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = {
+            Button(onClick = {
                 if (name.isBlank()) {
                     validation = "نام دسته را وارد کنید."
                 } else {
@@ -1109,7 +1121,9 @@ private fun RecurringDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("تراکنش‌های تکرارشونده") },
+        shape = RoundedCornerShape(28.dp),
+        containerColor = if (MaterialTheme.colorScheme.background.luminance() < 0.5f) Color(0xFF1E1438) else MaterialTheme.colorScheme.surface,
+        title = { Text("تراکنش‌های تکرارشونده", fontWeight = FontWeight.Bold) },
         text = {
             Column(
                 modifier = Modifier.verticalScroll(rememberScrollState()),
@@ -1242,7 +1256,7 @@ private fun RecurringDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = {
+            Button(onClick = {
                 val parsedAmount = normalizeDigits(amount).toLongOrNull()
                 val parsedDay = normalizeDigits(day).toIntOrNull()
                 val error = when {
@@ -1409,7 +1423,9 @@ private fun TransactionDialog(
     if (showDeleteConfirm && initial != null) {
         AlertDialog(
             onDismissRequest = { showDeleteConfirm = false },
-            title = { Text("حذف تراکنش") },
+            shape = RoundedCornerShape(28.dp),
+            containerColor = if (MaterialTheme.colorScheme.background.luminance() < 0.5f) Color(0xFF1E1438) else MaterialTheme.colorScheme.surface,
+            title = { Text("حذف تراکنش", fontWeight = FontWeight.Bold) },
             text = { Text("«${initial.title}» حذف شود؟ این کار قابل بازگشت نیست.") },
             confirmButton = {
                 TextButton(onClick = {
@@ -1425,7 +1441,9 @@ private fun TransactionDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(if (initial == null) "تراکنش جدید" else "ویرایش تراکنش") },
+        shape = RoundedCornerShape(28.dp),
+        containerColor = if (MaterialTheme.colorScheme.background.luminance() < 0.5f) Color(0xFF1E1438) else MaterialTheme.colorScheme.surface,
+        title = { Text(if (initial == null) "تراکنش جدید" else "ویرایش تراکنش", fontWeight = FontWeight.Bold) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 OutlinedTextField(
@@ -1536,7 +1554,7 @@ private fun TransactionDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = {
+            Button(onClick = {
                 val value = normalizeDigits(amount).toLongOrNull()
                 if (title.isBlank() || value == null || value <= 0L) {
                     validation = "عنوان و مبلغ معتبر وارد کنید."

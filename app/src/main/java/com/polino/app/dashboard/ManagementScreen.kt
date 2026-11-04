@@ -1327,7 +1327,9 @@ private fun TaskDialog(
     val datePickerState = rememberDatePickerState(initialSelectedDateMillis = dueMillis)
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("کار جدید") },
+        shape = RoundedCornerShape(28.dp),
+        containerColor = if (MaterialTheme.colorScheme.background.luminance() < 0.5f) Color(0xFF1E1438) else MaterialTheme.colorScheme.surface,
+        title = { Text("کار جدید", fontWeight = FontWeight.Bold) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 TextField(
@@ -1341,7 +1343,7 @@ private fun TaskDialog(
             }
         },
         confirmButton = {
-            TextButton(
+            Button(
                 onClick = {
                     if (title.isNotBlank()) onSave(title.trim(), dueMillis)
                 }
@@ -1388,7 +1390,9 @@ private fun ChequeReminderDialog(
     val datePickerState = rememberDatePickerState(initialSelectedDateMillis = dueMillis)
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("یادآور جدید") },
+        shape = RoundedCornerShape(28.dp),
+        containerColor = if (MaterialTheme.colorScheme.background.luminance() < 0.5f) Color(0xFF1E1438) else MaterialTheme.colorScheme.surface,
+        title = { Text("یادآور جدید", fontWeight = FontWeight.Bold) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 TextField(
@@ -1412,7 +1416,7 @@ private fun ChequeReminderDialog(
             }
         },
         confirmButton = {
-            TextButton(
+            Button(
                 onClick = {
                     val amount = normalizeDigits(amountText).toLongOrNull() ?: 0L
                     if (title.isNotBlank() && amount > 0) {
@@ -1464,7 +1468,9 @@ private fun DebtDialog(
     val datePickerState = rememberDatePickerState(initialSelectedDateMillis = dueMillis)
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("طلب یا بدهی جدید") },
+        shape = RoundedCornerShape(28.dp),
+        containerColor = if (MaterialTheme.colorScheme.background.luminance() < 0.5f) Color(0xFF1E1438) else MaterialTheme.colorScheme.surface,
+        title = { Text("طلب یا بدهی جدید", fontWeight = FontWeight.Bold) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 TextField(
@@ -1504,7 +1510,7 @@ private fun DebtDialog(
             }
         },
         confirmButton = {
-            TextButton(
+            Button(
                 onClick = {
                     val amount = normalizeDigits(amountText).toLongOrNull() ?: 0L
                     if (person.isNotBlank() && amount > 0) {
@@ -1553,7 +1559,9 @@ private fun InstallmentDialog(
     var selectedAccount by remember { mutableStateOf(accounts.firstOrNull()?.id ?: "main") }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("قسط جدید") },
+        shape = RoundedCornerShape(28.dp),
+        containerColor = if (MaterialTheme.colorScheme.background.luminance() < 0.5f) Color(0xFF1E1438) else MaterialTheme.colorScheme.surface,
+        title = { Text("قسط جدید", fontWeight = FontWeight.Bold) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 TextField(
@@ -1583,7 +1591,7 @@ private fun InstallmentDialog(
             }
         },
         confirmButton = {
-            TextButton(
+            Button(
                 onClick = {
                     val total = normalizeDigits(totalText).toLongOrNull() ?: 0L
                     val months = normalizeDigits(monthsText).toIntOrNull() ?: 0
@@ -1611,7 +1619,9 @@ private fun AccountDialog(
     val duplicate = name.isNotBlank() && existingNames.contains(name)
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("حساب جدید") },
+        shape = RoundedCornerShape(28.dp),
+        containerColor = if (MaterialTheme.colorScheme.background.luminance() < 0.5f) Color(0xFF1E1438) else MaterialTheme.colorScheme.surface,
+        title = { Text("حساب جدید", fontWeight = FontWeight.Bold) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 TextField(
@@ -1653,7 +1663,9 @@ private fun AccountRenameDialog(
     val duplicate = name.isNotBlank() && name != currentName && existingNames.contains(name)
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("تغییر نام حساب") },
+        shape = RoundedCornerShape(28.dp),
+        containerColor = if (MaterialTheme.colorScheme.background.luminance() < 0.5f) Color(0xFF1E1438) else MaterialTheme.colorScheme.surface,
+        title = { Text("تغییر نام حساب", fontWeight = FontWeight.Bold) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 TextField(
@@ -1696,7 +1708,9 @@ private fun CategoryDialog(
     val duplicate = name.isNotBlank() && existingNames.contains(name)
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("دسته جدید") },
+        shape = RoundedCornerShape(28.dp),
+        containerColor = if (MaterialTheme.colorScheme.background.luminance() < 0.5f) Color(0xFF1E1438) else MaterialTheme.colorScheme.surface,
+        title = { Text("دسته جدید", fontWeight = FontWeight.Bold) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 TextField(
@@ -1761,7 +1775,9 @@ private fun SubcategoryDialog(
     val duplicate = name.isNotBlank() && existingNames.contains(name)
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("زیردسته جدید برای $parentName") },
+        shape = RoundedCornerShape(28.dp),
+        containerColor = if (MaterialTheme.colorScheme.background.luminance() < 0.5f) Color(0xFF1E1438) else MaterialTheme.colorScheme.surface,
+        title = { Text("زیردسته جدید برای $parentName", fontWeight = FontWeight.Bold) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 TextField(
@@ -1803,7 +1819,9 @@ private fun CategoryRenameDialog(
     val duplicate = name.isNotBlank() && name != currentName && existingNames.contains(name)
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("تغییر نام دسته") },
+        shape = RoundedCornerShape(28.dp),
+        containerColor = if (MaterialTheme.colorScheme.background.luminance() < 0.5f) Color(0xFF1E1438) else MaterialTheme.colorScheme.surface,
+        title = { Text("تغییر نام دسته", fontWeight = FontWeight.Bold) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 TextField(
@@ -1903,7 +1921,9 @@ private fun AssetDialog(
         isValidAssetInput(quantity, buyPrice)
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("افزودن دارایی جدید") },
+        shape = RoundedCornerShape(28.dp),
+        containerColor = if (MaterialTheme.colorScheme.background.luminance() < 0.5f) Color(0xFF1E1438) else MaterialTheme.colorScheme.surface,
+        title = { Text("افزودن دارایی جدید", fontWeight = FontWeight.Bold) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 TextField(
@@ -2029,7 +2049,9 @@ private fun SmsPatternDialog(
     val valid = sender.isNotBlank()
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("تعریف الگوی جدید") },
+        shape = RoundedCornerShape(28.dp),
+        containerColor = if (MaterialTheme.colorScheme.background.luminance() < 0.5f) Color(0xFF1E1438) else MaterialTheme.colorScheme.surface,
+        title = { Text("تعریف الگوی جدید", fontWeight = FontWeight.Bold) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 TextField(

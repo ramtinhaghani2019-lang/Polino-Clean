@@ -53,6 +53,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.polino.app.data.AccountEntity
@@ -237,7 +238,9 @@ fun ReportsScreen(onBack: () -> Unit) {
         val backup = parseBackup(text)
         AlertDialog(
             onDismissRequest = { pendingImportText = null },
-            title = { Text("بازیابی از فایل") },
+            shape = RoundedCornerShape(28.dp),
+            containerColor = if (MaterialTheme.colorScheme.background.luminance() < 0.5f) Color(0xFF1E1438) else MaterialTheme.colorScheme.surface,
+            title = { Text("بازیابی از فایل", fontWeight = FontWeight.Bold) },
             text = {
                 Text(
                     if (backup != null) {
@@ -252,7 +255,7 @@ fun ReportsScreen(onBack: () -> Unit) {
                 )
             },
             confirmButton = {
-                TextButton(onClick = {
+                Button(onClick = {
                     val confirmedText = pendingImportText
                     pendingImportText = null
                     if (confirmedText != null) {
@@ -715,7 +718,9 @@ fun ReportsScreen(onBack: () -> Unit) {
     if (goalToDelete != null) {
         AlertDialog(
             onDismissRequest = { goalToDelete = null },
-            title = { Text("حذف هدف") },
+            shape = RoundedCornerShape(28.dp),
+            containerColor = if (MaterialTheme.colorScheme.background.luminance() < 0.5f) Color(0xFF1E1438) else MaterialTheme.colorScheme.surface,
+            title = { Text("حذف هدف", fontWeight = FontWeight.Bold) },
             text = { Text("هدف «${goalToDelete!!.name}» حذف شود؟") },
             confirmButton = {
                 TextButton(onClick = {
@@ -751,7 +756,9 @@ private fun GoalDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(if (initial == null) "هدف پس‌انداز" else "ویرایش هدف") },
+        shape = RoundedCornerShape(28.dp),
+        containerColor = if (MaterialTheme.colorScheme.background.luminance() < 0.5f) Color(0xFF1E1438) else MaterialTheme.colorScheme.surface,
+        title = { Text(if (initial == null) "هدف پس‌انداز" else "ویرایش هدف", fontWeight = FontWeight.Bold) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(
@@ -802,7 +809,7 @@ private fun GoalDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = {
+            Button(onClick = {
                 val parsed = normalizeDigits(amount).toLongOrNull()
                 val error = when {
                     name.isBlank() -> "نام هدف را وارد کنید."
@@ -834,7 +841,9 @@ private fun BudgetDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("تعیین بودجه") },
+        shape = RoundedCornerShape(28.dp),
+        containerColor = if (MaterialTheme.colorScheme.background.luminance() < 0.5f) Color(0xFF1E1438) else MaterialTheme.colorScheme.surface,
+        title = { Text("تعیین بودجه", fontWeight = FontWeight.Bold) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Box {
@@ -873,7 +882,7 @@ private fun BudgetDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = {
+            Button(onClick = {
                 val value = normalizeDigits(amount).toLongOrNull()
                 if (value == null || value <= 0L) {
                     validation = "مبلغ معتبر وارد کنید."
