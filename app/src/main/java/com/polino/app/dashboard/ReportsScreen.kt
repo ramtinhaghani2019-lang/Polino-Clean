@@ -15,6 +15,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -39,14 +40,17 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.background
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
@@ -89,6 +93,8 @@ fun ReportsScreen(onBack: () -> Unit) {
 
     var selectedYearMonth by remember { mutableStateOf(JalaliDate.currentJalaliYearMonth()) }
     var period by remember { mutableStateOf(ReportPeriod.MONTHLY) }
+    /** لنگر بازه گزارشی؛ دکمه‌های ناوبری آن را جابه‌جا می‌کنند، نه «امروز» را. */
+    var periodAnchorMillis by remember { mutableStateOf(System.currentTimeMillis()) }
 
     LaunchedEffect(Unit) {
         runCatching {
@@ -308,20 +314,50 @@ fun ReportsScreen(onBack: () -> Unit) {
 
     val nowMillis = System.currentTimeMillis()
     val periodTransactions = transactionsInPeriod(
-        transactions, period, nowMillis, selectedYearMonth
+        transactions, period, periodAnchorMillis, selectedYearMonth
     ).filter { selectedAccountId == "all" || it.accountId == selectedAccountId }
     val periodTotals = monthTotals(periodTransactions)
     val periodSpent = spentByCategory(periodTransactions)
     val periodTitle = when (period) {
-        ReportPeriod.DAILY -> "امروز ${JalaliDate.formatJalali(nowMillis)}"
+        ReportPeriod.DAILY -> if (isSameJalaliDay(periodAnchorMillis, nowMillis)) {
+            "امروز ${JalaliDate.formatJalali(periodAnchorMillis)}"
+        } else {
+            JalaliDate.formatJalali(periodAnchorMillis)
+        }
         ReportPeriod.WEEKLY -> {
-            val start = jalaliWeekStartMillis(nowMillis)
+            val start = jalaliWeekStartMillis(periodAnchorMillis)
             "هفته ${JalaliDate.formatJalali(start)} تا " +
                 JalaliDate.formatJalali(start + 6L * 24 * 60 * 60 * 1000)
         }
         ReportPeriod.MONTHLY -> "ماه ${JalaliDate.jalaliMonthDisplay(selectedYearMonth)}"
-        ReportPeriod.YEARLY -> "سال ${jalaliYearOf(nowMillis)}"
+        ReportPeriod.YEARLY -> "سال ${jalaliYearOf(periodAnchorMillis)}"
     }
+    /** آیا بازه لنگر همان بازه جاری است؟ اگر بله، دکمه «بعد» خاموش می‌شود. */
+    val isAnchorCurrent = when (period) {
+        ReportPeriod.DAILY -> isSameJalaliDay(periodAnchorMillis, nowMillis)
+        ReportPeriod.WEEKLY -> jalaliWeekStartMillis(periodAnchorMillis) ==
+            jalaliWeekStartMillis(nowMillis)
+        ReportPeriod.MONTHLY -> selectedYearMonth == JalaliDate.currentJalaliYearMonth()
+        ReportPeriod.YEARLY -> jalaliYearOf(periodAnchorMillis) == jalaliYearOf(nowMillis)
+    }
+    val periodFaName = when (period) {
+        ReportPeriod.DAILY -> "روزانه"
+        ReportPeriod.WEEKLY -> "هفتگی"
+        ReportPeriod.MONTHLY -> "ماهانه"
+        ReportPeriod.YEARLY -> "سالانه"
+    }
+    val periodBuckets = when (period) {
+        ReportPeriod.DAILY -> bucketByHourOfDay(periodTransactions, periodAnchorMillis)
+        ReportPeriod.WEEKLY -> bucketByWeekday(
+            periodTransactions, jalaliWeekStartMillis(periodAnchorMillis)
+        )
+        ReportPeriod.MONTHLY -> bucketByDayOfMonth(periodTransactions, selectedYearMonth)
+        ReportPeriod.YEARLY -> bucketByJalaliMonth(
+            periodTransactions, jalaliYearOf(periodAnchorMillis)
+        )
+    }
+    val maxBucket = (periodBuckets.maxOfOrNull { maxOf(it.income, it.expense) } ?: 0L)
+        .takeIf { it > 0 } ?: 1L
 
     val previousMonthTransactions = transactionsInMonth(
         transactions, JalaliDate.previousJalaliYearMonth(selectedYearMonth)
@@ -376,7 +412,10 @@ fun ReportsScreen(onBack: () -> Unit) {
                     ReportPeriod.entries.forEach { entry ->
                         FilterChip(
                             selected = period == entry,
-                            onClick = { period = entry },
+                            onClick = {
+                                period = entry
+                                periodAnchorMillis = System.currentTimeMillis()
+                            },
                             colors = FilterChipDefaults.filterChipColors(
                                 selectedContainerColor = MaterialTheme.colorScheme.primary,
                                 selectedLabelColor = Color.White
@@ -405,10 +444,20 @@ fun ReportsScreen(onBack: () -> Unit) {
                         OutlinedButton(onClick = {
                             selectedYearMonth = JalaliDate.previousJalaliYearMonth(selectedYearMonth)
                         }) { Text("ماه قبل") }
-                        Text(
-                            JalaliDate.jalaliMonthDisplay(selectedYearMonth),
-                            style = MaterialTheme.typography.titleMedium
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Icon(
+                                Icons.Filled.DateRange,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                            Text(
+                                JalaliDate.jalaliMonthDisplay(selectedYearMonth),
+                                style = MaterialTheme.typography.titleMedium
+                            )
+                        }
                         OutlinedButton(
                             onClick = {
                                 selectedYearMonth = nextJalaliYearMonth(selectedYearMonth)
@@ -417,7 +466,42 @@ fun ReportsScreen(onBack: () -> Unit) {
                         ) { Text("ماه بعد") }
                     }
                 } else {
-                    Text(periodTitle, style = MaterialTheme.typography.titleMedium)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        OutlinedButton(onClick = {
+                            periodAnchorMillis = when (period) {
+                                ReportPeriod.DAILY -> periodAnchorMillis - 24L * 60 * 60 * 1000
+                                ReportPeriod.WEEKLY -> periodAnchorMillis - 7L * 24 * 60 * 60 * 1000
+                                ReportPeriod.YEARLY -> shiftJalaliYear(periodAnchorMillis, -1)
+                                ReportPeriod.MONTHLY -> periodAnchorMillis
+                            }
+                        }) { Text("دوره قبل") }
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Icon(
+                                Icons.Filled.DateRange,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                            Text(periodTitle, style = MaterialTheme.typography.titleMedium)
+                        }
+                        OutlinedButton(
+                            onClick = {
+                                periodAnchorMillis = when (period) {
+                                    ReportPeriod.DAILY -> periodAnchorMillis + 24L * 60 * 60 * 1000
+                                    ReportPeriod.WEEKLY -> periodAnchorMillis + 7L * 24 * 60 * 60 * 1000
+                                    ReportPeriod.YEARLY -> shiftJalaliYear(periodAnchorMillis, 1)
+                                    ReportPeriod.MONTHLY -> periodAnchorMillis
+                                }
+                            },
+                            enabled = !isAnchorCurrent
+                        ) { Text("دوره بعد") }
+                    }
                 }
             }
             item {
@@ -441,14 +525,54 @@ fun ReportsScreen(onBack: () -> Unit) {
                             style = MaterialTheme.typography.titleMedium,
                             color = summaryLabel
                         )
-                        Text(
-                            "درآمد: ${money(periodTotals.income)}",
-                            color = IncomeGreen
-                        )
-                        Text(
-                            "هزینه: ${money(periodTotals.expense)}",
-                            color = ExpenseRed
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(0xFF1E3A2F)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    "↙",
+                                    style = MaterialTheme.typography.titleSmall.copy(
+                                        fontWeight = FontWeight.Bold
+                                    ),
+                                    color = IncomeGreen
+                                )
+                            }
+                            Text(
+                                "درآمد: ${money(periodTotals.income)}",
+                                color = IncomeGreen
+                            )
+                        }
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(0xFF3D1F1F)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    "↗",
+                                    style = MaterialTheme.typography.titleSmall.copy(
+                                        fontWeight = FontWeight.Bold
+                                    ),
+                                    color = ExpenseRed
+                                )
+                            }
+                            Text(
+                                "هزینه: ${money(periodTotals.expense)}",
+                                color = ExpenseRed
+                            )
+                        }
                         Text(
                             "مانده: ${money(periodTotals.income - periodTotals.expense)}",
                             style = MaterialTheme.typography.titleMedium,
@@ -460,6 +584,13 @@ fun ReportsScreen(onBack: () -> Unit) {
                         )
                     }
                 }
+            }
+            item {
+                PeriodBucketChartCard(
+                    title = "نمودار $periodFaName",
+                    buckets = periodBuckets,
+                    maxValue = maxBucket
+                )
             }
             item { Text("هزینه‌ها به تفکیک دسته", style = MaterialTheme.typography.titleMedium) }
             val maxSpent = periodSpent.maxOfOrNull { it.second } ?: 1L
@@ -701,6 +832,104 @@ private val ReportDarkBorder = Color(0xFF3D3368)
 private val ReportDarkMuted = Color(0xFFB3ACD6)
 private val IncomeGreen = Color(0xFF34C89E)
 private val ExpenseRed = Color(0xFFFF6B6B)
+
+@Composable
+private fun PeriodBucketChartCard(
+    title: String,
+    buckets: List<PeriodBucket>,
+    maxValue: Long
+) {
+    var selectedIndex by remember { mutableStateOf(buckets.indices.lastOrNull() ?: -1) }
+    val isDarkChart = MaterialTheme.colorScheme.background.luminance() < 0.5f
+    val chartContainer = if (isDarkChart) ReportDarkCard else MaterialTheme.colorScheme.surface
+    val chartBorder = if (isDarkChart) ReportDarkBorder else MaterialTheme.colorScheme.outline
+    val chartLabel = if (isDarkChart) ReportDarkMuted else MaterialTheme.colorScheme.onSurfaceVariant
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(28.dp),
+        colors = CardDefaults.cardColors(containerColor = chartContainer),
+        border = BorderStroke(1.dp, chartBorder)
+    ) {
+        Column(
+            Modifier.padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text(
+                title,
+                style = MaterialTheme.typography.titleMedium,
+                color = chartLabel
+            )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                buckets.forEachIndexed { index, bucket ->
+                    Column(
+                        modifier = Modifier
+                            .size(width = 64.dp, height = 168.dp)
+                            .clickable { selectedIndex = index },
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Canvas(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(140.dp)
+                        ) {
+                            val barWidth = size.width * 0.28f
+                            val incomeHeight =
+                                if (maxValue > 0) (bucket.income.toFloat() / maxValue.toFloat()) * size.height else 0f
+                            val expenseHeight =
+                                if (maxValue > 0) (bucket.expense.toFloat() / maxValue.toFloat()) * size.height else 0f
+                            drawRect(
+                                color = IncomeGreen,
+                                topLeft = Offset(size.width * 0.12f, size.height - incomeHeight),
+                                size = Size(barWidth, incomeHeight)
+                            )
+                            drawRect(
+                                color = ExpenseRed,
+                                topLeft = Offset(size.width * 0.60f, size.height - expenseHeight),
+                                size = Size(barWidth, expenseHeight)
+                            )
+                        }
+                        Text(
+                            bucket.label,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = chartLabel,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                }
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Canvas(modifier = Modifier.size(10.dp)) { drawRect(color = IncomeGreen) }
+                    Text("درآمد", style = MaterialTheme.typography.labelSmall, color = chartLabel)
+                }
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Canvas(modifier = Modifier.size(10.dp)) { drawRect(color = ExpenseRed) }
+                    Text("هزینه", style = MaterialTheme.typography.labelSmall, color = chartLabel)
+                }
+            }
+            val selected = buckets.getOrNull(selectedIndex)
+            if (selected != null) {
+                Text(
+                    "${selected.label}: " +
+                        "درآمد ${money(selected.income)} · هزینه ${money(selected.expense)}",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
+        }
+    }
+}
 
 @Composable
 private fun CashFlowBarChartCard(months: List<MonthTrend>, maxValue: Long) {
