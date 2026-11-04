@@ -361,7 +361,7 @@ internal fun SettingsScreen(
             onConfirm = { range, content ->
                 pendingExport = range to content
                 showExportSheet = false
-                xlsxExportLauncher.launch("polino-report.xlsx")
+                xlsxLauncher.launch("polino-report.xlsx")
             }
         )
     }
