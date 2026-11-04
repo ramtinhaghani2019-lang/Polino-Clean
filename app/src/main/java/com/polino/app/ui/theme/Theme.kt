@@ -168,9 +168,11 @@ private val PolinoShapes = Shapes(
 /**
  * مرحله ۷۰: محو آبی→بنفش صفحه خانه (مرحله ۶۹)، تعمیم‌یافته به همه صفحه‌های
  * اصلی در تم تیره؛ تم روشن پس‌زمینه تم را نگه می‌دارد.
+ * مرحله ۹۷: ایستگاه‌ها تیره‌تر شدند تا محو روشن و اشباع پولینو به محو
+ * تیره‌تر آبی→بنفش پرگار نزدیک شود.
  */
 private val PergarPageWash = Brush.linearGradient(
-    colors = listOf(Color(0xFF12377E), Color(0xFF7C3AED), Color(0xFF150F2E)),
+    colors = listOf(Color(0xFF0F2A66), Color(0xFF6D28D9), Color(0xFF100B26)),
     start = Offset.Zero,
     end = Offset.Infinite
 )

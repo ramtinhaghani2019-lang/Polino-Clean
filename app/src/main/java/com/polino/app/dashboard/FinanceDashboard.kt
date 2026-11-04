@@ -302,10 +302,11 @@ fun FinanceDashboard(
 
     // پس‌زمینه محو آبی→بنفش در تم تیره، عین صفحه خانه پرگار؛ تم روشن
     // پس‌زمینه تم را نگه می‌دارد و کارت‌های تیره روی آن می‌نشینند.
+    // مرحله ۹۷: ایستگاه‌ها تیره‌تر شدند (عین محو سراسری تم).
     val isDarkPage = MaterialTheme.colorScheme.background.luminance() < 0.5f
     val homeGradient = remember {
         Brush.linearGradient(
-            colors = listOf(Color(0xFF12377E), Color(0xFF7C3AED), Color(0xFF150F2E)),
+            colors = listOf(Color(0xFF0F2A66), Color(0xFF6D28D9), Color(0xFF100B26)),
             start = Offset.Zero,
             end = Offset.Infinite
         )
@@ -928,10 +929,11 @@ fun TransactionsScreen(onBack: () -> Unit) {
     }
 
     // پس‌زمینه محو آبی→بنفش در تم تیره، عین صفحه خانه؛ تم روشن پس‌زمینه تم را نگه می‌دارد.
+    // مرحله ۹۷: ایستگاه‌ها تیره‌تر شدند (عین محو سراسری تم).
     val isDarkPage = MaterialTheme.colorScheme.background.luminance() < 0.5f
     val pageGradient = remember {
         Brush.linearGradient(
-            colors = listOf(Color(0xFF12377E), Color(0xFF7C3AED), Color(0xFF150F2E)),
+            colors = listOf(Color(0xFF0F2A66), Color(0xFF6D28D9), Color(0xFF100B26)),
             start = Offset.Zero,
             end = Offset.Infinite
         )
