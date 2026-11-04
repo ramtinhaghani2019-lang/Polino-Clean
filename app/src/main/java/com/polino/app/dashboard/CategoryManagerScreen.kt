@@ -36,6 +36,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -387,6 +388,7 @@ private fun CategoryNameDialog(
  * پالت رنگ شاخص در دو ردیف، و دکمه‌های انصراف و ذخیره. نوع و والد
  * دسته در این برگه تغییر نمی‌کنند؛ فقط نام و سبک (آیکون و رنگ).
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun CategoryEditSheet(
     target: CategoryEntity,
