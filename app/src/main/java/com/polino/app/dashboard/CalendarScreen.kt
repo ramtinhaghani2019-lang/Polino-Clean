@@ -54,6 +54,8 @@ import kotlinx.coroutines.launch
 
 private val Weekdays = listOf("شنبه", "یکشنبه", "دوشنبه", "سه‌شنبه", "چهارشنبه", "پنجشنبه", "جمعه")
 
+private enum class CalendarTab { DAY, MONTH, WEEK }
+
 private fun jalaliDayOf(millis: Long): Triple<Int, Int, Int> {
     val local = Instant.ofEpochMilli(millis).atZone(ZoneId.systemDefault()).toLocalDate()
     return JalaliDate.gregorianToJalali(local.year, local.monthValue, local.dayOfMonth)
@@ -85,6 +87,7 @@ fun CalendarScreen() {
     var events by remember { mutableStateOf<List<EventEntity>>(emptyList()) }
     var selectedYearMonth by remember { mutableStateOf(JalaliDate.currentJalaliYearMonth()) }
     var selectedDay by remember { mutableStateOf(todayJalaliDay()) }
+    var calendarTab by remember { mutableStateOf(CalendarTab.MONTH) }
     var showEventDialog by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
@@ -114,6 +117,29 @@ fun CalendarScreen() {
         }
         marks
     }
+    // مجموع درآمد/هزینه هر روز شمسی برای همه تراکنش‌ها (نمای هفته ممکن است دو ماه را بپوشاند).
+    val allDayTotals = remember(transactions) {
+        val totals = mutableMapOf<Triple<Int, Int, Int>, Pair<Long, Long>>()
+        transactions.forEach { tx ->
+            val day = jalaliDayOf(tx.dateMillis)
+            val current = totals[day] ?: (0L to 0L)
+            totals[day] = if (tx.income) (current.first + tx.amount) to current.second
+            else current.first to (current.second + tx.amount)
+        }
+        totals
+    }
+    val weekDays = remember(jy, jm, selectedDay) {
+        jalaliWeekDays(jy, jm, selectedDay)
+    }
+    val weekRangeLabel = remember(weekDays) {
+        val (sy, sm, sd) = weekDays.first()
+        val (ey, em, ed) = weekDays.last()
+        if (sy == ey && sm == em) {
+            "$sd تا $ed ${JalaliDate.jalaliMonthDisplay(jalaliYearMonthString(sy, sm))}"
+        } else {
+            "$sd ${JalaliDate.jalaliMonthDisplay(jalaliYearMonthString(sy, sm))} تا $ed ${JalaliDate.jalaliMonthDisplay(jalaliYearMonthString(ey, em))}"
+        }
+    }
     val dayTransactions = remember(monthTransactions, selectedDay) {
         monthTransactions.filter { jalaliDayOf(it.dateMillis).third == selectedDay }
     }
@@ -140,6 +166,12 @@ fun CalendarScreen() {
         if (selectedDay > dim) selectedDay = dim
     }
 
+    fun shiftDay(delta: Int) {
+        val shifted = jalaliPlusDays(jy, jm, selectedDay, delta)
+        selectedYearMonth = jalaliYearMonthString(shifted.first, shifted.second)
+        selectedDay = shifted.third
+    }
+
     LazyColumn(
         contentPadding = PaddingValues(start = 20.dp, top = 20.dp, end = 20.dp, bottom = 120.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -149,6 +181,31 @@ fun CalendarScreen() {
             Text("جریان روزانه و روزهای دارای تراکنش", style = MaterialTheme.typography.labelMedium)
         }
         item {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                listOf(
+                    CalendarTab.DAY to "روز",
+                    CalendarTab.MONTH to "ماه",
+                    CalendarTab.WEEK to "هفته"
+                ).forEach { (tab, label) ->
+                    if (tab == calendarTab) {
+                        Button(
+                            onClick = { calendarTab = tab },
+                            modifier = Modifier.weight(1f)
+                        ) { Text(label) }
+                    } else {
+                        OutlinedButton(
+                            onClick = { calendarTab = tab },
+                            modifier = Modifier.weight(1f)
+                        ) { Text(label) }
+                    }
+                }
+            }
+        }
+        if (calendarTab == CalendarTab.MONTH) {
+            item {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -169,6 +226,8 @@ fun CalendarScreen() {
                 }
             }
         }
+        }
+        if (calendarTab == CalendarTab.MONTH) {
         item {
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -180,12 +239,13 @@ fun CalendarScreen() {
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     Row(modifier = Modifier.fillMaxWidth()) {
-                        Weekdays.forEach { day ->
+                        Weekdays.forEachIndexed { index, day ->
                             Text(
                                 day,
                                 modifier = Modifier.weight(1f),
                                 style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                color = if (index == 6) MaterialTheme.colorScheme.error
+                                else MaterialTheme.colorScheme.onSurfaceVariant,
                                 textAlign = androidx.compose.ui.text.style.TextAlign.Center
                             )
                         }
@@ -197,7 +257,7 @@ fun CalendarScreen() {
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 weeks.forEach { week ->
                     Row(modifier = Modifier.fillMaxWidth()) {
-                        week.forEach { day ->
+                        week.forEachIndexed { weekdayIndex, day ->
                             Box(
                                 modifier = Modifier
                                     .weight(1f)
@@ -231,12 +291,14 @@ fun CalendarScreen() {
                                             day.toString(),
                                             style = MaterialTheme.typography.bodyMedium,
                                             color = if (isSelected) Color.White
+                                            else if (weekdayIndex == 6) MaterialTheme.colorScheme.error
                                             else MaterialTheme.colorScheme.onSurface
                                         )
                                         Text(
                                             JalaliDate.jalaliToLocalDate(jy, jm, day).dayOfMonth.toString(),
                                             style = MaterialTheme.typography.bodySmall,
                                             color = if (isSelected) Color.White
+                                            else if (weekdayIndex == 6) MaterialTheme.colorScheme.error
                                             else MaterialTheme.colorScheme.onSurfaceVariant
                                         )
                                         Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -272,6 +334,123 @@ fun CalendarScreen() {
                 }
             }
         }
+        }
+        if (calendarTab == CalendarTab.DAY) {
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    OutlinedButton(onClick = { shiftDay(-1) }) {
+                        Text("روز قبل")
+                    }
+                    Text(
+                        "${weekdayName(jy, jm, selectedDay)} $selectedDay ${JalaliDate.jalaliMonthDisplay(selectedYearMonth)}",
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                        color = if (isJalaliFriday(jy, jm, selectedDay)) MaterialTheme.colorScheme.error
+                        else MaterialTheme.colorScheme.onSurface
+                    )
+                    OutlinedButton(onClick = { shiftDay(1) }) {
+                        Text("روز بعد")
+                    }
+                }
+            }
+        }
+        if (calendarTab == CalendarTab.WEEK) {
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    OutlinedButton(onClick = { shiftDay(-7) }) {
+                        Text("هفته قبل")
+                    }
+                    Text(
+                        weekRangeLabel,
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                    )
+                    OutlinedButton(onClick = { shiftDay(7) }) {
+                        Text("هفته بعد")
+                    }
+                }
+            }
+            weekDays.forEach { (wy, wm, wd) ->
+                item {
+                    val totals = allDayTotals[Triple(wy, wm, wd)] ?: (0L to 0L)
+                    val hasEvent = eventsOnDay(events, JalaliDate.jalaliToMillis(wy, wm, wd)).isNotEmpty()
+                    val isFridayRow = jalaliWeekdayIndex(wy, wm, wd) == 6
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                selectedYearMonth = jalaliYearMonthString(wy, wm)
+                                selectedDay = wd
+                                calendarTab = CalendarTab.DAY
+                            },
+                        shape = RoundedCornerShape(20.dp),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+                    ) {
+                        Row(
+                            Modifier.padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Column(
+                                Modifier.weight(1f),
+                                verticalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Text(
+                                    "${Weekdays[jalaliWeekdayIndex(wy, wm, wd)]} $wd",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    color = if (isFridayRow) MaterialTheme.colorScheme.error
+                                    else MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    JalaliDate.jalaliMonthDisplay(jalaliYearMonthString(wy, wm)),
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                            }
+                            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                if (totals.first > 0) {
+                                    Box(
+                                        Modifier
+                                            .size(6.dp)
+                                            .background(Color(0xFF34C89E), CircleShape)
+                                    )
+                                }
+                                if (totals.second > 0) {
+                                    Box(
+                                        Modifier
+                                            .size(6.dp)
+                                            .background(Color(0xFFFF6B6B), CircleShape)
+                                    )
+                                }
+                                if (hasEvent) {
+                                    Box(
+                                        Modifier
+                                            .size(6.dp)
+                                            .background(Color(0xFFA855F7), CircleShape)
+                                    )
+                                }
+                            }
+                            Column(horizontalAlignment = Alignment.End) {
+                                Text(
+                                    "+" + money(totals.first),
+                                    color = Color(0xFF34C89E)
+                                )
+                                Text(
+                                    "−" + money(totals.second),
+                                    color = Color(0xFFFF6B6B)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        if (calendarTab != CalendarTab.WEEK) {
         item {
             // تم تیره: کارت تیره با بوردر بنفش؛ تم روشن: کارت روشن با بوردر بنفش.
             val isDarkDay = MaterialTheme.colorScheme.background.luminance() < 0.5f
@@ -291,7 +470,8 @@ fun CalendarScreen() {
                     Text(
                         "${weekdayName(jy, jm, selectedDay)} $selectedDay ${JalaliDate.jalaliMonthDisplay(selectedYearMonth)}",
                         style = MaterialTheme.typography.titleMedium,
-                        color = dayTitle
+                        color = if (isJalaliFriday(jy, jm, selectedDay)) MaterialTheme.colorScheme.error
+                        else dayTitle
                     )
                     Text(
                         "مجموع درآمد: ${money(dayIncome)}",
@@ -391,6 +571,7 @@ fun CalendarScreen() {
                     }
                 }
             }
+        }
         }
     }
 
