@@ -1,30 +1,25 @@
 package com.polino.app.testcenter
 
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertThrows
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class PolinoSelfTestsTest {
     @Test
-    fun tomanToRial_isCorrect() {
-        assertEquals(100L, PolinoSelfTests.tomanToRial(10))
-    }
-
-    @Test
-    fun balance_isCorrect() {
-        assertEquals(
-            900_000L,
-            PolinoSelfTests.calculateBalance(
-                incomesRial = listOf(1_000_000L, 200_000L),
-                expensesRial = listOf(250_000L, 50_000L)
-            )
-        )
-    }
-
-    @Test
-    fun negativeAmount_isRejected() {
-        assertThrows(IllegalArgumentException::class.java) {
-            PolinoSelfTests.validateMoneyAmount(-1)
+    fun selfTests_allPass() {
+        val results = PolinoSelfTests.runAll()
+        assertTrue("مرکز تست باید دست‌کم یک مورد داشته باشد", results.isNotEmpty())
+        results.forEach { result ->
+            assertTrue("${result.title}: ${result.details}", result.passed)
         }
+    }
+
+    @Test
+    fun selfTests_rerunIsStable() {
+        val first = PolinoSelfTests.runAll()
+        val second = PolinoSelfTests.runAll()
+        assertTrue(
+            "اجرای دوباره باید همان نتیجه را بدهد",
+            first.map { it.passed } == second.map { it.passed }
+        )
     }
 }
