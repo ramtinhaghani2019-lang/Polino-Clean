@@ -13,7 +13,7 @@ data class EntrySuggestion(
  * (هزینه/درآمد) با صفحه فعلی، تازه‌ترین اول، هر دسته فقط یک بار (تازه‌ترین
  * مبلغش)، حداکثر [limit] مورد. هیچ مقداری ساخته نمی‌شود.
  */
-fun deriveEntrySuggestions(
+internal fun deriveEntrySuggestions(
     transactions: List<MoneyTransaction>,
     income: Boolean,
     limit: Int = 8
