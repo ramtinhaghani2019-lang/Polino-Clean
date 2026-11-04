@@ -1,15 +1,10 @@
 package com.polino.app.dashboard
 
-import java.text.NumberFormat
-import java.util.Locale
-
 /**
  * Pure display helpers for the dongi summary card and person rows.
  * No Android types, no repository access — safe for JVM unit tests.
+ * Uses the existing persianNumber from MonthlySummary (same package).
  */
-
-private fun persianNumber(value: Int): String =
-    NumberFormat.getIntegerInstance(Locale("fa", "IR")).format(value)
 
 /** Person-count chip text, e.g. «۲ نفر». */
 internal fun dongiPersonCountText(count: Int): String = "${persianNumber(count)} نفر"
