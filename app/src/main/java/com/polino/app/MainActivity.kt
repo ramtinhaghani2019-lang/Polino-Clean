@@ -161,6 +161,10 @@ private fun PolinoApp(
     }
 
     Scaffold(
+        // مرحله ۷۰: شفاف تا محو آبی→بنفش پس‌زمینه تم (PolinoTheme) در تم
+        // تیره از پشت همه صفحه‌های اصلی دیده شود؛ در تم روشن هم همان
+        // پس‌زمینه تم از لایه زیرین می‌آید.
+        containerColor = Color.Transparent,
         topBar = {
             if (BuildConfig.DEBUG) {
                 TopAppBar(

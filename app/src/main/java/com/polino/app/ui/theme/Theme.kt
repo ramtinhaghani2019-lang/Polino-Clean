@@ -1,15 +1,25 @@
 package com.polino.app.ui.theme
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Shapes
 import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
 import com.polino.app.R
 
 // مرحله ۴۷: زبان طراحی پرگار با بنفش — انتخاب خود کاربر (۱۲ آبان ۱۴۰۵).
@@ -98,29 +108,58 @@ private val Vazirmatn = FontFamily(
 )
 
 /**
- * فونت وزیرمتن را روی همه سبک‌های متنی می‌نشاند. (پارامتر defaultFontFamily
- * مال متریال ۲ است و در متریال ۳ وجود ندارد؛ به همین دلیل بیلد ۳۷ قرمز شد.)
+ * مرحله ۷۰: مقیاس تایپوگرافی پرگار — همان اندازه‌های پیش‌فرض متریال ۳ (که با
+ * مقادیر اندازه‌گیری‌شده از عکس‌های پرگار می‌خواند: تیتر بخش ۱۶sp، تیتر صفحه
+ * ۲۴sp) ولی با وزن Bold برای تیترها، سرخط‌ها، اعداد بزرگ و متن دکمه‌ها.
+ * پرگار تیترهایش را توپر و درشت نشان می‌دهد؛ متریال ۳ آن‌ها را Regular/Medium
+ * می‌گذارد و همین اختلاف، محرک اصلی PARTIALها در ممیزی عکس‌به‌عکس بود.
+ * اندازه‌ها عوض نشده‌اند تا چیدمان صفحه‌های تأییدشده (مثل مبلغ صفحه ثبت)
+ * به‌هم نریزد؛ وزن‌ها در سطح تم عوض شده‌اند تا همه صفحه‌ها یکجا ارث ببرند.
  */
 private fun withVazirmatn(typography: Typography): Typography = Typography(
-    displayLarge = typography.displayLarge.copy(fontFamily = Vazirmatn),
-    displayMedium = typography.displayMedium.copy(fontFamily = Vazirmatn),
-    displaySmall = typography.displaySmall.copy(fontFamily = Vazirmatn),
-    headlineLarge = typography.headlineLarge.copy(fontFamily = Vazirmatn),
-    headlineMedium = typography.headlineMedium.copy(fontFamily = Vazirmatn),
-    headlineSmall = typography.headlineSmall.copy(fontFamily = Vazirmatn),
-    titleLarge = typography.titleLarge.copy(fontFamily = Vazirmatn),
-    titleMedium = typography.titleMedium.copy(fontFamily = Vazirmatn),
-    titleSmall = typography.titleSmall.copy(fontFamily = Vazirmatn),
+    displayLarge = typography.displayLarge.copy(fontFamily = Vazirmatn, fontWeight = FontWeight.Bold),
+    displayMedium = typography.displayMedium.copy(fontFamily = Vazirmatn, fontWeight = FontWeight.Bold),
+    displaySmall = typography.displaySmall.copy(fontFamily = Vazirmatn, fontWeight = FontWeight.Bold),
+    headlineLarge = typography.headlineLarge.copy(fontFamily = Vazirmatn, fontWeight = FontWeight.Bold),
+    headlineMedium = typography.headlineMedium.copy(fontFamily = Vazirmatn, fontWeight = FontWeight.Bold),
+    headlineSmall = typography.headlineSmall.copy(fontFamily = Vazirmatn, fontWeight = FontWeight.Bold),
+    titleLarge = typography.titleLarge.copy(fontFamily = Vazirmatn, fontWeight = FontWeight.Bold),
+    titleMedium = typography.titleMedium.copy(fontFamily = Vazirmatn, fontWeight = FontWeight.Bold),
+    titleSmall = typography.titleSmall.copy(fontFamily = Vazirmatn, fontWeight = FontWeight.Bold),
     bodyLarge = typography.bodyLarge.copy(fontFamily = Vazirmatn),
     bodyMedium = typography.bodyMedium.copy(fontFamily = Vazirmatn),
     bodySmall = typography.bodySmall.copy(fontFamily = Vazirmatn),
-    labelLarge = typography.labelLarge.copy(fontFamily = Vazirmatn),
+    labelLarge = typography.labelLarge.copy(fontFamily = Vazirmatn, fontWeight = FontWeight.Bold),
     labelMedium = typography.labelMedium.copy(fontFamily = Vazirmatn),
     labelSmall = typography.labelSmall.copy(fontFamily = Vazirmatn)
 )
 
 private val PolinoTypography: Typography
     get() = withVazirmatn(Typography())
+
+/**
+ * مرحله ۷۰: زبان کارت پرگار در سطح تم — کارت‌های بدون شکل صریح، به‌جای
+ * گوشه‌های ۱۲/۱۶dp پیش‌فرض متریال ۳، گوشه‌های ۲۰dp (کارت محتوا) و ۲۸dp
+ * (کارت قهرمان/برگه) می‌گیرند؛ همان مقادیری که مرحله ۶۹ برای خانه اندازه
+ * گرفت و مرحله‌های ۶۱ تا ۶۶ برای بقیه کارت‌ها صریح گذاشته بودند.
+ */
+private val PolinoShapes = Shapes(
+    extraSmall = RoundedCornerShape(4.dp),
+    small = RoundedCornerShape(12.dp),
+    medium = RoundedCornerShape(20.dp),
+    large = RoundedCornerShape(28.dp),
+    extraLarge = RoundedCornerShape(28.dp)
+)
+
+/**
+ * مرحله ۷۰: محو آبی→بنفش صفحه خانه (مرحله ۶۹)، تعمیم‌یافته به همه صفحه‌های
+ * اصلی در تم تیره؛ تم روشن پس‌زمینه تم را نگه می‌دارد.
+ */
+private val PergarPageWash = Brush.linearGradient(
+    colors = listOf(Color(0xFF12377E), Color(0xFF7C3AED), Color(0xFF150F2E)),
+    start = Offset.Zero,
+    end = Offset.Infinite
+)
 
 /** حالت تم ذخیره‌شده: system / light / dark. */
 const val THEME_PREFS_NAME = "polino_prefs"
@@ -138,14 +177,28 @@ fun PolinoTheme(
     themeMode: String = "system",
     content: @Composable () -> Unit
 ) {
+    val dark = isDarkThemeForMode(themeMode, isSystemInDarkTheme())
     MaterialTheme(
-        colorScheme = if (isDarkThemeForMode(themeMode, isSystemInDarkTheme())) {
+        colorScheme = if (dark) {
             DarkColors
         } else {
             LightColors
         },
         typography = PolinoTypography,
-        content = content
-    )
+        shapes = PolinoShapes
+    ) {
+        // پس‌زمینه یکپارچه همه صفحه‌ها: در تم تیره محو آبی→بنفش پرگار،
+        // در تم روشن همان پس‌زمینه تم. اسکافولد باید شفاف باشد تا این
+        // پس‌زمینه دیده شود (MainActivity). صفحه خانه گرادیان خودش را با
+        // همین رنگ‌ها روی همین پس‌زمینه می‌کشد، پس دو لایه یکسان دیده
+        // می‌شوند و تضادی ندارد.
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(if (dark) PergarPageWash else SolidColor(MaterialTheme.colorScheme.background))
+        ) {
+            content()
+        }
+    }
 }
 
