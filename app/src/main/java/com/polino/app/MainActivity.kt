@@ -46,6 +46,7 @@ import com.polino.app.dashboard.CalendarScreen
 import com.polino.app.dashboard.CalculatorSheet
 import com.polino.app.dashboard.EntryScreen
 import com.polino.app.dashboard.FinanceDashboard
+import com.polino.app.dashboard.GoalsScreen
 import com.polino.app.dashboard.ManagementScreen
 import com.polino.app.dashboard.RemindersScreen
 import com.polino.app.dashboard.ReportsScreen
@@ -117,6 +118,7 @@ private fun PolinoApp(
     var showSmartBudget by remember { mutableStateOf(false) }
     var showReminders by remember { mutableStateOf(false) }
     var showTransactions by remember { mutableStateOf(false) }
+    var showGoals by remember { mutableStateOf(false) }
     var showCalculator by remember { mutableStateOf(false) }
     var calculatorAmount by remember { mutableStateOf("") }
 
@@ -137,6 +139,15 @@ private fun PolinoApp(
 
     if (showTransactions) {
         TransactionsScreen(onBack = { showTransactions = false })
+        return
+    }
+
+    if (showGoals) {
+        GoalsScreen(
+            onBack = { showGoals = false },
+            onNavigateToTasks = { showGoals = false; tab = Tab.Management },
+            onNavigateToReminders = { showGoals = false; showReminders = true }
+        )
         return
     }
 
@@ -269,7 +280,8 @@ private fun PolinoApp(
                     onNavigateToReports = { tab = Tab.Reports },
                     onNavigateToManagement = { tab = Tab.Management },
                     onNavigateToEntry = { entryScreen = true },
-                    onNavigateToTransactions = { showTransactions = true }
+                    onNavigateToTransactions = { showTransactions = true },
+                    onNavigateToGoals = { showGoals = true }
                 )
                 Tab.Calendar -> CalendarScreen()
                 Tab.Management -> ManagementScreen(
@@ -277,6 +289,7 @@ private fun PolinoApp(
                     onNavigateToReports = { tab = Tab.Reports },
                     onNavigateToSmartBudget = { showSmartBudget = true },
                     onNavigateToReminders = { showReminders = true },
+                    onShowGoals = { showGoals = true },
                     themeMode = themeMode,
                     onThemeModeChange = onThemeModeChange,
                     lockEnabled = lockEnabled,

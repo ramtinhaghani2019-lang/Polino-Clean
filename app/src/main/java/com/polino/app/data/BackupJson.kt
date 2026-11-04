@@ -125,12 +125,18 @@ internal fun fullBackupToJson(data: BackupData): String = buildString {
         )
     }
     data.goals.forEach { g ->
+        val dueJson = g.dueMillis?.toString() ?: "null"
         append(
             ",{\"type\":\"goal\"," +
                 "\"id\":\"${escapeJsonString(g.id)}\"," +
                 "\"name\":\"${escapeJsonString(g.name)}\"," +
                 "\"target\":${g.target}," +
-                "\"accountId\":\"${escapeJsonString(g.accountId)}\"}"
+                "\"accountId\":\"${escapeJsonString(g.accountId)}\"," +
+                "\"savedAmount\":${g.savedAmount}," +
+                "\"dueMillis\":$dueJson," +
+                "\"priority\":\"${escapeJsonString(g.priority)}\"," +
+                "\"category\":\"${escapeJsonString(g.category)}\"," +
+                "\"note\":\"${escapeJsonString(g.note)}\"}"
         )
     }
     append(']')

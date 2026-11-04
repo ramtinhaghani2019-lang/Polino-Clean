@@ -152,7 +152,8 @@ fun FinanceDashboard(
     onNavigateToReports: () -> Unit = {},
     onNavigateToManagement: () -> Unit = {},
     onNavigateToEntry: () -> Unit = {},
-    onNavigateToTransactions: () -> Unit = {}
+    onNavigateToTransactions: () -> Unit = {},
+    onNavigateToGoals: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val repository = remember { TransactionRepository(context) }
@@ -597,7 +598,7 @@ fun FinanceDashboard(
                     label = "اهداف مالی",
                     icon = Icons.Default.Flag,
                     iconTint = Color(0xFF60A5FA),
-                    onClick = onNavigateToReports
+                    onClick = onNavigateToGoals
                 )
                 QuickTile(
                     modifier = Modifier.weight(1f),

@@ -25,7 +25,8 @@ internal class TransactionRepository(context: Context) {
         PolinoDatabase.MIGRATION_14_15,
         PolinoDatabase.MIGRATION_15_16,
         PolinoDatabase.MIGRATION_16_17,
-        PolinoDatabase.MIGRATION_17_18
+        PolinoDatabase.MIGRATION_17_18,
+        PolinoDatabase.MIGRATION_18_19
     ).build()
     private val dao = database.transactionDao()
     private val accountDao = database.accountDao()

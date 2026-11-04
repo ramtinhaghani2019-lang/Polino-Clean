@@ -101,6 +101,9 @@ private class LegacyJsonParser(private val text: String) {
             var lastAppliedYearMonth: String? = null
             var active: Boolean? = null
             var target: Long? = null
+            var savedAmount: Long? = null
+            var dueMillis: Long? = null
+            var priority: String? = null
             var bankName: String? = null
             var sender: String? = null
             skipWs()
@@ -132,6 +135,9 @@ private class LegacyJsonParser(private val text: String) {
                         "lastAppliedYearMonth" -> lastAppliedYearMonth = parseValueAsString()
                         "active" -> active = parseValueAsBoolean()
                         "target" -> target = parseValueAsLong()
+                        "savedAmount" -> savedAmount = parseValueAsLong()
+                        "dueMillis" -> dueMillis = parseValueAsLong()
+                        "priority" -> priority = parseValueAsString()
                         "bankName" -> bankName = parseValueAsString()
                         "sender" -> sender = parseValueAsString()
                         else -> skipValue()
@@ -216,7 +222,16 @@ private class LegacyJsonParser(private val text: String) {
                 }
                 "goal" -> {
                     if (id != null && name != null && target != null && accountId != null) {
-                        goals.add(GoalEntity(id, name, target, accountId))
+                        goals.add(
+                            GoalEntity(
+                                id, name, target, accountId,
+                                savedAmount ?: 0,
+                                dueMillis,
+                                priority ?: "متوسط",
+                                category ?: "",
+                                note ?: ""
+                            )
+                        )
                     }
                 }
                 else -> {
