@@ -73,7 +73,7 @@ private val SheetGreen = Color(0xFF64C0AB)
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun BackupSheet(
+internal fun BackupSheet(
     transactionRepository: TransactionRepository,
     budgetRepository: BudgetRepository,
     onRestored: () -> Unit,
