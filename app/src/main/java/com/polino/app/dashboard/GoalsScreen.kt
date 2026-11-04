@@ -99,10 +99,10 @@ private val goalCategories = listOf(
 private val goalPriorities = listOf("زیاد", "متوسط", "کم")
 
 /**
- * صفحه «اهداف و برنامه‌ریزی»: کارت وضعیت کل اهداف، کاشی‌های اهداف و
- * کارها و یادآورها و برنامه‌ها و یادداشت‌ها، صافی‌های وضعیت و کارت‌های
- * هدف با فرم ساخت و ویرایش. کاشی‌های برنامه‌ها و یادداشت‌ها به
- * صفحه‌های خودشان می‌روند.
+ * صفحه «اهداف و برنامه‌ریزی»، عین هاب پرگار: کارت وضعیت کل اهداف،
+ * کاشی‌های اهداف و کارها، کاشی‌های برنامه‌ها و یادداشت‌ها، ردیف
+ * سراسری یادآورها، صافی‌های وضعیت و کارت‌های هدف با فرم ساخت و
+ * ویرایش. کاشی‌های برنامه‌ها و یادداشت‌ها به صفحه‌های خودشان می‌روند.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -234,28 +234,20 @@ fun GoalsScreen(
                         GoalHubTile(
                             modifier = Modifier.weight(1f),
                             label = "اهداف",
-                            subtitle = "${goals.size} هدف",
+                            subtitle = if (goals.isEmpty()) "تعریف هدف" else "${goals.size} هدف",
                             icon = Icons.Default.Flag,
                             active = true,
                             onClick = {
-                                scope.launch { listState.animateScrollToItem(3) }
+                                scope.launch { listState.animateScrollToItem(4) }
                             }
                         )
                         GoalHubTile(
                             modifier = Modifier.weight(1f),
                             label = "کارها",
-                            subtitle = "$openTasks کار باز",
+                            subtitle = if (openTasks == 0) "انجام شده" else "$openTasks کار باز",
                             icon = Icons.Default.List,
                             active = false,
                             onClick = onNavigateToTasks
-                        )
-                        GoalHubTile(
-                            modifier = Modifier.weight(1f),
-                            label = "یادآورها",
-                            subtitle = "$openReminders سررسید باز",
-                            icon = Icons.Default.Notifications,
-                            active = false,
-                            onClick = onNavigateToReminders
                         )
                     }
                 }
@@ -264,7 +256,7 @@ fun GoalsScreen(
                         GoalHubTile(
                             modifier = Modifier.weight(1f),
                             label = "برنامه‌ها",
-                            subtitle = "$openPlans برنامه باز",
+                            subtitle = "$openPlans برنامه",
                             icon = Icons.Default.EventNote,
                             active = false,
                             onClick = onNavigateToPlans
@@ -279,6 +271,12 @@ fun GoalsScreen(
                         )
                         Spacer(Modifier.weight(1f))
                     }
+                }
+                item {
+                    GoalRemindersRow(
+                        countText = "$openReminders سررسید",
+                        onClick = onNavigateToReminders
+                    )
                 }
                 item {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -324,13 +322,13 @@ fun GoalsScreen(
                                     modifier = Modifier.padding(8.dp)
                                 )
                                 Text(
-                                    "هنوز هدف مالی‌ای ثبت نکرده‌اید",
+                                    "هنوز هدف مالی ثبت نکرده‌اید",
                                     style = MaterialTheme.typography.titleMedium.copy(
                                         fontWeight = FontWeight.Bold
                                     )
                                 )
                                 Text(
-                                    "با تعریف هدف مالی، پس‌اندازت را قدم‌به‌قدم دنبال کن.",
+                                    "برای پس‌انداز، خرید کالا، سفر یا سرمایه‌گذاری یک هدف تعریف کنید تا مسیر دستیابی آن برنامه‌ریزی شود.",
                                     style = MaterialTheme.typography.bodySmall
                                 )
                                 Button(onClick = { showSheet = true }) {
@@ -426,6 +424,37 @@ private fun GoalHubTile(
             Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
             Text(label, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
             Text(subtitle, style = MaterialTheme.typography.bodySmall)
+        }
+    }
+}
+
+@Composable
+private fun GoalRemindersRow(
+    countText: String,
+    onClick: () -> Unit
+) {
+    Card(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+    ) {
+        Row(
+            Modifier.padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Icon(
+                Icons.Default.Notifications,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary
+            )
+            Text(
+                "یادآورها",
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+            )
+            Spacer(Modifier.weight(1f))
+            Text(countText, style = MaterialTheme.typography.bodySmall)
         }
     }
 }
