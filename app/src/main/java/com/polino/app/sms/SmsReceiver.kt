@@ -39,12 +39,7 @@ class SmsReceiver : BroadcastReceiver() {
                     val amount = (if (pattern != null) parseSmsAmount(body) else parsed?.amount)
                         ?: return@forEach
                     val income = resolveSmsIncome(pattern, parsed?.income ?: false)
-                    val duplicate = existing.any {
-                        it.title == "تراکنش بانکی" &&
-                            it.amount == amount &&
-                            it.dateMillis == sms.timestampMillis
-                    }
-                    if (duplicate) return@forEach
+                    if (isSmsDuplicate(existing, amount, sms.timestampMillis)) return@forEach
                     repository.upsert(
                         MoneyTransaction(
                             id = UUID.randomUUID().toString(),

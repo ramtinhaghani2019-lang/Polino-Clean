@@ -10,6 +10,10 @@ import androidx.compose.material3.Switch
 import androidx.core.content.ContextCompat
 import com.polino.app.sms.SMS_ENABLED_KEY
 import com.polino.app.sms.SMS_PREFS_NAME
+import com.polino.app.sms.DetectedSender
+import com.polino.app.sms.detectSenders
+import com.polino.app.sms.rescanInboxSms
+import com.polino.app.sms.scanInboxSms
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -175,6 +179,85 @@ fun ManagementScreen(
             context.getSharedPreferences(SMS_PREFS_NAME, Context.MODE_PRIVATE)
                 .edit().putBoolean(SMS_ENABLED_KEY, true).apply()
             smsEnabled = true
+        }
+    }
+    var detectedSenders by remember { mutableStateOf<List<DetectedSender>?>(null) }
+    var smsRescanMessage by remember { mutableStateOf("") }
+    var smsDetectMessage by remember { mutableStateOf("") }
+    var pendingInboxAction by remember { mutableStateOf("") }
+    val readSmsPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (!granted) {
+            if (pendingInboxAction == "detect") {
+                smsDetectMessage = "دسترسی خواندن پیامک داده نشده است."
+            } else if (pendingInboxAction == "rescan") {
+                smsRescanMessage = "دسترسی خواندن پیامک داده نشده است."
+            }
+            pendingInboxAction = ""
+            return@rememberLauncherForActivityResult
+        }
+        when (pendingInboxAction) {
+            "detect" -> {
+                pendingInboxAction = ""
+                scope.launch {
+                    detectedSenders = detectSenders(scanInboxSms(context))
+                    smsDetectMessage = if (detectedSenders.isNullOrEmpty()) {
+                        "فرستنده‌ای در صندوق پیامک پیدا نشد."
+                    } else {
+                        ""
+                    }
+                }
+            }
+            "rescan" -> {
+                pendingInboxAction = ""
+                scope.launch {
+                    val inserted = rescanInboxSms(context, repository)
+                    transactions = repository.getAll()
+                    smsRescanMessage = if (inserted > 0) {
+                        "$inserted تراکنش جدید ثبت شد."
+                    } else {
+                        "پیامک تازه‌ای پیدا نشد."
+                    }
+                }
+            }
+        }
+    }
+    fun runDetectSenders() {
+        if (ContextCompat.checkSelfPermission(
+                context, Manifest.permission.READ_SMS
+            ) == PackageManager.PERMISSION_GRANTED
+        ) {
+            scope.launch {
+                detectedSenders = detectSenders(scanInboxSms(context))
+                smsDetectMessage = if (detectedSenders.isNullOrEmpty()) {
+                    "فرستنده‌ای در صندوق پیامک پیدا نشد."
+                } else {
+                    ""
+                }
+            }
+        } else {
+            pendingInboxAction = "detect"
+            readSmsPermissionLauncher.launch(Manifest.permission.READ_SMS)
+        }
+    }
+    fun runRescanSms() {
+        if (ContextCompat.checkSelfPermission(
+                context, Manifest.permission.READ_SMS
+            ) == PackageManager.PERMISSION_GRANTED
+        ) {
+            scope.launch {
+                val inserted = rescanInboxSms(context, repository)
+                transactions = repository.getAll()
+                smsRescanMessage = if (inserted > 0) {
+                    "$inserted تراکنش جدید ثبت شد."
+                } else {
+                    "پیامک تازه‌ای پیدا نشد."
+                }
+            }
+        } else {
+            pendingInboxAction = "rescan"
+            readSmsPermissionLauncher.launch(Manifest.permission.READ_SMS)
         }
     }
 
@@ -378,6 +461,19 @@ fun ManagementScreen(
                 }
             }
         }
+        item {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(
+                    onClick = { runRescanSms() },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("بررسی مجدد پیامک‌ها")
+                }
+                if (smsRescanMessage.isNotEmpty()) {
+                    Text(smsRescanMessage, style = MaterialTheme.typography.bodySmall)
+                }
+            }
+        }
         item { Text("مدیریت الگوهای پیامک", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)) }
         item {
             Text(
@@ -388,6 +484,47 @@ fun ManagementScreen(
         item {
             Button(onClick = { showPatternDialog = true }) {
                 Text("افزودن الگوی جدید")
+            }
+        }
+        item { Text("فرستنده‌های پیامک شناسایی‌شده در دستگاه", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)) }
+        item {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                val detected = detectedSenders
+                if (detected == null) {
+                    OutlinedButton(onClick = { runDetectSenders() }) {
+                        Text("اسکن صندوق پیامک")
+                    }
+                } else if (detected.isEmpty()) {
+                    Text("فرستنده‌ای در صندوق پیامک پیدا نشد.")
+                    OutlinedButton(onClick = { runDetectSenders() }) {
+                        Text("اسکن دوباره")
+                    }
+                } else {
+                    detected.forEach { sender ->
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                sender.sender,
+                                modifier = Modifier.weight(1f)
+                            )
+                            Surface(
+                                shape = RoundedCornerShape(16.dp),
+                                color = MaterialTheme.colorScheme.surfaceVariant
+                            ) {
+                                Text(
+                                    "${sender.count} پیامک",
+                                    style = MaterialTheme.typography.labelLarge,
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                                )
+                            }
+                        }
+                    }
+                    OutlinedButton(onClick = { runDetectSenders() }) {
+                        Text("اسکن دوباره")
+                    }
+                }
+                if (smsDetectMessage.isNotEmpty()) {
+                    Text(smsDetectMessage, style = MaterialTheme.typography.bodySmall)
+                }
             }
         }
         if (patterns.isEmpty()) {
@@ -428,6 +565,12 @@ fun ManagementScreen(
                     }
                 }
             }
+        }
+        item {
+            Text(
+                "پارس‌های بانک‌های عضو شتاب فعال می‌باشند.",
+                style = MaterialTheme.typography.bodySmall
+            )
         }
         item {
             ManagementCard(
@@ -1377,6 +1520,17 @@ fun ManagementScreen(
                 }
             },
             onAddSender = { showSenderDialog = true },
+            detectedSenders = detectedSenders,
+            onScanSenders = { runDetectSenders() },
+            smsDetectMessage = smsDetectMessage,
+            onLinkDetectedSender = { sender ->
+                scope.launch {
+                    if (repository.addAccountSmsSender(accountToDetail.id, sender)) {
+                        detailSenders = repository.getAccountSmsSenders(accountToDetail.id)
+                        allSenders = repository.getAccountSmsLinks()
+                    }
+                }
+            },
             onRemoveSender = { sender ->
                 scope.launch {
                     repository.removeAccountSmsSender(accountToDetail.id, sender)
@@ -2079,7 +2233,11 @@ private fun AccountDetailSheet(
     onRename: () -> Unit,
     onDelete: () -> Unit,
     onAddSender: () -> Unit,
-    onRemoveSender: (String) -> Unit
+    onRemoveSender: (String) -> Unit,
+    detectedSenders: List<DetectedSender>? = null,
+    onScanSenders: () -> Unit = {},
+    smsDetectMessage: String = "",
+    onLinkDetectedSender: (String) -> Unit = {}
 ) {
     val sheetDark = Color(0xFF1E1438)
     val sheetCard = Color(0xFF2A2150)
@@ -2090,6 +2248,7 @@ private fun AccountDetailSheet(
     val sheetRed = Color(0xFFFF6B6B)
     val sheetRedBg = Color(0xFF4A2020)
     var showMenu by remember { mutableStateOf(false) }
+    var showDetectedPicker by remember { mutableStateOf(false) }
     val accountTransactions = transactions.filter { it.accountId == account.id }
     val balance = accountTransactions.sumOf { if (it.income) it.amount else -it.amount }
     ModalBottomSheet(
@@ -2218,6 +2377,66 @@ private fun AccountDetailSheet(
                         OutlinedButton(onClick = onAddSender) {
                             Icon(Icons.Default.Add, contentDescription = null)
                             Text("افزودن شماره پیامک", modifier = Modifier.padding(start = 4.dp))
+                        }
+                        Button(
+                            onClick = {
+                                showDetectedPicker = true
+                                onScanSenders()
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("اتصال از پیامک‌ها")
+                        }
+                        if (showDetectedPicker) {
+                            val detected = detectedSenders
+                            if (detected == null) {
+                                Text(
+                                    "در حال اسکن صندوق پیامک…",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = sheetMuted
+                                )
+                            } else if (detected.isEmpty()) {
+                                Text(
+                                    "فرستنده‌ای در صندوق پیامک پیدا نشد.",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = sheetMuted
+                                )
+                            } else {
+                                detected.forEach { sender ->
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier.fillMaxWidth().clickable {
+                                            onLinkDetectedSender(sender.sender)
+                                            showDetectedPicker = false
+                                        }
+                                    ) {
+                                        Text(
+                                            sender.sender,
+                                            style = MaterialTheme.typography.bodyLarge,
+                                            color = Color.White,
+                                            modifier = Modifier.weight(1f)
+                                        )
+                                        Surface(
+                                            shape = RoundedCornerShape(16.dp),
+                                            color = Color(0xFF372A63)
+                                        ) {
+                                            Text(
+                                                "${sender.count} پیامک",
+                                                style = MaterialTheme.typography.labelLarge,
+                                                color = Color(0xFFD8D0F5),
+                                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                            if (smsDetectMessage.isNotEmpty()) {
+                                Text(
+                                    smsDetectMessage,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = sheetMuted
+                                )
+                            }
                         }
                     }
                 }

@@ -64,6 +64,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DatePicker
@@ -90,6 +91,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
+import com.polino.app.sms.rescanInboxSms
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -165,6 +172,47 @@ fun FinanceDashboard(
     var accounts by remember { mutableStateOf<List<AccountEntity>>(emptyList()) }
     var categories by remember { mutableStateOf<List<CategoryEntity>>(emptyList()) }
     var budgets by remember { mutableStateOf<List<BudgetEntity>>(emptyList()) }
+    val homeScope = rememberCoroutineScope()
+    var homeRescanMessage by remember { mutableStateOf("") }
+    var homePendingRescan by remember { mutableStateOf(false) }
+    val homeReadSmsLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (!granted) {
+            homeRescanMessage = "دسترسی خواندن پیامک داده نشده است."
+            homePendingRescan = false
+        } else if (homePendingRescan) {
+            homePendingRescan = false
+            homeScope.launch {
+                val inserted = rescanInboxSms(context, repository)
+                transactions = repository.getAll()
+                homeRescanMessage = if (inserted > 0) {
+                    "$inserted تراکنش جدید ثبت شد."
+                } else {
+                    "پیامک تازه‌ای پیدا نشد."
+                }
+            }
+        }
+    }
+    fun runHomeRescan() {
+        if (ContextCompat.checkSelfPermission(
+                context, Manifest.permission.READ_SMS
+            ) == PackageManager.PERMISSION_GRANTED
+        ) {
+            homeScope.launch {
+                val inserted = rescanInboxSms(context, repository)
+                transactions = repository.getAll()
+                homeRescanMessage = if (inserted > 0) {
+                    "$inserted تراکنش جدید ثبت شد."
+                } else {
+                    "پیامک تازه‌ای پیدا نشد."
+                }
+            }
+        } else {
+            homePendingRescan = true
+            homeReadSmsLauncher.launch(Manifest.permission.READ_SMS)
+        }
+    }
 
     LaunchedEffect(Unit) {
         runCatching {
@@ -293,6 +341,24 @@ fun FinanceDashboard(
             if (error.isNotEmpty()) {
                 Spacer(Modifier.height(8.dp))
                 Text(error, color = MaterialTheme.colorScheme.error)
+            }
+        }
+        item {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(
+                    onClick = { runHomeRescan() },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFA855F7))
+                ) {
+                    Text("بررسی مجدد پیامک‌ها")
+                }
+                if (homeRescanMessage.isNotEmpty()) {
+                    Text(
+                        homeRescanMessage,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.White
+                    )
+                }
             }
         }
         item {
