@@ -27,9 +27,9 @@ class NoteDisplayTest {
 
     @Test
     fun longBodyTruncatedWithEllipsis() {
-        val body = "الف".repeat(130)
+        val body = "ا".repeat(130)
         // 120 chars kept + "…" = 121 chars total.
-        assertEquals("الف".repeat(120) + "…", noteSnippet(body))
+        assertEquals("ا".repeat(120) + "…", noteSnippet(body))
     }
 
     @Test
