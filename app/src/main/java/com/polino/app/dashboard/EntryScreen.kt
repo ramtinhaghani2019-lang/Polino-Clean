@@ -391,7 +391,7 @@ fun EntryScreen(
                             label = {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Icon(
-                                        categoryIcon(suggestion.category),
+                                        categoryIconForName(categories, suggestion.category),
                                         contentDescription = null
                                     )
                                     Spacer(Modifier.width(4.dp))

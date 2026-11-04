@@ -41,6 +41,7 @@ import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.polino.app.data.CategoryEntity
 import com.polino.app.data.EventEntity
 import com.polino.app.data.MoneyTransaction
 import com.polino.app.data.TransactionRepository
@@ -85,6 +86,7 @@ fun CalendarScreen() {
     val repository = remember { TransactionRepository(context) }
     var transactions by remember { mutableStateOf<List<MoneyTransaction>>(emptyList()) }
     var events by remember { mutableStateOf<List<EventEntity>>(emptyList()) }
+    var categories by remember { mutableStateOf<List<CategoryEntity>>(emptyList()) }
     var selectedYearMonth by remember { mutableStateOf(JalaliDate.currentJalaliYearMonth()) }
     var selectedDay by remember { mutableStateOf(todayJalaliDay()) }
     var calendarTab by remember { mutableStateOf(CalendarTab.MONTH) }
@@ -94,6 +96,7 @@ fun CalendarScreen() {
     LaunchedEffect(Unit) {
         transactions = runCatching { repository.getAll() }.getOrDefault(emptyList())
         events = runCatching { repository.getEvents() }.getOrDefault(emptyList())
+        categories = runCatching { repository.getCategories() }.getOrDefault(emptyList())
     }
 
     val currentMonth = JalaliDate.currentJalaliYearMonth()
@@ -506,7 +509,7 @@ fun CalendarScreen() {
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     Icon(
-                        categoryIcon(transaction.category),
+                        categoryIconForName(categories, transaction.category),
                         contentDescription = transaction.category,
                         tint = if (transaction.income) Color(0xFF16A34A)
                         else MaterialTheme.colorScheme.error

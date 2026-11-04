@@ -66,4 +66,38 @@ class CategoryStyleTest {
         val entity = CategoryEntity("خیریه", false)
         assertEquals(Color.Blue, categoryColorFor(entity, Color.Blue))
     }
+
+    @Test
+    fun nameWithPersonalIcon_usesIt() {
+        val categories = listOf(CategoryEntity("خیریه", false, iconKey = "bag"))
+        assertEquals(Icons.Filled.ShoppingBag, categoryIconForName(categories, "خیریه"))
+    }
+
+    @Test
+    fun nameWithoutPersonalIcon_fallsBackToNameIcon() {
+        val categories = listOf(CategoryEntity("خیریه", false))
+        assertEquals(categoryIcon("خیریه"), categoryIconForName(categories, "خیریه"))
+    }
+
+    @Test
+    fun unknownName_fallsBackToNameIcon() {
+        assertEquals(categoryIcon("خیریه"), categoryIconForName(emptyList(), "خیریه"))
+    }
+
+    @Test
+    fun nameWithPersonalColor_usesIt() {
+        val categories = listOf(CategoryEntity("خیریه", false, colorArgb = 0xFFE53935L))
+        assertEquals(Color(0xFFE53935L), categoryColorForName(categories, "خیریه", Color.Blue))
+    }
+
+    @Test
+    fun nameWithoutPersonalColor_usesFallback() {
+        val categories = listOf(CategoryEntity("خیریه", false))
+        assertEquals(Color.Blue, categoryColorForName(categories, "خیریه", Color.Blue))
+    }
+
+    @Test
+    fun unknownNameColor_usesFallback() {
+        assertEquals(Color.Blue, categoryColorForName(emptyList(), "خیریه", Color.Blue))
+    }
 }

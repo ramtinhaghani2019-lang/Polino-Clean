@@ -104,3 +104,19 @@ internal val CATEGORY_COLOR_PALETTE = listOf(
  */
 internal fun categoryColorFor(category: CategoryEntity, fallback: Color): Color =
     if (category.colorArgb != 0L) Color(category.colorArgb) else fallback
+
+/**
+ * آیکون نمایشی یک دسته بر اساس نام: اگر دسته‌ای با همین نام در فهرست
+ * دسته‌ها باشد، آیکون شخصی آن (یا نگاشت نام) وگرنه نگاشت قدیمی از روی
+ * نام. برای جاهایی که فقط نام دسته در دست است (پیشنهادهای ثبت،
+ * ردیف‌های تقویم).
+ */
+internal fun categoryIconForName(categories: List<CategoryEntity>, name: String): ImageVector =
+    categories.firstOrNull { it.name == name }?.let { categoryIconFor(it) } ?: categoryIcon(name)
+
+/**
+ * رنگ نمایشی یک دسته بر اساس نام، با همان قاعده بالا؛ اگر دسته‌ای با
+ * همین نام یافت نشد یا رنگ شخصی نداشت، رنگ پیش‌فرض برمی‌گردد.
+ */
+internal fun categoryColorForName(categories: List<CategoryEntity>, name: String, fallback: Color): Color =
+    categories.firstOrNull { it.name == name }?.let { categoryColorFor(it, fallback) } ?: fallback
