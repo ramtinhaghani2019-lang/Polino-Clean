@@ -137,6 +137,7 @@ fun ManagementScreen(
     onNavigateToReminders: () -> Unit = {},
     onShowGoals: () -> Unit = {},
     onShowSettings: () -> Unit = {},
+    onShowDebts: () -> Unit = {},
     themeMode: String = "system",
     onThemeModeChange: (String) -> Unit = {},
     lockEnabled: Boolean = false,
@@ -770,7 +771,16 @@ fun ManagementScreen(
                 }
             }
         }
-        item { Text("طلب و بدهی", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)) }
+        item {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("طلب و بدهی", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
+                TextButton(onClick = onShowDebts) { Text("مشاهده همه") }
+            }
+        }
         item {
             val (receivableTotal, payableTotal) = unsettledTotals(debts)
             Text("طلب‌های باز: ${money(receivableTotal)} — بدهی‌های باز: ${money(payableTotal)}")
