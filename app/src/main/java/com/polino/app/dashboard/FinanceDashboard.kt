@@ -1290,29 +1290,33 @@ private fun QuickTile(
     iconTint: Color,
     onClick: () -> Unit
 ) {
-    Card(
-        onClick = onClick,
-        modifier = modifier.aspectRatio(1f),
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = PergarCard),
-        border = BorderStroke(1.dp, HeroBorder)
+    Column(
+        modifier = modifier,
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Column(
+        Card(
+            onClick = onClick,
             modifier = Modifier
-                .fillMaxSize()
-                .padding(4.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+                .fillMaxWidth()
+                .aspectRatio(1f),
+            shape = RoundedCornerShape(20.dp),
+            colors = CardDefaults.cardColors(containerColor = PergarCard),
+            border = BorderStroke(1.dp, HeroBorder)
         ) {
-            Icon(icon, contentDescription = label, tint = iconTint, modifier = Modifier.size(28.dp))
-            Spacer(Modifier.height(8.dp))
-            Text(
-                label,
-                style = MaterialTheme.typography.bodySmall,
-                color = Color.White,
-                textAlign = TextAlign.Center
-            )
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(icon, contentDescription = label, tint = iconTint, modifier = Modifier.size(28.dp))
+            }
         }
+        Spacer(Modifier.height(8.dp))
+        Text(
+            label,
+            style = MaterialTheme.typography.bodySmall,
+            color = Color.White,
+            textAlign = TextAlign.Center
+        )
     }
 }
 
