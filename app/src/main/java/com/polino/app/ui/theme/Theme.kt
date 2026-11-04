@@ -102,9 +102,20 @@ private val DarkColors = darkColorScheme(
     onErrorContainer = Color(0xFFFECDD3)
 )
 
-private val Vazirmatn = FontFamily(
-    Font(R.font.vazirmatn_regular, FontWeight.Normal),
-    Font(R.font.vazirmatn_bold, FontWeight.Bold)
+/**
+ * مرحله ۹۶: خانواده فونت پرگار — Baloo Bhaijaan 2 با پروانه OFL (گوگل فونت)،
+ * انتخاب‌شده از مقایسه رندر کنار هم با فونت‌های Vazirmatn و Cairo و Lalezar
+ * در برابر برش اعداد قهرمان پرگار: Baloo ExtraBold نزدیک‌ترین وزن گرد و
+ * توپر به اعداد و تیترهای پرگار است (Cairo خشک‌تر و گوشه‌دارتر است،
+ * Lalezar فقط یک وزن دارد و سبک‌تر است، Vazirmatn نازک‌تر و نسخ‌مانند است).
+ * هیچ دارایی پرگار کپی نشده؛ فقط فونت OFL جایگزین شده است. فایل‌های
+ * Vazirmatn در res/font فعلاً بی‌استفاده باقی مانده‌اند (ابزار پوش فعلاً
+ * حذف فایل را پشتیبانی نمی‌کند) و در مرحله‌ای بعد پاک می‌شوند.
+ */
+private val PergarRounded = FontFamily(
+    Font(R.font.baloo_bhaijaan2_regular, FontWeight.Normal),
+    Font(R.font.baloo_bhaijaan2_extrabold, FontWeight.Bold),
+    Font(R.font.baloo_bhaijaan2_extrabold, FontWeight.ExtraBold)
 )
 
 /**
@@ -115,27 +126,30 @@ private val Vazirmatn = FontFamily(
  * می‌گذارد و همین اختلاف، محرک اصلی PARTIALها در ممیزی عکس‌به‌عکس بود.
  * اندازه‌ها عوض نشده‌اند تا چیدمان صفحه‌های تأییدشده (مثل مبلغ صفحه ثبت)
  * به‌هم نریزد؛ وزن‌ها در سطح تم عوض شده‌اند تا همه صفحه‌ها یکجا ارث ببرند.
+ * مرحله ۹۶: خانواده به Baloo Bhaijaan 2 عوض شد و وزن نقش‌های نمایشی به
+ * ExtraBold رفت تا وزن گرد و توپر پرگار را بگیرد؛ نقش‌های بدنه همان
+ * Regular همان خانواده‌اند (در مقایسه، در اندازه کوچک خوانا ماند).
  */
-private fun withVazirmatn(typography: Typography): Typography = Typography(
-    displayLarge = typography.displayLarge.copy(fontFamily = Vazirmatn, fontWeight = FontWeight.Bold),
-    displayMedium = typography.displayMedium.copy(fontFamily = Vazirmatn, fontWeight = FontWeight.Bold),
-    displaySmall = typography.displaySmall.copy(fontFamily = Vazirmatn, fontWeight = FontWeight.Bold),
-    headlineLarge = typography.headlineLarge.copy(fontFamily = Vazirmatn, fontWeight = FontWeight.Bold),
-    headlineMedium = typography.headlineMedium.copy(fontFamily = Vazirmatn, fontWeight = FontWeight.Bold),
-    headlineSmall = typography.headlineSmall.copy(fontFamily = Vazirmatn, fontWeight = FontWeight.Bold),
-    titleLarge = typography.titleLarge.copy(fontFamily = Vazirmatn, fontWeight = FontWeight.Bold),
-    titleMedium = typography.titleMedium.copy(fontFamily = Vazirmatn, fontWeight = FontWeight.Bold),
-    titleSmall = typography.titleSmall.copy(fontFamily = Vazirmatn, fontWeight = FontWeight.Bold),
-    bodyLarge = typography.bodyLarge.copy(fontFamily = Vazirmatn),
-    bodyMedium = typography.bodyMedium.copy(fontFamily = Vazirmatn),
-    bodySmall = typography.bodySmall.copy(fontFamily = Vazirmatn),
-    labelLarge = typography.labelLarge.copy(fontFamily = Vazirmatn, fontWeight = FontWeight.Bold),
-    labelMedium = typography.labelMedium.copy(fontFamily = Vazirmatn),
-    labelSmall = typography.labelSmall.copy(fontFamily = Vazirmatn)
+private fun withPergarFont(typography: Typography): Typography = Typography(
+    displayLarge = typography.displayLarge.copy(fontFamily = PergarRounded, fontWeight = FontWeight.ExtraBold),
+    displayMedium = typography.displayMedium.copy(fontFamily = PergarRounded, fontWeight = FontWeight.ExtraBold),
+    displaySmall = typography.displaySmall.copy(fontFamily = PergarRounded, fontWeight = FontWeight.ExtraBold),
+    headlineLarge = typography.headlineLarge.copy(fontFamily = PergarRounded, fontWeight = FontWeight.ExtraBold),
+    headlineMedium = typography.headlineMedium.copy(fontFamily = PergarRounded, fontWeight = FontWeight.ExtraBold),
+    headlineSmall = typography.headlineSmall.copy(fontFamily = PergarRounded, fontWeight = FontWeight.ExtraBold),
+    titleLarge = typography.titleLarge.copy(fontFamily = PergarRounded, fontWeight = FontWeight.ExtraBold),
+    titleMedium = typography.titleMedium.copy(fontFamily = PergarRounded, fontWeight = FontWeight.ExtraBold),
+    titleSmall = typography.titleSmall.copy(fontFamily = PergarRounded, fontWeight = FontWeight.ExtraBold),
+    bodyLarge = typography.bodyLarge.copy(fontFamily = PergarRounded),
+    bodyMedium = typography.bodyMedium.copy(fontFamily = PergarRounded),
+    bodySmall = typography.bodySmall.copy(fontFamily = PergarRounded),
+    labelLarge = typography.labelLarge.copy(fontFamily = PergarRounded, fontWeight = FontWeight.ExtraBold),
+    labelMedium = typography.labelMedium.copy(fontFamily = PergarRounded),
+    labelSmall = typography.labelSmall.copy(fontFamily = PergarRounded)
 )
 
 private val PolinoTypography: Typography
-    get() = withVazirmatn(Typography())
+    get() = withPergarFont(Typography())
 
 /**
  * مرحله ۷۰: زبان کارت پرگار در سطح تم — کارت‌های بدون شکل صریح، به‌جای
