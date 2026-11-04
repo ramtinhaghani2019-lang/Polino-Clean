@@ -164,7 +164,7 @@ suspend fun readDocumentsBackupText(context: Context, uri: Uri): String {
  * در Documents/PolinoBackups می‌نویسد و پشتیبان‌های منقضی را پاک می‌کند.
  * همه خطاها بلعیده می‌شوند تا شروع برنامه هرگز به‌خاطر پشتیبان نایستد.
  */
-suspend fun runDailyAutoBackupIfNeeded(
+internal suspend fun runDailyAutoBackupIfNeeded(
     context: Context,
     transactionRepository: TransactionRepository,
     budgetRepository: BudgetRepository
