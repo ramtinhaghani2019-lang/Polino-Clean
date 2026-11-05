@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -71,6 +72,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
@@ -91,6 +93,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
@@ -118,7 +121,6 @@ import com.polino.app.data.AssetEntity
 import com.polino.app.data.SmsPatternEntity
 import com.polino.app.data.assetCurrentValue
 import com.polino.app.data.isValidAssetInput
-import com.polino.app.data.portfolioTotals
 import com.polino.app.data.isTaskOverdue
 import com.polino.app.data.unsettledTotals
 import com.polino.app.data.MoneyTransaction
@@ -305,14 +307,48 @@ fun ManagementScreen(
     }
 
     val totalBalance = transactions.sumOf { if (it.income) it.amount else -it.amount }
+    val remindersOpenCount = hubReminderCount(
+        installments.count { it.paidCount < it.monthCount }, cheques
+    )
+    val remindersStatusText = if (remindersOpenCount == 0) {
+        "همه تسویه‌شده"
+    } else {
+        remindersHubSubtitle(cheques, installments, System.currentTimeMillis())
+    }
+
+    // مرحله ۱۰۹: محو عمودی آبی→بنفش روشن در تم تیره، عین هاب پرگار؛
+    // تم روشن پس‌زمینه تم را نگه می‌دارد.
+    val isDarkHubPage = MaterialTheme.colorScheme.background.luminance() < 0.5f
+    val hubPageGradient = remember {
+        Brush.verticalGradient(
+            colors = listOf(Color(0xFF1D4ED8), Color(0xFF7C3AED), Color(0xFF14102E))
+        )
+    }
+    val hubPageBackground = if (isDarkHubPage) Modifier.background(hubPageGradient) else Modifier
 
     LazyColumn(
+        modifier = Modifier.fillMaxSize().then(hubPageBackground),
         contentPadding = PaddingValues(start = 20.dp, top = 20.dp, end = 20.dp, bottom = 120.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+        verticalArrangement = Arrangement.spacedBy(24.dp)
     ) {
         item {
-            Text("مدیریت مالی", style = MaterialTheme.typography.headlineSmall)
-            Text("ابزارهای یکپارچه مالی", style = MaterialTheme.typography.labelMedium)
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Text(
+                    "مدیریت مالی",
+                    style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
+                    textAlign = TextAlign.Center
+                )
+                Text(
+                    "ابزارهای یکپارچه و هوشمند مالی",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center
+                )
+            }
         }
         item {
             ManagementCard(
@@ -328,6 +364,13 @@ fun ManagementScreen(
             val hubBorder = if (isDarkHub) Color(0xFF3D3368) else MaterialTheme.colorScheme.outline
             val hubLabel = if (isDarkHub) Color(0xFFB3ACD6) else MaterialTheme.colorScheme.onSurfaceVariant
             val hubNumber = if (isDarkHub) Color.White else MaterialTheme.colorScheme.onSurface
+            val hubAmountColor = if (isDarkHub) Color(0xFF60A5FA) else Color(0xFF2563EB)
+            val goalsStatusText = if (goals.isEmpty()) "بدون هدف" else goalsHubSubtitle(goals)
+            val budgetStatusText = if (budgetCount == 0) {
+                "تعریف بودجه"
+            } else {
+                "${persianNumber(budgetCount)} بودجه"
+            }
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(28.dp),
@@ -336,39 +379,75 @@ fun ManagementScreen(
             ) {
                 Column(
                     Modifier.padding(20.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    Text(
-                        "خلاصه دارایی",
-                        style = MaterialTheme.typography.labelLarge,
-                        color = hubLabel
-                    )
-                    Text("مجموع مانده نقدی", color = hubNumber)
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(48.dp)
+                                .background(
+                                    color = Color(0xFF3B82F6),
+                                    shape = RoundedCornerShape(16.dp)
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                Icons.Default.AccountBalanceWallet,
+                                contentDescription = "خلاصه دارایی",
+                                tint = Color.White
+                            )
+                        }
+                        Column(Modifier.weight(1f)) {
+                            Text(
+                                "خلاصه دارایی",
+                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                                color = hubNumber
+                            )
+                            Text(
+                                "مجموع مانده نقدی",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = hubLabel
+                            )
+                        }
+                    }
                     Text(
                         money(totalBalance),
-                        style = MaterialTheme.typography.displayMedium.copy(fontWeight = FontWeight.Bold),
-                        color = hubNumber
+                        modifier = Modifier.fillMaxWidth(),
+                        textAlign = TextAlign.End,
+                        style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
+                        color = hubAmountColor
                     )
+                    HorizontalDivider(color = hubBorder, thickness = 1.dp)
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        HubSummaryTile(
+                            modifier = Modifier.weight(1f),
+                            label = "اهداف پس‌انداز",
+                            status = goalsStatusText,
+                            dotColor = if (isDarkHub) Color(0xFF34D399) else Color(0xFF047857),
+                            statusColor = if (isDarkHub) Color(0xFF34D399) else Color(0xFF047857),
+                            isDark = isDarkHub
+                        )
+                        HubSummaryTile(
+                            modifier = Modifier.weight(1f),
+                            label = "یادآورها",
+                            status = remindersStatusText,
+                            dotColor = if (isDarkHub) Color(0xFFFBBF24) else Color(0xFFB45309),
+                            statusColor = if (isDarkHub) Color(0xFFFBBF24) else Color(0xFFB45309),
+                            isDark = isDarkHub
+                        )
+                        HubSummaryTile(
+                            modifier = Modifier.weight(1f),
+                            label = "بودجه‌بندی",
+                            status = budgetStatusText,
+                            dotColor = if (isDarkHub) Color(0xFFFB7185) else Color(0xFFDC2626),
+                            statusColor = if (isDarkHub) Color(0xFFFB7185) else Color(0xFFDC2626),
+                            isDark = isDarkHub
+                        )
+                    }
                 }
-            }
-        }
-        item {
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                MiniStat(
-                    modifier = Modifier.weight(1f),
-                    label = "اهداف پس‌انداز",
-                    value = goals.size.toString()
-                )
-                MiniStat(
-                    modifier = Modifier.weight(1f),
-                    label = "یادآورها",
-                    value = hubReminderCount(installments.size, cheques).toString()
-                )
-                MiniStat(
-                    modifier = Modifier.weight(1f),
-                    label = "بودجه‌بندی",
-                    value = budgetCount.toString()
-                )
             }
         }
         item {
@@ -378,7 +457,7 @@ fun ManagementScreen(
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
             ) {
                 Column(
-                    Modifier.padding(16.dp),
+                    Modifier.padding(14.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Text("تم برنامه", style = MaterialTheme.typography.titleMedium)
@@ -402,7 +481,7 @@ fun ManagementScreen(
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
             ) {
                 Column(
-                    Modifier.padding(16.dp),
+                    Modifier.padding(14.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Row(
@@ -428,7 +507,10 @@ fun ManagementScreen(
                 title = "امنیت و حریم خصوصی",
                 subtitle = "قفل با پین‌کد، تشخیص چهره / اثر انگشت و بازنشانی کامل",
                 icon = Icons.Default.Lock,
-                onClick = { showSecuritySheet = true }
+                onClick = { showSecuritySheet = true },
+                statusChip = if (lockEnabled) "فعال" else "خاموش",
+                statusChipPositive = lockEnabled,
+                tileColor = Color(0xFF6366F1)
             )
         }
         item {
@@ -436,7 +518,8 @@ fun ManagementScreen(
                 title = "پشتیبان‌گیری و دارایی",
                 subtitle = "فهرست پشتیبان‌ها، ساخت، بازیابی و خروجی اکسل",
                 icon = Icons.Default.Backup,
-                onClick = { showBackupSheet = true }
+                onClick = { showBackupSheet = true },
+                tileColor = Color(0xFF0EA5E9)
             )
         }
         item { Text("بخش‌ها", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)) }
@@ -453,10 +536,10 @@ fun ManagementScreen(
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(48.dp)
+                            .size(44.dp)
                             .background(
-                                color = MaterialTheme.colorScheme.primary,
-                                shape = RoundedCornerShape(16.dp)
+                                color = Color(0xFF22C55E),
+                                shape = RoundedCornerShape(14.dp)
                             ),
                         contentAlignment = Alignment.Center
                     ) {
@@ -508,47 +591,59 @@ fun ManagementScreen(
                 subtitle = "فرستنده‌های شناسایی‌شده و قوانین ثبت پیامک",
                 icon = Icons.Default.Sms,
                 onClick = { showPatternSheet = true },
-                statusChip = "${patterns.size} الگو"
+                statusChip = "${persianNumber(patterns.size)} الگو",
+                tileColor = Color(0xFF16A34A)
             )
         }
         item {
             ManagementCard(
                 title = "حساب‌ها و کارت‌ها",
-                subtitle = "${accounts.size} حساب",
+                subtitle = "مدیریت موجودی، کارت‌ها و پیامک‌های بانکی",
                 icon = Icons.Default.AccountBalanceWallet,
-                onClick = onShowAccounts
+                onClick = onShowAccounts,
+                statusChip = "${persianNumber(accounts.size)} حساب بانکی",
+                tileColor = Color(0xFF3B82F6)
             )
         }
         item {
             ManagementCard(
                 title = "دسته‌ها",
-                subtitle = "${categories.size} دسته",
+                subtitle = "سرفصل‌های درآمد، هزینه و آیکن‌ها",
                 icon = Icons.Default.Category,
-                onClick = onShowCategories
+                onClick = onShowCategories,
+                statusChip = "${persianNumber(categories.size)} دسته‌بندی",
+                tileColor = Color(0xFFF97316)
             )
         }
         item {
             ManagementCard(
                 title = "تکرارشونده‌ها",
-                subtitle = "${recurring.size} قانون",
+                subtitle = "قوانین تکرار خودکار تراکنش‌ها",
                 icon = Icons.Default.Repeat,
-                onClick = onNavigateHome
+                onClick = onNavigateHome,
+                statusChip = "${persianNumber(recurring.size)} قانون",
+                tileColor = Color(0xFFF59E0B)
             )
         }
         item {
             ManagementCard(
                 title = "بودجه‌ها و اهداف",
-                subtitle = "$budgetCount بودجه، ${goals.size} هدف",
+                subtitle = "بودجه ماه و هدف‌های پس‌انداز",
                 icon = Icons.Default.Savings,
-                onClick = onNavigateToReports
+                onClick = onNavigateToReports,
+                statusChip = "${persianNumber(budgetCount)} بودجه",
+                tileColor = Color(0xFFEC4899)
             )
         }
         item {
             ManagementCard(
                 title = "بودجه‌بندی هوشمند",
-                subtitle = "$budgetCount بودجه ماه جاری",
+                subtitle = "سقف هزینه‌ها و هشدار انحراف بودجه",
                 icon = Icons.Default.PieChart,
-                onClick = onNavigateToSmartBudget
+                onClick = onNavigateToSmartBudget,
+                statusChip = if (budgetCount == 0) "تعریف بودجه" else "${persianNumber(budgetCount)} بودجه",
+                statusChipPositive = budgetCount > 0,
+                tileColor = Color(0xFFEF4444)
             )
         }
         item {
@@ -556,15 +651,19 @@ fun ManagementScreen(
                 title = "یادآورها",
                 subtitle = "یک‌جا، همه سررسیدها",
                 icon = Icons.Default.Notifications,
-                onClick = onNavigateToReminders
+                onClick = onNavigateToReminders,
+                statusChip = remindersStatusText,
+                tileColor = Color(0xFFEAB308)
             )
         }
         item {
             ManagementCard(
                 title = "اهداف و برنامه‌ریزی",
-                subtitle = "${goals.size} هدف",
+                subtitle = "پس‌انداز هدفمند و نقشه‌راه مالی",
                 icon = Icons.Default.Flag,
-                onClick = onShowGoals
+                onClick = onShowGoals,
+                statusChip = if (goals.isEmpty()) "شروع هدف جدید" else "${persianNumber(goals.size)} هدف",
+                tileColor = Color(0xFF10B981)
             )
         }
         item {
@@ -572,7 +671,8 @@ fun ManagementScreen(
                 title = "گزارش‌ها",
                 subtitle = "گزارش ماه و روند مالی",
                 icon = Icons.Default.BarChart,
-                onClick = onNavigateToReports
+                onClick = onNavigateToReports,
+                tileColor = Color(0xFF8B5CF6)
             )
         }
         item {
@@ -581,42 +681,51 @@ fun ManagementScreen(
                 subtitle = "وام‌ها و خریدهای اقساطی",
                 icon = Icons.Default.CreditCard,
                 onClick = { showInstallmentsSheet = true },
-                statusChip = "${installments.size} قسط"
+                statusChip = "${persianNumber(installments.size)} قسط",
+                tileColor = Color(0xFF06B6D4)
             )
         }
         item {
             val (receivableTotal, payableTotal) = unsettledTotals(debts)
+            val openDebtCount = debts.count { !it.settled }
             ManagementCard(
                 title = "طلب و بدهی",
-                subtitle = "طلب‌های باز: ${money(receivableTotal)} — بدهی‌های باز: ${money(payableTotal)}",
+                subtitle = "پیگیری مطالبات و تسویه‌حساب با اشخاص",
                 icon = Icons.Default.People,
-                onClick = onShowDebts
+                onClick = onShowDebts,
+                statusChip = if (openDebtCount == 0) "تسویه کامل" else "${persianNumber(openDebtCount)} مورد باز",
+                statusChipPositive = openDebtCount == 0,
+                tileColor = Color(0xFF7C3AED)
             )
         }
         item {
             ManagementCard(
                 title = "کارها و یادآورها",
-                subtitle = "${tasks.size} کار",
+                subtitle = "کارهای روزانه و سررسیدها",
                 icon = Icons.Default.EventNote,
-                onClick = { showTasksSheet = true }
+                onClick = { showTasksSheet = true },
+                statusChip = tasksHubSubtitle(tasks),
+                tileColor = Color(0xFF84CC16)
             )
         }
         item {
             ManagementCard(
                 title = "محاسبه دنگی",
-                subtitle = "تقسیم هزینه‌های مشترک بین نفرات",
+                subtitle = "تقسیم هوشمند هزینه‌های مشترک و سه‌نفره",
                 icon = Icons.Default.Group,
-                onClick = { showDongiSheet = true }
+                onClick = { showDongiSheet = true },
+                statusChip = "ماشین‌حساب دنگی",
+                tileColor = Color(0xFF2563EB)
             )
         }
         item {
-            val totals = portfolioTotals(assets)
             ManagementCard(
                 title = "سرمایه‌گذاری و دارایی‌ها",
-                subtitle = "ارزش کل پرتفوی: ${money(totals.totalValue.toLong())}",
+                subtitle = "ثبت طلا، ارز، سهام، ملک و پیگیری سود",
                 icon = Icons.Default.TrendingUp,
                 onClick = onShowInvestments,
-                statusChip = "${assets.size} دارایی"
+                statusChip = "${persianNumber(assets.size)} دارایی",
+                tileColor = Color(0xFF14B8A6)
             )
         }
     }
@@ -2665,19 +2774,54 @@ private fun CategoryRenameDialog(
     )
 }
 
+/**
+ * کاشی وضعیت داخل کارت «خلاصه دارایی» هاب مدیریت (مرحله ۱۰۹، عین پرگار):
+ * برچسب با نقطه رنگی + متن وضعیت معنادار، به‌جای عدد خشک.
+ */
 @Composable
-private fun MiniStat(modifier: Modifier = Modifier, label: String, value: String) {
+private fun HubSummaryTile(
+    modifier: Modifier = Modifier,
+    label: String,
+    status: String,
+    dotColor: Color,
+    statusColor: Color,
+    isDark: Boolean
+) {
     Card(
         modifier = modifier,
-        shape = RoundedCornerShape(20.dp),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (isDark) Color(0xFF2A2150) else Color(0xFFF5F3FF)
+        ),
+        border = BorderStroke(
+            1.dp,
+            if (isDark) Color(0xFF3D3368) else Color(0xFFD8D0F5)
+        )
     ) {
         Column(
-            Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp)
+            Modifier.padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            Text(value, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
-            Text(label, style = MaterialTheme.typography.bodySmall)
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(8.dp)
+                        .background(color = dotColor, shape = CircleShape)
+                )
+                Text(
+                    label,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (isDark) Color(0xFFB3ACD6) else MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Text(
+                status,
+                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                color = statusColor
+            )
         }
     }
 }
@@ -2689,29 +2833,31 @@ private fun ManagementCard(
     icon: ImageVector,
     onClick: () -> Unit,
     statusChip: String? = null,
-    statusChipPositive: Boolean = true
+    statusChipPositive: Boolean = true,
+    tileColor: Color? = null,
+    tileTint: Color = Color.White
 ) {
     Card(
         onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(28.dp),
+        shape = RoundedCornerShape(20.dp),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
     ) {
         Row(
-            Modifier.padding(16.dp),
+            Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Box(
                 modifier = Modifier
-                    .size(48.dp)
+                    .size(44.dp)
                     .background(
-                        color = MaterialTheme.colorScheme.primary,
-                        shape = RoundedCornerShape(16.dp)
+                        color = tileColor ?: MaterialTheme.colorScheme.primary,
+                        shape = RoundedCornerShape(14.dp)
                     ),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(icon, contentDescription = title, tint = Color.White)
+                Icon(icon, contentDescription = title, tint = tileTint)
             }
             Column(Modifier.weight(1f)) {
                 Text(
