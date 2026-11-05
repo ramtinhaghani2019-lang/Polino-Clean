@@ -238,6 +238,31 @@ internal class TransactionRepository(context: Context) {
         return true
     }
 
+    /**
+     * تغییر نوع و والد دسته؛ نام و سبک دست نمی‌خورند و پرچم‌های نوع
+     * همیشه از یک نوع واحد ساخته می‌شوند تا از هم جدا نیفتند. چون
+     * تراکنش‌ها با نام دسته ذخیره می‌شوند، تغییر نوع/والد در گزارش‌ها
+     * و فهرست‌ها برای تراکنش‌های قبلی هم اعمال می‌شود؛ واسط کاربری
+     * پیش از ذخیره، شمار تراکنش‌های درگیر را در دیالوگ تأیید نشان
+     * می‌دهد. والد نامعتبر (خود دسته، نواده، غیراصلی، ناهم‌نوع، یا
+     * وقتی دسته زیردسته دارد) رد می‌شود و «سایر» نوع/والدش عوض نمی‌شود.
+     */
+    suspend fun updateCategoryTypeAndParent(
+        name: String,
+        type: CategoryType,
+        parentId: String?
+    ): Boolean {
+        if (name == FALLBACK_CATEGORY) return false
+        val all = categoryDao.getAll()
+        val current = all.firstOrNull { it.name == name } ?: return false
+        if (!isValidParent(all, name, type, parentId)) return false
+        val (isIncome, isInvestment) = typeFlags(type)
+        categoryDao.upsert(
+            current.copy(isIncome = isIncome, isInvestment = isInvestment, parentId = parentId)
+        )
+        return true
+    }
+
     suspend fun getRecurring(): List<RecurringEntity> = recurringDao.getAll()
 
     suspend fun addRecurring(item: RecurringEntity) = recurringDao.upsert(item)

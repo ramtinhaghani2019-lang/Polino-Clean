@@ -66,6 +66,7 @@ import com.polino.app.data.TransactionRepository
 import com.polino.app.data.categoryType
 import com.polino.app.data.categoryTypeLabel
 import com.polino.app.data.mainCategories
+import com.polino.app.data.parentCandidates
 import com.polino.app.data.subcategoriesOf
 import kotlinx.coroutines.launch
 
@@ -102,7 +103,28 @@ internal fun CategoryManagerScreen(
     var showAddDialog by remember { mutableStateOf(false) }
     var subcategoryParent by remember { mutableStateOf<CategoryEntity?>(null) }
     var renameTarget by remember { mutableStateOf<CategoryEntity?>(null) }
+    var pendingEdit by remember { mutableStateOf<PendingEdit?>(null) }
     val scope = rememberCoroutineScope()
+
+    /**
+     * ذخیره یک ویرایش دسته به ترتیب امن: تغییرنام (که تراکنش‌ها و
+     * زیردسته‌ها را با نام جدید ادامه می‌دهد)، سپس سبک، سپس نوع و
+     * والد. هر گام ناموفق، گام‌های بعد را متوقف می‌کند.
+     */
+    suspend fun saveEdit(
+        target: CategoryEntity,
+        name: String,
+        iconKey: String,
+        colorArgb: Long,
+        type: CategoryType,
+        parentId: String?
+    ): Boolean {
+        var ok = true
+        if (name != target.name) ok = repository.renameCategory(target.name, name)
+        if (ok) ok = repository.updateCategoryStyle(name, iconKey, colorArgb)
+        if (ok) ok = repository.updateCategoryTypeAndParent(name, type, parentId)
+        return ok
+    }
 
     LaunchedEffect(Unit) { categories = repository.getCategories() }
 
@@ -331,13 +353,20 @@ internal fun CategoryManagerScreen(
     if (target != null) {
         CategoryEditSheet(
             target = target,
+            categories = categories,
             onDismiss = { renameTarget = null },
-            onConfirm = { name, iconKey, colorArgb ->
+            onConfirm = { name, iconKey, colorArgb, type, parentId ->
                 scope.launch {
-                    var ok = true
-                    if (name != target.name) ok = repository.renameCategory(target.name, name)
-                    if (ok) ok = repository.updateCategoryStyle(name, iconKey, colorArgb)
-                    if (ok) {
+                    val typeChanged = type != categoryType(target)
+                    val parentChanged = parentId != target.parentId
+                    if (typeChanged || parentChanged) {
+                        val count = repository.getAll().count { it.category == target.name }
+                        if (count > 0) {
+                            pendingEdit = PendingEdit(name, iconKey, colorArgb, type, parentId, count)
+                            return@launch
+                        }
+                    }
+                    if (saveEdit(target, name, iconKey, colorArgb, type, parentId)) {
                         message = ""
                         renameTarget = null
                         categories = repository.getCategories()
@@ -348,7 +377,49 @@ internal fun CategoryManagerScreen(
             }
         )
     }
+    val pending = pendingEdit
+    if (pending != null && target != null) {
+        AlertDialog(
+            onDismissRequest = { pendingEdit = null },
+            title = { Text("تغییر نوع یا والد دسته") },
+            text = {
+                Text(
+                    "این دسته ${pending.transactionCount} تراکنش ثبت‌شده دارد. با ذخیره، " +
+                        "این تراکنش‌ها زیر نوع «${categoryTypeLabel(pending.type)}» و " +
+                        "«${pending.parentId ?: "دسته اصلی"}» نمایش داده می‌شوند."
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    scope.launch {
+                        if (saveEdit(target, pending.name, pending.iconKey, pending.colorArgb, pending.type, pending.parentId)) {
+                            message = ""
+                            pendingEdit = null
+                            renameTarget = null
+                            categories = repository.getCategories()
+                        } else {
+                            message = "نام تکراری یا نامعتبر است."
+                            pendingEdit = null
+                        }
+                    }
+                }) { Text("ذخیره") }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingEdit = null }) { Text("انصراف") }
+            }
+        )
+    }
 }
+
+/** ویرایش در انتظار تأیید، وقتی تغییر نوع یا والد تراکنش‌های موجود را بازدسته‌بندی می‌کند. */
+private data class PendingEdit(
+    val name: String,
+    val iconKey: String,
+    val colorArgb: Long,
+    val type: CategoryType,
+    val parentId: String?,
+    val transactionCount: Int
+)
 
 @Composable
 private fun CategoryNameDialog(
@@ -384,25 +455,33 @@ private fun CategoryNameDialog(
 
 /**
  * برگه ویرایش دسته به سبک پرگار (فریم‌های g_26 و g_27): پیش‌نمایش
- * آیکون و نام، فیلد نام با نشان «اجباری»، شبکه ۵ ستونی آیکون‌ها،
- * پالت رنگ شاخص در دو ردیف، و دکمه‌های انصراف و ذخیره. نوع و والد
- * دسته در این برگه تغییر نمی‌کنند؛ فقط نام و سبک (آیکون و رنگ).
+ * آیکون و نام، قرص‌های نوع (هزینه/درآمد/سرمایه‌گذاری)، فیلد نام با
+ * نشان «اجباری»، تراشه‌های دسته والد (اختیاری) از دسته‌های اصلی
+ * هم‌نوع، شبکه ۵ ستونی آیکون‌ها، پالت رنگ شاخص در دو ردیف، و
+ * دکمه‌های انصراف و ذخیره. تغییر نوع یا والد از راه موجودیت دسته
+ * اعمال می‌شود، پس در گزارش‌ها و فهرست‌ها برای تراکنش‌های قبلی هم
+ * معتبر است؛ دسته‌ای که زیردسته دارد والدش ثابت می‌ماند تا
+ * سه‌طبقه‌شدن پیش نیاید.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun CategoryEditSheet(
     target: CategoryEntity,
+    categories: List<CategoryEntity>,
     onDismiss: () -> Unit,
-    onConfirm: (String, String, Long) -> Unit
+    onConfirm: (String, String, Long, CategoryType, String?) -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var name by remember { mutableStateOf(target.name) }
     var iconKey by remember { mutableStateOf(target.iconKey) }
     var colorArgb by remember { mutableStateOf(target.colorArgb) }
-    val typeColor = categoryTypeColor(categoryType(target))
+    var selectedType by remember { mutableStateOf(categoryType(target)) }
+    var parentId by remember { mutableStateOf(target.parentId) }
+    val typeColor = categoryTypeColor(selectedType)
     val selectedColor = if (colorArgb != 0L) Color(colorArgb) else typeColor
     val previewIcon = categoryIconByKey(iconKey) ?: categoryIcon(target.name)
-    val scopeText = if (target.parentId == null) "دسته اصلی" else "زیردسته"
+    val scopeText = if (parentId == null) "دسته اصلی" else "زیردسته"
+    val hasSubcategories = subcategoriesOf(categories, target.name).isNotEmpty()
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -442,10 +521,50 @@ private fun CategoryEditSheet(
                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                     )
                     Text(
-                        "$scopeText · ${categoryTypeLabel(categoryType(target))}",
+                        "$scopeText · ${categoryTypeLabel(selectedType)}",
                         style = MaterialTheme.typography.bodySmall,
                         color = CategoryManagerMuted
                     )
+                }
+            }
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    "نوع دسته‌بندی:",
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    CategoryType.entries.forEach { type ->
+                        val selected = selectedType == type
+                        val color = categoryTypeColor(type)
+                        Button(
+                            onClick = {
+                                selectedType = type
+                                val currentParent = parentId?.let { id ->
+                                    categories.firstOrNull { it.name == id }
+                                }
+                                if (currentParent == null || categoryType(currentParent) != type) {
+                                    parentId = null
+                                }
+                            },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (selected) color else Color.Transparent,
+                                contentColor = if (selected) Color.White else CategoryManagerMuted
+                            )
+                        ) {
+                            Text(
+                                when (type) {
+                                    CategoryType.EXPENSE -> "هزینه"
+                                    CategoryType.INCOME -> "درآمد"
+                                    CategoryType.INVESTMENT -> "سرمایه‌گذاری"
+                                }
+                            )
+                        }
+                    }
                 }
             }
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -472,6 +591,44 @@ private fun CategoryEditSheet(
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
+            }
+            if (!hasSubcategories) {
+                val candidates = parentCandidates(categories, target.name, selectedType)
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        "دسته والد (اختیاری):",
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                    )
+                    (listOf<String?>(null) + candidates.map { it.name }).chunked(3).forEach { row ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            row.forEach { candidate ->
+                                val selected = candidate == parentId
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .border(
+                                            width = 1.dp,
+                                            color = if (selected) CategoryManagerPurple else CategoryManagerBorder,
+                                            shape = RoundedCornerShape(12.dp)
+                                        )
+                                        .clickable { parentId = candidate }
+                                        .padding(vertical = 10.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        candidate ?: "دسته اصلی",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = if (selected) CategoryManagerPurple else Color.White
+                                    )
+                                }
+                            }
+                            repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
+                        }
+                    }
+                }
             }
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(
@@ -546,7 +703,7 @@ private fun CategoryEditSheet(
                     shape = RoundedCornerShape(16.dp)
                 ) { Text("انصراف") }
                 Button(
-                    onClick = { onConfirm(name.trim(), iconKey, colorArgb) },
+                    onClick = { onConfirm(name.trim(), iconKey, colorArgb, selectedType, parentId) },
                     enabled = name.isNotBlank(),
                     modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(16.dp),
