@@ -16,11 +16,15 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ChevronLeft
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
@@ -158,6 +162,10 @@ fun CalendarScreen() {
     }
     val dayIncome = dayTransactions.filter { it.income }.sumOf { it.amount }
     val dayExpense = dayTransactions.filterNot { it.income }.sumOf { it.amount }
+    // برچسب کامل روز انتخاب‌شده (مثل «چهارشنبه ۱۳ آبان ۱۴۰۵») برای کارت خلاصه و سربرگ رویدادها.
+    val selectedDayLabel = "${weekdayName(jy, jm, selectedDay)} $selectedDay ${JalaliDate.jalaliMonthDisplay(selectedYearMonth)}"
+    // مرحله ۱۱۳: رنگ‌های نمونه‌برداری‌شده از فریم پرگار فقط در تم تیره اعمال می‌شوند.
+    val isDarkCal = MaterialTheme.colorScheme.background.luminance() < 0.5f
 
     fun goToMonth(month: String) {
         selectedYearMonth = month
@@ -214,19 +222,28 @@ fun CalendarScreen() {
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                OutlinedButton(onClick = { goToMonth(JalaliDate.previousJalaliYearMonth(selectedYearMonth)) }) {
-                    Text("ماه قبل")
+                // مرحله ۱۱۳: پیمایش ماه با آیکن‌های ‹ › دو طرف نام ماه، مثل پرگار (فریم g_05).
+                IconButton(onClick = { goToMonth(JalaliDate.previousJalaliYearMonth(selectedYearMonth)) }) {
+                    Icon(
+                        Icons.Default.ChevronRight,
+                        contentDescription = "ماه قبل",
+                        tint = MaterialTheme.colorScheme.onSurface
+                    )
                 }
                 Text(
                     JalaliDate.jalaliMonthDisplay(selectedYearMonth),
                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                     color = MaterialTheme.colorScheme.onSurface
                 )
-                OutlinedButton(
+                IconButton(
                     onClick = { goToMonth(nextJalaliYearMonth(selectedYearMonth)) },
                     enabled = selectedYearMonth != currentMonth
                 ) {
-                    Text("ماه بعد")
+                    Icon(
+                        Icons.Default.ChevronLeft,
+                        contentDescription = "ماه بعد",
+                        tint = MaterialTheme.colorScheme.onSurface
+                    )
                 }
             }
         }
@@ -265,7 +282,7 @@ fun CalendarScreen() {
                             Box(
                                 modifier = Modifier
                                     .weight(1f)
-                                    .padding(2.dp),
+                                    .padding(4.dp),
                                 contentAlignment = Alignment.Center
                             ) {
                                 if (day == null) {
@@ -276,18 +293,25 @@ fun CalendarScreen() {
                                     val marks = dayMarks[day]
                                     Column(
                                         modifier = Modifier
-                                            .clip(RoundedCornerShape(12.dp))
+                                            .clip(RoundedCornerShape(8.dp))
                                             .border(
-                                                if (isToday && !isSelected) BorderStroke(1.dp, Color(0xFFA855F7))
-                                                else BorderStroke(0.dp, Color.Transparent),
-                                                RoundedCornerShape(12.dp)
+                                                BorderStroke(
+                                                    1.dp,
+                                                    when {
+                                                        isSelected || isToday -> Color(0xFF9133E9)
+                                                        isDarkCal -> Color(0xFF283666)
+                                                        else -> MaterialTheme.colorScheme.outline
+                                                    }
+                                                ),
+                                                RoundedCornerShape(8.dp)
                                             )
                                             .background(
-                                                if (isSelected) Color(0xFFA855F7)
+                                                if (isSelected) Color(0xFF9133E9)
+                                                else if (isDarkCal) Color(0xFF1C1F48)
                                                 else Color.Transparent
                                             )
                                             .clickable { selectedDay = day }
-                                            .padding(vertical = 6.dp)
+                                            .padding(vertical = 4.dp)
                                             .fillMaxWidth(),
                                         horizontalAlignment = Alignment.CenterHorizontally
                                     ) {
@@ -456,14 +480,14 @@ fun CalendarScreen() {
         }
         if (calendarTab != CalendarTab.WEEK) {
         item {
-            // تم تیره: کارت تیره با بوردر بنفش؛ تم روشن: کارت روشن با بوردر بنفش.
+            // مرحله ۱۱۳: رنگ‌های نمونه‌برداری‌شده از فریم پرگار (کارت خلاصه: 0xFF131129؛ بوردر: 0xFF283666).
             val isDarkDay = MaterialTheme.colorScheme.background.luminance() < 0.5f
-            val dayContainer = if (isDarkDay) Color(0xFF1E1438) else MaterialTheme.colorScheme.surface
-            val dayBorder = if (isDarkDay) Color(0xFF3D3368) else MaterialTheme.colorScheme.outline
+            val dayContainer = if (isDarkDay) Color(0xFF131129) else MaterialTheme.colorScheme.surface
+            val dayBorder = if (isDarkDay) Color(0xFF283666) else MaterialTheme.colorScheme.outline
             val dayTitle = if (isDarkDay) Color.White else MaterialTheme.colorScheme.onSurface
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(28.dp),
+                shape = RoundedCornerShape(20.dp),
                 colors = CardDefaults.cardColors(containerColor = dayContainer),
                 border = BorderStroke(1.dp, dayBorder)
             ) {
@@ -472,25 +496,60 @@ fun CalendarScreen() {
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Text(
-                        "${weekdayName(jy, jm, selectedDay)} $selectedDay ${JalaliDate.jalaliMonthDisplay(selectedYearMonth)}",
-                        style = MaterialTheme.typography.titleMedium,
+                        selectedDayLabel,
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                         color = if (isJalaliFriday(jy, jm, selectedDay)) MaterialTheme.colorScheme.error
                         else dayTitle
                     )
-                    Text(
-                        "مجموع درآمد: ${money(dayIncome)}",
-                        color = Color(0xFF34C89E)
-                    )
-                    Text(
-                        "مجموع هزینه: ${money(dayExpense)}",
-                        color = Color(0xFFFF6B6B)
-                    )
-                    Text(
-                        "خالص: ${money(dayIncome - dayExpense)}",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = if (dayIncome - dayExpense >= 0) Color(0xFF34C89E)
-                        else Color(0xFFFF6B6B)
-                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            "مجموع درآمد",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = dayTitle
+                        )
+                        Text(
+                            money(dayIncome),
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                            color = Color(0xFF64C0AB)
+                        )
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            "مجموع هزینه",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = dayTitle
+                        )
+                        Text(
+                            money(dayExpense),
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                            color = Color(0xFFF87171)
+                        )
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            "خالص",
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                            color = dayTitle
+                        )
+                        Text(
+                            money(dayIncome - dayExpense),
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                            color = if (dayIncome - dayExpense >= 0) Color(0xFF64C0AB)
+                            else Color(0xFFF87171)
+                        )
+                    }
                 }
             }
         }
@@ -531,10 +590,25 @@ fun CalendarScreen() {
                 }
             }
         }
-        item { Text("رویدادهای این روز", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.onSurface) }
         item {
-            Button(onClick = { showEventDialog = true }) {
-                Text("رویداد جدید")
+            // مرحله ۱۱۳: سربرگ رویدادها با تاریخ کامل + لینک متنی افزودن، مثل پرگار (فریم g_06).
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    "رویدادهای $selectedDayLabel",
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.weight(1f)
+                )
+                TextButton(
+                    onClick = { showEventDialog = true },
+                    contentPadding = PaddingValues(0.dp)
+                ) {
+                    Text("افزودن رویداد +", color = MaterialTheme.colorScheme.primary)
+                }
             }
         }
         if (dayEvents.isEmpty()) {
