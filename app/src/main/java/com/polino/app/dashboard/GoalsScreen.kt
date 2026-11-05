@@ -151,10 +151,6 @@ fun GoalsScreen(
     val totalSaved = goals.sumOf { it.savedAmount.coerceAtLeast(0) }
     val totalTarget = goals.sumOf { it.target }
     val overallFraction = goalsOverallFraction(goals)
-    val openTasks = tasks.count { !it.done }
-    val openReminders = cheques.count { !it.settled } +
-        installments.count { it.paidCount < it.monthCount }
-    val openPlans = plans.count { !it.done }
 
     Box(modifier = Modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize()) {
@@ -234,7 +230,7 @@ fun GoalsScreen(
                         GoalHubTile(
                             modifier = Modifier.weight(1f),
                             label = "اهداف",
-                            subtitle = if (goals.isEmpty()) "تعریف هدف" else "${goals.size} هدف",
+                            subtitle = goalsHubSubtitle(goals),
                             icon = Icons.Default.Flag,
                             active = true,
                             onClick = {
@@ -244,7 +240,7 @@ fun GoalsScreen(
                         GoalHubTile(
                             modifier = Modifier.weight(1f),
                             label = "کارها",
-                            subtitle = if (openTasks == 0) "انجام شده" else "$openTasks کار باز",
+                            subtitle = tasksHubSubtitle(tasks),
                             icon = Icons.Default.List,
                             active = false,
                             onClick = onNavigateToTasks
@@ -256,7 +252,7 @@ fun GoalsScreen(
                         GoalHubTile(
                             modifier = Modifier.weight(1f),
                             label = "برنامه‌ها",
-                            subtitle = "$openPlans برنامه",
+                            subtitle = plansHubSubtitle(plans),
                             icon = Icons.Default.EventNote,
                             active = false,
                             onClick = onNavigateToPlans
@@ -264,7 +260,7 @@ fun GoalsScreen(
                         GoalHubTile(
                             modifier = Modifier.weight(1f),
                             label = "یادداشت‌ها",
-                            subtitle = "${notes.size} یادداشت",
+                            subtitle = notesHubSubtitle(notes),
                             icon = Icons.Default.Note,
                             active = false,
                             onClick = onNavigateToNotes
@@ -274,7 +270,11 @@ fun GoalsScreen(
                 }
                 item {
                     GoalRemindersRow(
-                        countText = "$openReminders سررسید",
+                        countText = remindersHubSubtitle(
+                            cheques,
+                            installments,
+                            System.currentTimeMillis()
+                        ),
                         onClick = onNavigateToReminders
                     )
                 }
