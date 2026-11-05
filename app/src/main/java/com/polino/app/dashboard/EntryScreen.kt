@@ -42,6 +42,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -52,8 +53,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.polino.app.data.AccountEntity
 import com.polino.app.data.CategoryEntity
 import com.polino.app.data.MoneyTransaction
@@ -159,7 +164,7 @@ fun EntryScreen(
 
     LazyColumn(
         contentPadding = PaddingValues(20.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+        verticalArrangement = Arrangement.spacedBy(24.dp)
     ) {
         item {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -171,11 +176,12 @@ fun EntryScreen(
             }
         }
         item {
+            // مرحله ۱۰۸: قرص‌های باریک‌تر مثل پرگار؛ متن ساده بدون پیکان.
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 if (isExpense) {
                     Button(
                         onClick = { isExpense = true },
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier.weight(1f).height(36.dp),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = EntryRed,
                             contentColor = Color.White
@@ -184,13 +190,13 @@ fun EntryScreen(
                 } else {
                     OutlinedButton(
                         onClick = { isExpense = true },
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier.weight(1f).height(36.dp)
                     ) { Text("هزینه") }
                 }
                 if (!isExpense) {
                     Button(
                         onClick = { isExpense = false },
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier.weight(1f).height(36.dp),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = EntryGreen,
                             contentColor = Color.White
@@ -199,36 +205,37 @@ fun EntryScreen(
                 } else {
                     OutlinedButton(
                         onClick = { isExpense = false },
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier.weight(1f).height(36.dp)
                     ) { Text("درآمد") }
                 }
             }
         }
         item {
             val amountContainer = EntryDark
-            val amountBorder = Color(0xFF3D3368)
             val amountLabel = Color(0xFF9AA3B8)
+            // مرحله ۱۰۸: کارت شناور بدون بوردر مثل پرگار؛ برچسب یک خط،
+            // چیپ‌ها و ورودی صوتی در ردیف دوم، مبلغ بزرگ راست‌چین.
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(28.dp),
-                colors = CardDefaults.cardColors(containerColor = amountContainer),
-                border = BorderStroke(1.dp, amountBorder)
+                colors = CardDefaults.cardColors(containerColor = amountContainer)
             ) {
                 Column(
                     Modifier.padding(20.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
+                    Text(
+                        "مبلغ تراکنش (تومان)",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = amountLabel,
+                        maxLines = 1,
+                        modifier = Modifier.fillMaxWidth()
+                    )
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(
-                            "مبلغ تراکنش (تومان)",
-                            style = MaterialTheme.typography.labelLarge,
-                            color = amountLabel,
-                            modifier = Modifier.weight(1f)
-                        )
                         Surface(
                             shape = RoundedCornerShape(8.dp),
                             color = MaterialTheme.colorScheme.error
@@ -240,7 +247,6 @@ fun EntryScreen(
                                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                             )
                         }
-                        Spacer(Modifier.width(8.dp))
                         Surface(
                             shape = RoundedCornerShape(8.dp),
                             color = EntryGold
@@ -252,7 +258,7 @@ fun EntryScreen(
                                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                             )
                         }
-                        Spacer(Modifier.width(8.dp))
+                        Spacer(Modifier.weight(1f))
                         IconButton(onClick = {
                             val intent =
                                 Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
@@ -286,53 +292,67 @@ fun EntryScreen(
                         style = MaterialTheme.typography.displayLarge.copy(
                             fontWeight = FontWeight.Bold
                         ),
-                        color = if (isExpense) EntryRed else EntryGreen
+                        color = if (isExpense) EntryRed else EntryGreen,
+                        textAlign = TextAlign.Right,
+                        modifier = Modifier.fillMaxWidth()
                     )
                 }
             }
         }
         item {
+            // مرحله ۱۰۸: کیپد همیشه راست‌به‌چپ مثل پرگار — ۱ بالا-راست،
+            // ⌫ پایین-چپ؛ ترتیب فهرست دست نخورده چون با چیدمان راست‌به‌چپ
+            // سراسری برنامه همان‌طور رندر می‌شود (تأیید با ویدیوی پولینو).
+            // کلیدها باریک‌تر، با فاصله بیشتر و رقم‌های کوچک‌تر و سبک‌تر.
             val keys = listOf(
                 listOf("۱" to "1", "۲" to "2", "۳" to "3"),
                 listOf("۴" to "4", "۵" to "5", "۶" to "6"),
                 listOf("۷" to "7", "۸" to "8", "۹" to "9"),
                 listOf("۰۰۰" to "000", "۰" to "0", null)
             )
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                keys.forEach { row ->
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        row.forEach { key ->
-                            if (key == null) {
-                                Button(
-                                    onClick = { amountText = amountText.dropLast(1) },
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .height(84.dp),
-                                    shape = RoundedCornerShape(24.dp),
-                                    colors = ButtonDefaults.buttonColors(
-                                        containerColor = Color(0xFF4A2020),
-                                        contentColor = EntryRed
-                                    )
-                                ) {
-                                    Icon(
-                                        Icons.Default.Backspace,
-                                        contentDescription = "حذف رقم"
-                                    )
-                                }
-                            } else {
-                                Button(
-                                    onClick = { appendDigits(key.second) },
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .height(84.dp),
-                                    shape = RoundedCornerShape(24.dp),
-                                    colors = ButtonDefaults.buttonColors(
-                                        containerColor = Color(0xFF2A2150),
-                                        contentColor = Color(0xFFD8D0F5)
-                                    ),
-                                    border = BorderStroke(1.dp, Color(0xFF3D3368))
-                                ) {
-                                    Text(key.first, style = MaterialTheme.typography.titleLarge)
+            CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+                Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                    keys.forEach { row ->
+                        Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                            row.forEach { key ->
+                                if (key == null) {
+                                    Button(
+                                        onClick = { amountText = amountText.dropLast(1) },
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .height(64.dp),
+                                        shape = RoundedCornerShape(24.dp),
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = Color(0xFF4A2020),
+                                            contentColor = EntryRed
+                                        )
+                                    ) {
+                                        Icon(
+                                            Icons.Default.Backspace,
+                                            contentDescription = "حذف رقم"
+                                        )
+                                    }
+                                } else {
+                                    Button(
+                                        onClick = { appendDigits(key.second) },
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .height(64.dp),
+                                        shape = RoundedCornerShape(24.dp),
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = Color(0xFF2A2150),
+                                            contentColor = Color(0xFFD8D0F5)
+                                        ),
+                                        border = BorderStroke(1.dp, Color(0xFF3D3368))
+                                    ) {
+                                        Text(
+                                            key.first,
+                                            style = MaterialTheme.typography.titleMedium.copy(
+                                                fontSize = 20.sp,
+                                                fontWeight = FontWeight.Normal
+                                            )
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -342,7 +362,7 @@ fun EntryScreen(
         }
         item {
             Text("انتخاب حساب بانکی", style = MaterialTheme.typography.titleMedium)
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(12.dp))
             Row(
                 modifier = Modifier.horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -374,7 +394,7 @@ fun EntryScreen(
                     Text(if (showAllCategories) "پیشنهادها" else "همه دسته‌ها")
                 }
             }
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(12.dp))
             if (!showAllCategories && suggestions.isNotEmpty()) {
                 Row(
                     modifier = Modifier.horizontalScroll(rememberScrollState()),
@@ -451,7 +471,7 @@ fun EntryScreen(
         }
         item {
             Text("اطلاعات تکمیلی", style = MaterialTheme.typography.titleMedium)
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(12.dp))
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 OutlinedTextField(
                     value = title,
