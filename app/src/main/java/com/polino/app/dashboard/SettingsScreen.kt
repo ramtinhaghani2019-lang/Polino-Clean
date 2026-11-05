@@ -1,10 +1,11 @@
 package com.polino.app.dashboard
 
 import android.content.Context
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -30,7 +31,9 @@ import androidx.compose.material.icons.filled.Sms
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
@@ -74,6 +77,12 @@ private val SettingsMuted = Color(0xFFB3ACD6)
 private val SettingsPurple = Color(0xFFA855F7)
 private val SettingsGreen = Color(0xFF64C0AB)
 private val SettingsRed = Color(0xFFFB7185)
+
+// مرحله ۱۱۴: رنگ‌های نمونه‌برداری‌شده از فریم تنظیمات پرگار (f_07):
+// پس‌زمینه کارت گروهی، خط جداکننده ردیف‌ها و رنگ متن فرعی ردیف‌ها.
+private val SettingsGroupBg = Color(0xFF121532)
+private val SettingsDivider = Color(0xFF292147)
+private val SettingsRowMuted = Color(0xFFC0BDDD)
 
 /**
  * صفحه اختصاصی تنظیمات عین منوی تنظیمات پرگار: ردیف‌های امنیت و حریم
@@ -187,21 +196,31 @@ internal fun SettingsScreen(
         }
     }
 
+    // مرحله ۱۱۴: دکمه «بازگشت» داخل صفحه حذف شد (عین پرگار)؛ بازگشت با
+    // دکمه سیستمی انجام می‌شود. بدون این BackHandler حذف قرص بازگشت
+    // کاربر را در صفحه تنظیمات گیر می‌انداخت، چون MainActivity برای
+    // این صفحه هیچ BackHandlerای ندارد.
+    BackHandler(onBack = onBack)
+
     Box(modifier = Modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize()) {
-            Row(
-                modifier = Modifier.padding(20.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Button(onClick = onBack) { Text("بازگشت") }
-                Text("تنظیمات", style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.onSurface)
-            }
+            Text(
+                "تنظیمات",
+                style = MaterialTheme.typography.headlineSmall,
+                color = MaterialTheme.colorScheme.onSurface,
+                textAlign = TextAlign.Center,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 20.dp, top = 20.dp, end = 20.dp)
+            )
             Text(
                 "امنیت، پشتیبان‌گیری، خروجی و پیامک در یک جا",
                 style = MaterialTheme.typography.bodySmall,
-                modifier = Modifier.padding(start = 20.dp, end = 20.dp, bottom = 4.dp),
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 20.dp, end = 20.dp, top = 4.dp, bottom = 4.dp),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center
             )
             LazyColumn(
                 modifier = Modifier.weight(1f),
@@ -232,62 +251,67 @@ internal fun SettingsScreen(
                     }
                 }
                 item {
-                    SettingsRow(
-                        title = "امنیت و حریم خصوصی",
-                        subtitle = "قفل با پین‌کد، تشخیص چهره / اثر انگشت و بازنشانی کامل",
-                        icon = Icons.Default.Lock,
-                        onClick = { showSecuritySheet = true }
-                    )
-                }
-                item {
-                    SettingsRow(
-                        title = "پشتیبان‌گیری و دارایی",
-                        subtitle = "فهرست پشتیبان‌ها، ساخت، بازیابی و خروجی اکسل",
-                        icon = Icons.Default.Backup,
-                        onClick = { showBackupSheet = true }
-                    )
-                }
-                item {
-                    SettingsRow(
-                        title = "خروجی اطلاعات",
-                        subtitle = "انتخاب بازه و محتوای فایل اکسل",
-                        icon = Icons.Default.FileDownload,
-                        onClick = { showExportSheet = true }
-                    )
-                }
-                item {
-                    SettingsRow(
-                        title = "خوانش پیامک",
-                        subtitle = "ثبت خودکار تراکنش‌ها از پیامک بانکی",
-                        icon = Icons.Default.Sms,
-                        chip = if (smsEnabled) "فعال" else "غیرفعال",
-                        chipColor = if (smsEnabled) SettingsGreen else SettingsMuted,
-                        onClick = onNavigateToManagement
-                    )
-                }
-                item {
-                    SettingsRow(
-                        title = "مدیریت الگوهای پیامک",
-                        subtitle = "فرستنده‌های شناسایی‌شده و قوانین ثبت پیامک",
-                        icon = Icons.Default.List,
-                        onClick = { showPatternSheet = true }
-                    )
-                }
-                item {
-                    SettingsRow(
-                        title = "درباره پولینو",
-                        subtitle = "نسخه برنامه و معرفی پولینو",
-                        icon = Icons.Default.Info,
-                        onClick = { showAboutSheet = true }
-                    )
-                }
-                item {
-                    SettingsRow(
-                        title = "ارتباط با ما",
-                        subtitle = "کانال پشتیبانی پولینو",
-                        icon = Icons.Default.Email,
-                        onClick = { showContactSheet = true }
-                    )
+                    // مرحله ۱۱۴: همه ردیف‌ها در یک کارت گروهی واحد با
+                    // خط‌های جداکننده نازک، عین پرگار (f_07)؛ پیش از این
+                    // هر ردیف یک کارت جداگانه بود.
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(20.dp),
+                        colors = CardDefaults.cardColors(containerColor = SettingsGroupBg)
+                    ) {
+                        Column {
+                            SettingsRow(
+                                title = "امنیت و حریم خصوصی",
+                                subtitle = "قفل با پین‌کد، تشخیص چهره / اثر انگشت و بازنشانی کامل",
+                                icon = Icons.Default.Lock,
+                                onClick = { showSecuritySheet = true }
+                            )
+                            HorizontalDivider(color = SettingsDivider, thickness = 1.dp)
+                            SettingsRow(
+                                title = "پشتیبان‌گیری و دارایی",
+                                subtitle = "فهرست پشتیبان‌ها، ساخت، بازیابی و خروجی اکسل",
+                                icon = Icons.Default.Backup,
+                                onClick = { showBackupSheet = true }
+                            )
+                            HorizontalDivider(color = SettingsDivider, thickness = 1.dp)
+                            SettingsRow(
+                                title = "خروجی اطلاعات",
+                                subtitle = "انتخاب بازه و محتوای فایل اکسل",
+                                icon = Icons.Default.FileDownload,
+                                onClick = { showExportSheet = true }
+                            )
+                            HorizontalDivider(color = SettingsDivider, thickness = 1.dp)
+                            SettingsRow(
+                                title = "خوانش پیامک",
+                                subtitle = "ثبت خودکار تراکنش‌ها از پیامک بانکی",
+                                icon = Icons.Default.Sms,
+                                chip = if (smsEnabled) "فعال" else "غیرفعال",
+                                chipColor = if (smsEnabled) SettingsGreen else SettingsMuted,
+                                onClick = onNavigateToManagement
+                            )
+                            HorizontalDivider(color = SettingsDivider, thickness = 1.dp)
+                            SettingsRow(
+                                title = "مدیریت الگوهای پیامک",
+                                subtitle = "فرستنده‌های شناسایی‌شده و قوانین ثبت پیامک",
+                                icon = Icons.Default.List,
+                                onClick = { showPatternSheet = true }
+                            )
+                            HorizontalDivider(color = SettingsDivider, thickness = 1.dp)
+                            SettingsRow(
+                                title = "درباره پولینو",
+                                subtitle = "نسخه برنامه و معرفی پولینو",
+                                icon = Icons.Default.Info,
+                                onClick = { showAboutSheet = true }
+                            )
+                            HorizontalDivider(color = SettingsDivider, thickness = 1.dp)
+                            SettingsRow(
+                                title = "ارتباط با ما",
+                                subtitle = "کانال پشتیبانی پولینو",
+                                icon = Icons.Default.Email,
+                                onClick = { showContactSheet = true }
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -377,41 +401,39 @@ private fun SettingsRow(
     chipColor: Color = SettingsMuted,
     onClick: () -> Unit
 ) {
-    Card(
-        onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+    // مرحله ۱۱۴: ردیف داخل کارت گروهی — بدون کارت و حاشیه خودش؛ آیکون
+    // خطی سفید بدون کاشی، عین پرگار (f_07).
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Row(
-            Modifier.padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Icon(icon, contentDescription = title)
-            Column(Modifier.weight(1f)) {
-                Text(title, style = MaterialTheme.typography.titleMedium)
-                Text(subtitle, style = MaterialTheme.typography.bodySmall)
-            }
-            if (chip != null) {
-                Box(
-                    modifier = Modifier
-                        .background(
-                            chipColor.copy(alpha = 0.15f),
-                            RoundedCornerShape(12.dp)
-                        )
-                        .padding(horizontal = 10.dp, vertical = 4.dp)
-                ) {
-                    Text(
-                        chip,
-                        color = chipColor,
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-            }
-            Icon(Icons.Default.ChevronLeft, contentDescription = "باز کردن")
+        Icon(icon, contentDescription = title, tint = Color.White)
+        Column(Modifier.weight(1f)) {
+            Text(title, style = MaterialTheme.typography.titleMedium, color = Color.White)
+            Text(subtitle, style = MaterialTheme.typography.bodySmall, color = SettingsRowMuted)
         }
+        if (chip != null) {
+            Box(
+                modifier = Modifier
+                    .background(
+                        chipColor.copy(alpha = 0.15f),
+                        RoundedCornerShape(12.dp)
+                    )
+                    .padding(horizontal = 10.dp, vertical = 4.dp)
+            ) {
+                Text(
+                    chip,
+                    color = chipColor,
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
+        Icon(Icons.Default.ChevronLeft, contentDescription = "باز کردن", tint = Color.White)
     }
 }
 
