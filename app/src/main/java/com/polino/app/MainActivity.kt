@@ -244,6 +244,19 @@ private fun PolinoApp(
         return
     }
 
+    if (showCalculator) {
+        CalculatorSheet(
+            onDismiss = { showCalculator = false },
+            onUseAmount = { amount ->
+                calculatorAmount = amount
+                showCalculator = false
+                entryScreen = true
+            }
+        )
+    }
+
+    // مرحله ۱۱۲: ثبت تراکنش شیت پایینی است مثل پرگار؛ روی Scaffold باز می‌شود
+    // تا خانه پشت آن دیده شود، نه اینکه جای صفحه اصلی را بگیرد.
     if (entryScreen) {
         EntryScreen(
             initialAmount = calculatorAmount,
@@ -255,18 +268,6 @@ private fun PolinoApp(
                 entryScreen = false
                 calculatorAmount = ""
                 tab = Tab.Home
-            }
-        )
-        return
-    }
-
-    if (showCalculator) {
-        CalculatorSheet(
-            onDismiss = { showCalculator = false },
-            onUseAmount = { amount ->
-                calculatorAmount = amount
-                showCalculator = false
-                entryScreen = true
             }
         )
     }

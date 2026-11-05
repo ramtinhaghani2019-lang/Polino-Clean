@@ -1,10 +1,5 @@
 package com.polino.app.dashboard
 
-import android.app.Activity
-import android.content.Intent
-import android.speech.RecognizerIntent
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -15,14 +10,19 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.AccountBalance
+import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.Backspace
-import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Keyboard
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -35,12 +35,14 @@ import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDatePickerState
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -52,10 +54,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -66,7 +68,8 @@ import com.polino.app.data.TransactionRepository
 import com.polino.app.data.CategoryType
 import com.polino.app.data.mainCategories
 import com.polino.app.data.subcategoriesOf
-import com.polino.app.voice.parseSpokenAmount
+import java.text.NumberFormat
+import java.util.Locale
 import java.util.UUID
 import kotlinx.coroutines.launch
 
@@ -97,6 +100,7 @@ fun EntryScreen(
     var showDatePicker by remember { mutableStateOf(false) }
     var recentTransactions by remember { mutableStateOf<List<MoneyTransaction>>(emptyList()) }
     var showAllCategories by remember { mutableStateOf(false) }
+    var extraInfoExpanded by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf("") }
     val scope = rememberCoroutineScope()
 
@@ -123,21 +127,6 @@ fun EntryScreen(
     }
 
     val amount = amountText.toLongOrNull() ?: 0L
-    val voiceLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.StartActivityForResult()
-    ) { result ->
-        if (result.resultCode != Activity.RESULT_OK) return@rememberLauncherForActivityResult
-        val spoken = result.data
-            ?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
-            ?.firstOrNull()
-        val parsed = spoken?.let { parseSpokenAmount(it) }
-        if (parsed != null && parsed > 0L) {
-            amountText = parsed.toString()
-            error = ""
-        } else {
-            error = "مبلغ از گفتار تشخیص داده نشد."
-        }
-    }
     val datePickerState = rememberDatePickerState(initialSelectedDateMillis = dateMillis)
     if (showDatePicker) {
         DatePickerDialog(
@@ -162,25 +151,40 @@ fun EntryScreen(
         if (amountText.length + digits.length <= 12) amountText += digits
     }
 
+    // مرحله ۱۱۲: ثبت تراکنش شیت پایینی است مثل پرگار («ثبت سریع تراکنش»)؛
+    // شیت روی صفحه خانه باز می‌شود و محتوای کامل ورود را در خود دارد.
+    // دسته کشویی را خود شیت می‌کشد؛ رنگ شیت همان قرارداد CalculatorSheet است.
+    val isDarkSheet = MaterialTheme.colorScheme.background.luminance() < 0.5f
+    ModalBottomSheet(
+        onDismissRequest = onBack,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        containerColor = if (isDarkSheet) Color(0xFF1E1438) else MaterialTheme.colorScheme.surface
+    ) {
     LazyColumn(
         contentPadding = PaddingValues(20.dp),
         verticalArrangement = Arrangement.spacedBy(24.dp)
     ) {
         item {
+            // مرحله ۱۱۲: سربرگ شیت مثل پرگار — عنوان «ثبت سریع تراکنش» و ✕؛
+            // دسته کشویی را خود شیت می‌کشد؛ دکمه بازگشت حذف شد.
             Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    "ثبت سریع تراکنش",
+                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.weight(1f)
+                )
                 IconButton(onClick = onBack) {
                     Icon(
-                        Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = "بازگشت",
+                        Icons.Default.Close,
+                        contentDescription = "بستن",
                         tint = MaterialTheme.colorScheme.onSurface
                     )
                 }
-                Spacer(Modifier.width(8.dp))
-                Text("تراکنش جدید", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurface)
             }
         }
         item {
-            // مرحله ۱۰۸: قرص‌های باریک‌تر مثل پرگار؛ متن ساده بدون پیکان.
+            // مرحله ۱۱۲: دکمه‌ها با فلش مثل پرگار — «درآمد ↑» / «هزینه ↓».
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 if (isExpense) {
                     Button(
@@ -190,12 +194,12 @@ fun EntryScreen(
                             containerColor = EntryRed,
                             contentColor = Color.White
                         )
-                    ) { Text("هزینه") }
+                    ) { Text("هزینه ↓") }
                 } else {
                     OutlinedButton(
                         onClick = { isExpense = true },
                         modifier = Modifier.weight(1f).height(36.dp)
-                    ) { Text("هزینه") }
+                    ) { Text("هزینه ↓") }
                 }
                 if (!isExpense) {
                     Button(
@@ -205,24 +209,25 @@ fun EntryScreen(
                             containerColor = EntryGreen,
                             contentColor = Color.White
                         )
-                    ) { Text("درآمد") }
+                    ) { Text("درآمد ↑") }
                 } else {
                     OutlinedButton(
                         onClick = { isExpense = false },
                         modifier = Modifier.weight(1f).height(36.dp)
-                    ) { Text("درآمد") }
+                    ) { Text("درآمد ↑") }
                 }
             }
         }
         item {
             val amountContainer = EntryDark
             val amountLabel = Color(0xFF9AA3B8)
-            // مرحله ۱۰۸: کارت شناور بدون بوردر مثل پرگار؛ برچسب یک خط،
-            // چیپ‌ها و ورودی صوتی در ردیف دوم، مبلغ بزرگ راست‌چین.
+            // مرحله ۱۱۲: کارت مبلغ با حاشیه بنفش مثل پرگار؛ مبلغ کوچک
+            // (رقم سفید + واحد بنفش)؛ بدون میکروفون و «پاک کردن» در کارت.
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(28.dp),
-                colors = CardDefaults.cardColors(containerColor = amountContainer)
+                colors = CardDefaults.cardColors(containerColor = amountContainer),
+                border = BorderStroke(1.dp, Color(0xFF3D3368))
             ) {
                 Column(
                     Modifier.padding(20.dp),
@@ -251,71 +256,69 @@ fun EntryScreen(
                                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                             )
                         }
+                        Spacer(Modifier.weight(1f))
                         Surface(
                             shape = RoundedCornerShape(8.dp),
                             color = EntryGold
                         ) {
-                            Text(
-                                "کیپد فعال",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = Color.White,
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                            )
-                        }
-                        Spacer(Modifier.weight(1f))
-                        IconButton(onClick = {
-                            val intent =
-                                Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-                                    putExtra(
-                                        RecognizerIntent.EXTRA_LANGUAGE_MODEL,
-                                        RecognizerIntent.LANGUAGE_MODEL_FREE_FORM
-                                    )
-                                    putExtra(RecognizerIntent.EXTRA_LANGUAGE, "fa-IR")
-                                    putExtra(
-                                        RecognizerIntent.EXTRA_PROMPT,
-                                        "مبلغ را بگویید؛ مثلاً پانصد هزار تومان"
-                                    )
-                                }
-                            runCatching { voiceLauncher.launch(intent) }
-                                .onFailure {
-                                    error = "تشخیص گفتار روی این گوشی در دسترس نیست."
-                                }
-                        }) {
-                            Icon(
-                                Icons.Default.Mic,
-                                contentDescription = "ورودی صوتی",
-                                tint = EntryGold
-                            )
-                        }
-                        TextButton(onClick = { amountText = "" }) {
-                            Text("پاک کردن", color = EntryGold)
+                            Row(
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    Icons.Default.Keyboard,
+                                    contentDescription = null,
+                                    tint = Color.White,
+                                    modifier = Modifier.size(14.dp)
+                                )
+                                Spacer(Modifier.width(4.dp))
+                                Text(
+                                    "کیپد فعال",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = Color.White
+                                )
+                            }
                         }
                     }
-                    Text(
-                        money(amount),
-                        style = MaterialTheme.typography.displayLarge.copy(
-                            fontWeight = FontWeight.Bold
-                        ),
-                        color = if (isExpense) EntryRed else EntryGreen,
-                        textAlign = TextAlign.Right,
-                        modifier = Modifier.fillMaxWidth()
-                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            NumberFormat.getIntegerInstance(Locale("fa", "IR")).format(amount),
+                            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                            color = Color.White
+                        )
+                        Text(
+                            "تومان",
+                            style = MaterialTheme.typography.titleLarge,
+                            color = EntryGold
+                        )
+                    }
                 }
             }
         }
         item {
-            // مرحله ۱۰۸: کیپد همیشه راست‌به‌چپ مثل پرگار — ۱ بالا-راست،
-            // ⌫ پایین-چپ؛ ترتیب فهرست دست نخورده چون با چیدمان راست‌به‌چپ
-            // سراسری برنامه همان‌طور رندر می‌شود (تأیید با ویدیوی پولینو).
-            // کلیدها باریک‌تر، با فاصله بیشتر و رقم‌های کوچک‌تر و سبک‌تر.
+            // مرحله ۱۱۲: کیپد چپ‌به‌راست مثل پرگار — ۱ بالا-چپ، ⌫ پایین-راست؛
+            // فقط کیپد به چپ‌به‌راست محدود شده، بقیه برنامه راست‌به‌چپ می‌ماند.
+            // کلیدها داخل یک قاب تیره با حاشیه‌اند؛ باریکی و فاصله از ۱۰۸ می‌ماند.
             val keys = listOf(
                 listOf("۱" to "1", "۲" to "2", "۳" to "3"),
                 listOf("۴" to "4", "۵" to "5", "۶" to "6"),
                 listOf("۷" to "7", "۸" to "8", "۹" to "9"),
                 listOf("۰۰۰" to "000", "۰" to "0", null)
             )
-            CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
-                Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            Card(
+                shape = RoundedCornerShape(24.dp),
+                border = BorderStroke(1.dp, Color(0xFF3D3368)),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF171233))
+            ) {
+            CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+                Column(
+                    Modifier.padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(14.dp)
+                ) {
                     keys.forEach { row ->
                         Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                             row.forEach { key ->
@@ -363,6 +366,7 @@ fun EntryScreen(
                     }
                 }
             }
+            }
         }
         item {
             Text("انتخاب حساب بانکی", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
@@ -372,15 +376,41 @@ fun EntryScreen(
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 accounts.forEach { account ->
-                    FilterChip(
-                        selected = selectedAccountId == account.id,
+                    // مرحله ۱۱۲: قرص پرشده با آیکون بانک و برچسب دوخطی مثل پرگار؛
+                    // انتخاب‌شده بنفش پررنگ، بقیه تیره با حاشیه.
+                    val selectedAccount = selectedAccountId == account.id
+                    Surface(
                         onClick = { selectedAccountId = account.id },
-                        label = { Text(account.name) },
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = MaterialTheme.colorScheme.primary,
-                            selectedLabelColor = Color.White
-                        )
-                    )
+                        shape = RoundedCornerShape(16.dp),
+                        color = if (selectedAccount) EntryGold else Color(0xFF2A2150),
+                        border = if (selectedAccount) null else BorderStroke(1.dp, Color(0xFF3D3368))
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                if (account.bankName != null) Icons.Default.AccountBalance else Icons.Default.AccountBalanceWallet,
+                                contentDescription = null,
+                                tint = Color.White,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Column {
+                                Text(
+                                    account.name,
+                                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                                    color = Color.White,
+                                    maxLines = 1
+                                )
+                                Text(
+                                    if (account.bankName != null) "بانک" else "نقدی",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = Color(0xFFD8D0F5)
+                                )
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -413,6 +443,8 @@ fun EntryScreen(
                                 amountText = suggestion.amount.toString()
                                 error = ""
                             },
+                            // مرحله ۱۱۲: چیپ پیشنهاد فقط آیکون + برچسب است مثل پرگار؛
+                            // مبلغ نمایش داده نمی‌شود، ولی با زدن چیپ همان‌طور پر می‌شود.
                             label = {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Icon(
@@ -420,13 +452,7 @@ fun EntryScreen(
                                         contentDescription = null
                                     )
                                     Spacer(Modifier.width(4.dp))
-                                    Column {
-                                        Text(suggestion.category)
-                                        Text(
-                                            money(suggestion.amount),
-                                            style = MaterialTheme.typography.labelSmall
-                                        )
-                                    }
+                                    Text(suggestion.category)
                                 }
                             },
                             colors = FilterChipDefaults.filterChipColors(
@@ -475,9 +501,35 @@ fun EntryScreen(
             }
         }
         item {
-            Text("اطلاعات تکمیلی", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
-            Spacer(Modifier.height(12.dp))
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            // مرحله ۱۱۲: اطلاعات تکمیلی یک ردیف جمع‌شده با فلش بازشونده است مثل پرگار؛
+            // فیلدها فقط در حالت باز دیده می‌شوند.
+            Surface(
+                onClick = { extraInfoExpanded = !extraInfoExpanded },
+                shape = RoundedCornerShape(16.dp),
+                border = BorderStroke(1.dp, Color(0xFF3D3368)),
+                color = Color(0xFF2A2150)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        "اطلاعات تکمیلی (تاریخ، بابت، فروشگاه)",
+                        color = Color.White,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Icon(
+                        if (extraInfoExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                        contentDescription = null,
+                        tint = Color(0xFFD8D0F5)
+                    )
+                }
+            }
+            if (extraInfoExpanded) {
+                Spacer(Modifier.height(12.dp))
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 OutlinedTextField(
                     value = title,
                     onValueChange = { title = it },
@@ -507,6 +559,7 @@ fun EntryScreen(
                     Text("تاریخ تراکنش: ${JalaliDate.formatJalali(dateMillis)}", color = MaterialTheme.colorScheme.onSurface)
                     TextButton(onClick = { showDatePicker = true }) { Text("تغییر تاریخ") }
                 }
+            }
             }
         }
         if (error.isNotEmpty()) {
@@ -554,5 +607,6 @@ fun EntryScreen(
                 Text("ثبت و ذخیره تراکنش ✓", style = MaterialTheme.typography.titleLarge)
             }
         }
+    }
     }
 }
