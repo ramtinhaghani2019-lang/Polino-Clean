@@ -334,9 +334,10 @@ fun FinanceDashboard(
                         style = MaterialTheme.typography.titleMedium.copy(
                             fontSize = 20.sp,
                             fontWeight = FontWeight.Bold
-                        )
+                        ),
+                        color = MaterialTheme.colorScheme.onSurface
                     )
-                    Text("نسخه ${BuildConfig.VERSION_NAME}", style = MaterialTheme.typography.labelMedium)
+                    Text("نسخه ${BuildConfig.VERSION_NAME}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
             if (error.isNotEmpty()) {
@@ -947,7 +948,7 @@ fun TransactionsScreen(onBack: () -> Unit) {
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Button(onClick = onBack) { Text("بازگشت") }
-            Text("تراکنش‌ها", style = MaterialTheme.typography.headlineSmall)
+            Text("تراکنش‌ها", style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.onSurface)
         }
         if (error.isNotEmpty()) {
             Text(

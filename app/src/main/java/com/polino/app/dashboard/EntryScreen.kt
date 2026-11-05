@@ -169,10 +169,14 @@ fun EntryScreen(
         item {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onBack) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "بازگشت")
+                    Icon(
+                        Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "بازگشت",
+                        tint = MaterialTheme.colorScheme.onSurface
+                    )
                 }
                 Spacer(Modifier.width(8.dp))
-                Text("تراکنش جدید", style = MaterialTheme.typography.titleLarge)
+                Text("تراکنش جدید", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurface)
             }
         }
         item {
@@ -361,7 +365,7 @@ fun EntryScreen(
             }
         }
         item {
-            Text("انتخاب حساب بانکی", style = MaterialTheme.typography.titleMedium)
+            Text("انتخاب حساب بانکی", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
             Spacer(Modifier.height(12.dp))
             Row(
                 modifier = Modifier.horizontalScroll(rememberScrollState()),
@@ -388,7 +392,8 @@ fun EntryScreen(
             ) {
                 Text(
                     if (showAllCategories) "همه دسته‌ها" else "پیشنهادها",
-                    style = MaterialTheme.typography.titleMedium
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurface
                 )
                 TextButton(onClick = { showAllCategories = !showAllCategories }) {
                     Text(if (showAllCategories) "پیشنهادها" else "همه دسته‌ها")
@@ -470,7 +475,7 @@ fun EntryScreen(
             }
         }
         item {
-            Text("اطلاعات تکمیلی", style = MaterialTheme.typography.titleMedium)
+            Text("اطلاعات تکمیلی", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
             Spacer(Modifier.height(12.dp))
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 OutlinedTextField(
@@ -499,7 +504,7 @@ fun EntryScreen(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("تاریخ تراکنش: ${JalaliDate.formatJalali(dateMillis)}")
+                    Text("تاریخ تراکنش: ${JalaliDate.formatJalali(dateMillis)}", color = MaterialTheme.colorScheme.onSurface)
                     TextButton(onClick = { showDatePicker = true }) { Text("تغییر تاریخ") }
                 }
             }

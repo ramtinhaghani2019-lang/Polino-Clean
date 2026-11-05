@@ -138,7 +138,7 @@ internal fun DebtsScreen(
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Button(onClick = onBack) { Text("بازگشت") }
-            Text("طلب و بدهی", style = MaterialTheme.typography.headlineSmall)
+            Text("طلب و بدهی", style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.onSurface)
         }
         LazyColumn(
             modifier = Modifier.weight(1f),
@@ -146,7 +146,7 @@ internal fun DebtsScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             item {
-                Text("طلب‌های باز: ${money(receivableTotal)} — بدهی‌های باز: ${money(payableTotal)}")
+                Text("طلب‌های باز: ${money(receivableTotal)} — بدهی‌های باز: ${money(payableTotal)}", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             item {
                 OutlinedTextField(

@@ -90,14 +90,15 @@ fun RemindersScreen(onBack: () -> Unit) {
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Button(onClick = onBack) { Text("بازگشت") }
-            Text("یادآورها", style = MaterialTheme.typography.headlineSmall)
+            Text("یادآورها", style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.onSurface)
         }
         when (section) {
             RemindersSection.HUB -> {
                 Text(
                     "یک‌جا، همه سررسیدها",
                     style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
-                    modifier = Modifier.padding(start = 20.dp, end = 20.dp, bottom = 4.dp)
+                    modifier = Modifier.padding(start = 20.dp, end = 20.dp, bottom = 4.dp),
+                    color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
                     "برای ورود به هر بخش، یکی از گزینه‌های زیر را انتخاب کنید.",

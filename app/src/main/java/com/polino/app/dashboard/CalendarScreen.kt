@@ -180,8 +180,8 @@ fun CalendarScreen() {
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         item {
-            Text("تقویم مالی", style = MaterialTheme.typography.headlineSmall)
-            Text("جریان روزانه و روزهای دارای تراکنش", style = MaterialTheme.typography.labelMedium)
+            Text("تقویم مالی", style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.onSurface)
+            Text("جریان روزانه و روزهای دارای تراکنش", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         item {
             Row(
@@ -219,7 +219,8 @@ fun CalendarScreen() {
                 }
                 Text(
                     JalaliDate.jalaliMonthDisplay(selectedYearMonth),
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                    color = MaterialTheme.colorScheme.onSurface
                 )
                 OutlinedButton(
                     onClick = { goToMonth(nextJalaliYearMonth(selectedYearMonth)) },
@@ -493,9 +494,9 @@ fun CalendarScreen() {
                 }
             }
         }
-        item { Text("تراکنش‌های این روز", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)) }
+        item { Text("تراکنش‌های این روز", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.onSurface) }
         if (dayTransactions.isEmpty()) {
-            item { Text("در این روز تراکنشی ثبت نشده است.") }
+            item { Text("در این روز تراکنشی ثبت نشده است.", color = MaterialTheme.colorScheme.onSurfaceVariant) }
         }
         items(dayTransactions.sortedByDescending { it.dateMillis }) { transaction ->
             Card(
@@ -530,14 +531,14 @@ fun CalendarScreen() {
                 }
             }
         }
-        item { Text("رویدادهای این روز", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)) }
+        item { Text("رویدادهای این روز", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.onSurface) }
         item {
             Button(onClick = { showEventDialog = true }) {
                 Text("رویداد جدید")
             }
         }
         if (dayEvents.isEmpty()) {
-            item { Text("در این روز رویدادی ثبت نشده است.") }
+            item { Text("در این روز رویدادی ثبت نشده است.", color = MaterialTheme.colorScheme.onSurfaceVariant) }
         } else {
             dayEvents.forEach { event ->
                 item {

@@ -104,7 +104,7 @@ fun SmartBudgetScreen(onBack: () -> Unit) {
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Button(onClick = onBack) { Text("بازگشت") }
-            Text("بودجه‌بندی هوشمند", style = MaterialTheme.typography.headlineSmall)
+            Text("بودجه‌بندی هوشمند", style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.onSurface)
         }
         LazyColumn(
             modifier = Modifier.weight(1f),

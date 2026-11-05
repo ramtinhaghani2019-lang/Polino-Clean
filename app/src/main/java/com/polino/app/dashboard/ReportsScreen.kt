@@ -387,7 +387,7 @@ fun ReportsScreen(onBack: () -> Unit) {
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Button(onClick = onBack) { Text("بازگشت") }
-            Text("گزارش و بودجه", style = MaterialTheme.typography.headlineSmall)
+            Text("گزارش و بودجه", style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.onSurface)
         }
         LazyColumn(
             modifier = Modifier.weight(1f),
@@ -608,10 +608,10 @@ fun ReportsScreen(onBack: () -> Unit) {
                     maxValue = maxBucket
                 )
             }
-            item { Text("هزینه‌ها به تفکیک دسته", style = MaterialTheme.typography.titleMedium) }
+            item { Text("هزینه‌ها به تفکیک دسته", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface) }
             val maxSpent = periodSpent.maxOfOrNull { it.second } ?: 1L
             if (periodSpent.isEmpty()) {
-                item { Text("در این بازه هزینه‌ای ثبت نشده است.") }
+                item { Text("در این بازه هزینه‌ای ثبت نشده است.", color = MaterialTheme.colorScheme.onSurfaceVariant) }
             } else {
                 periodSpent.forEach { (category, amount) ->
                     item {
@@ -620,8 +620,8 @@ fun ReportsScreen(onBack: () -> Unit) {
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
-                                Text(category)
-                                Text(money(amount))
+                                Text(category, color = MaterialTheme.colorScheme.onSurface)
+                                Text(money(amount), color = MaterialTheme.colorScheme.onSurface)
                             }
                             LinearProgressIndicator(
                                 progress = {
@@ -633,9 +633,9 @@ fun ReportsScreen(onBack: () -> Unit) {
                     }
                 }
             }
-            item { Text("رادار مالی", style = MaterialTheme.typography.titleMedium) }
+            item { Text("رادار مالی", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface) }
             if (radarInsights.isEmpty()) {
-                item { Text("هنوز داده‌ای برای تحلیل رادار نیست.") }
+                item { Text("هنوز داده‌ای برای تحلیل رادار نیست.", color = MaterialTheme.colorScheme.onSurfaceVariant) }
             } else {
                 radarInsights.forEach { insight ->
                     item {
@@ -653,7 +653,7 @@ fun ReportsScreen(onBack: () -> Unit) {
                     }
                 }
             }
-            item { Text("روند ۶ ماه اخیر", style = MaterialTheme.typography.titleMedium) }
+            item { Text("روند ۶ ماه اخیر", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface) }
             val trendBase = if (selectedAccountId == "all") transactions
             else transactions.filter { it.accountId == selectedAccountId }
             val trend = monthlyTrend(trendBase, JalaliDate.lastJalaliYearMonths(6, selectedYearMonth))
@@ -662,9 +662,9 @@ fun ReportsScreen(onBack: () -> Unit) {
             item {
                 CashFlowBarChartCard(months = trend, maxValue = maxTrend)
             }
-            item { Text("بودجه‌های ماه ${JalaliDate.jalaliMonthDisplay(selectedYearMonth)}", style = MaterialTheme.typography.titleMedium) }
+            item { Text("بودجه‌های ماه ${JalaliDate.jalaliMonthDisplay(selectedYearMonth)}", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface) }
             if (budgets.isEmpty()) {
-                item { Text("هنوز بودجه‌ای تعیین نشده است.") }
+                item { Text("هنوز بودجه‌ای تعیین نشده است.", color = MaterialTheme.colorScheme.onSurfaceVariant) }
             }
             budgets.forEach { budget ->
                 val spentAmount = spentAll.firstOrNull { it.first == budget.category }?.second ?: 0L
@@ -722,7 +722,7 @@ fun ReportsScreen(onBack: () -> Unit) {
                     Text("تعیین بودجه")
                 }
             }
-            item { Text("پشتیبان‌گیری", style = MaterialTheme.typography.titleMedium) }
+            item { Text("پشتیبان‌گیری", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface) }
             item {
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     Button(onClick = { exportLauncher.launch("polino-backup.json") }) {
@@ -951,7 +951,8 @@ private fun PeriodBucketChartCard(
                 Text(
                     "${selected.label}: " +
                         "درآمد ${money(selected.income)} · هزینه ${money(selected.expense)}",
-                    style = MaterialTheme.typography.bodyMedium
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface
                 )
             }
         }
@@ -1043,7 +1044,8 @@ private fun CashFlowBarChartCard(months: List<MonthTrend>, maxValue: Long) {
                 Text(
                     "${JalaliDate.jalaliMonthDisplay(selected.yearMonth)}: " +
                         "درآمد ${money(selected.income)} · هزینه ${money(selected.expense)}",
-                    style = MaterialTheme.typography.bodyMedium
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface
                 )
             }
         }

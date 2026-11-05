@@ -139,12 +139,16 @@ internal fun CategoryManagerScreen(
         item {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onBack) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "بازگشت")
+                    Icon(
+                        Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "بازگشت",
+                        tint = MaterialTheme.colorScheme.onSurface
+                    )
                 }
                 Spacer(Modifier.width(8.dp))
                 Column {
-                    Text("مدیریت دسته‌ها", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold))
-                    Text("${categories.size} دسته", style = MaterialTheme.typography.bodySmall, color = CategoryManagerMuted)
+                    Text("مدیریت دسته‌ها", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.onSurface)
+                    Text("${categories.size} دسته", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         }

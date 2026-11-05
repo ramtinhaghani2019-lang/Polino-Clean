@@ -195,12 +195,13 @@ internal fun SettingsScreen(
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 Button(onClick = onBack) { Text("بازگشت") }
-                Text("تنظیمات", style = MaterialTheme.typography.headlineSmall)
+                Text("تنظیمات", style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.onSurface)
             }
             Text(
                 "امنیت، پشتیبان‌گیری، خروجی و پیامک در یک جا",
                 style = MaterialTheme.typography.bodySmall,
-                modifier = Modifier.padding(start = 20.dp, end = 20.dp, bottom = 4.dp)
+                modifier = Modifier.padding(start = 20.dp, end = 20.dp, bottom = 4.dp),
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             LazyColumn(
                 modifier = Modifier.weight(1f),

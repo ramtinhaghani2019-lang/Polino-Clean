@@ -103,7 +103,7 @@ internal fun AccountsScreen(
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Button(onClick = onBack) { Text("بازگشت") }
-            Text("حساب‌ها و کارت‌های بانکی", style = MaterialTheme.typography.headlineSmall)
+            Text("حساب‌ها و کارت‌های بانکی", style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.onSurface)
         }
         LazyColumn(
             modifier = Modifier.weight(1f),
@@ -111,7 +111,7 @@ internal fun AccountsScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             item {
-                Text("${accounts.size} حساب")
+                Text("${accounts.size} حساب", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             if (accounts.isEmpty()) {
                 item {

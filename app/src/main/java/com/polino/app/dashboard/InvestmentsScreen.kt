@@ -148,18 +148,23 @@ internal fun InvestmentsScreen(
         item {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onBack) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "بازگشت")
+                    Icon(
+                        Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "بازگشت",
+                        tint = MaterialTheme.colorScheme.onSurface
+                    )
                 }
                 Spacer(Modifier.width(8.dp))
                 Column {
                     Text(
                         "سرمایه‌گذاری و دارایی‌ها",
-                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
+                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
                         "${assets.size} دارایی فعال",
                         style = MaterialTheme.typography.bodySmall,
-                        color = InvestmentMuted
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }

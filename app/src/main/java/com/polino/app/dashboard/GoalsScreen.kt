@@ -160,12 +160,13 @@ fun GoalsScreen(
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 Button(onClick = onBack) { Text("بازگشت") }
-                Text("اهداف و برنامه‌ریزی", style = MaterialTheme.typography.headlineSmall)
+                Text("اهداف و برنامه‌ریزی", style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.onSurface)
             }
             Text(
                 "وضعیت کل اهداف و برنامه‌های مالی",
                 style = MaterialTheme.typography.bodySmall,
-                modifier = Modifier.padding(start = 20.dp, end = 20.dp, bottom = 4.dp)
+                modifier = Modifier.padding(start = 20.dp, end = 20.dp, bottom = 4.dp),
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             LazyColumn(
                 state = listState,
@@ -338,7 +339,7 @@ fun GoalsScreen(
                         }
                     }
                 } else if (filteredGoals.isEmpty()) {
-                    item { Text("در این وضعیت هدفی نیست.") }
+                    item { Text("در این وضعیت هدفی نیست.", color = MaterialTheme.colorScheme.onSurfaceVariant) }
                 } else {
                     filteredGoals.forEach { goal ->
                         item {

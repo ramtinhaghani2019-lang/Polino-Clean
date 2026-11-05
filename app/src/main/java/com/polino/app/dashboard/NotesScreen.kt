@@ -84,12 +84,13 @@ internal fun NotesScreen(onBack: () -> Unit) {
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Button(onClick = onBack) { Text("بازگشت") }
-            Text("یادداشت‌ها", style = MaterialTheme.typography.headlineSmall)
+            Text("یادداشت‌ها", style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.onSurface)
         }
         Text(
             "${notes.size} یادداشت",
             style = MaterialTheme.typography.bodySmall,
-            modifier = Modifier.padding(start = 20.dp, end = 20.dp, bottom = 4.dp)
+            modifier = Modifier.padding(start = 20.dp, end = 20.dp, bottom = 4.dp),
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         LazyColumn(
             modifier = Modifier.weight(1f),

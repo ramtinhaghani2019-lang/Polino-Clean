@@ -340,6 +340,7 @@ fun ManagementScreen(
                 Text(
                     "مدیریت مالی",
                     style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
+                    color = MaterialTheme.colorScheme.onSurface,
                     textAlign = TextAlign.Center
                 )
                 Text(
@@ -522,7 +523,7 @@ fun ManagementScreen(
                 tileColor = Color(0xFF0EA5E9)
             )
         }
-        item { Text("بخش‌ها", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)) }
+        item { Text("بخش‌ها", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.onSurface) }
         item {
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -740,7 +741,7 @@ fun ManagementScreen(
                 contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 32.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-        item { Text("اقساط", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)) }
+        item { Text("اقساط", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.onSurface) }
         item {
             Button(onClick = { showInstallmentDialog = true }) {
                 Text("قسط جدید")
@@ -871,14 +872,14 @@ fun ManagementScreen(
                 contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 32.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-        item { Text("کارها و یادآورها", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)) }
+        item { Text("کارها و یادآورها", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.onSurface) }
         item {
             Button(onClick = { showTaskDialog = true }) {
                 Text("کار جدید")
             }
         }
         if (tasks.isEmpty()) {
-            item { Text("هنوز کاری ثبت نشده است.") }
+            item { Text("هنوز کاری ثبت نشده است.", color = MaterialTheme.colorScheme.onSurfaceVariant) }
         } else {
             tasks.forEach { task ->
                 item {
@@ -949,7 +950,7 @@ fun ManagementScreen(
                 contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 32.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-        item { Text("محاسبه دنگی", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)) }
+        item { Text("محاسبه دنگی", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.onSurface) }
         item {
             var dongiMembers by remember {
                 mutableStateOf(
@@ -1083,7 +1084,7 @@ fun ManagementScreen(
                             }
                         }
                     }
-                    Text("اعضای گروه و مبالغ پرداختی", style = MaterialTheme.typography.titleMedium)
+                    Text("اعضای گروه و مبالغ پرداختی", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
                     dongiMembers.forEachIndexed { index, member ->
                         val share = dongiSharesList.getOrNull(index) ?: 0L
                         val balance = member.paid.coerceAtLeast(0L) - share
@@ -1205,7 +1206,7 @@ fun ManagementScreen(
                             )
                         ) { Text("+ افزودن شخص") }
                     }
-                    Text("تسویه‌حساب و پرداخت‌ها", style = MaterialTheme.typography.titleMedium)
+                    Text("تسویه‌حساب و پرداخت‌ها", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
                     if (dongiSettlementsList.isEmpty()) {
                         Card(
                             modifier = Modifier.fillMaxWidth(),
