@@ -312,7 +312,7 @@ private fun PolinoApp(
             }
         },
         floatingActionButton = {
-            if (tab == Tab.Home) {
+            if (tab == Tab.Home || tab == Tab.Management) {
                 FloatingActionButton(
                     onClick = { showCalculator = true },
                     containerColor = NavPurple,

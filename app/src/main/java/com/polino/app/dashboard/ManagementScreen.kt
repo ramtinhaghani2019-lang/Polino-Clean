@@ -103,6 +103,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.polino.app.data.AccountEntity
 import com.polino.app.data.AccountSmsSenderEntity
 import com.polino.app.data.BudgetRepository
@@ -367,14 +368,6 @@ fun ManagementScreen(
             }
         }
         item {
-            ManagementCard(
-                title = "تنظیمات",
-                subtitle = "امنیت، پشتیبان‌گیری، خروجی، پیامک و درباره برنامه",
-                icon = Icons.Default.Settings,
-                onClick = onShowSettings
-            )
-        }
-        item {
             val isDarkHub = MaterialTheme.colorScheme.background.luminance() < 0.5f
             val hubContainer = if (isDarkHub) Color(0xFF1E1438) else MaterialTheme.colorScheme.surface
             val hubBorder = if (isDarkHub) Color(0xFF3D3368) else MaterialTheme.colorScheme.outline
@@ -416,22 +409,37 @@ fun ManagementScreen(
                                 tint = Color.White
                             )
                         }
-                        Column(Modifier.weight(1f)) {
+                        Column(Modifier.weight(1.1f)) {
                             Text(
                                 "خلاصه دارایی",
                                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                                color = hubNumber
+                                color = hubNumber,
+                                maxLines = 1
                             )
                             Text(
                                 "مجموع مانده نقدی",
                                 style = MaterialTheme.typography.bodySmall,
-                                color = hubLabel
+                                color = hubLabel,
+                                maxLines = 1
                             )
                         }
+                        // مرحله ۱۲۲: مبلغ با اندازه تطبیقی — اگر در سهم خودش جا نشد
+                        // کوچک می‌شود تا عنوان «خلاصه دارایی» هرگز بریده نشود.
+                        var amountSize by remember(money(totalBalance)) { mutableStateOf(20.sp) }
                         Text(
                             money(totalBalance),
-                            style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
-                            color = hubAmountColor
+                            style = MaterialTheme.typography.headlineSmall.copy(
+                                fontWeight = FontWeight.Bold,
+                                fontSize = amountSize
+                            ),
+                            color = hubAmountColor,
+                            maxLines = 1,
+                            modifier = Modifier.weight(1.4f, fill = false),
+                            onTextLayout = { result ->
+                                if (result.hasVisualOverflow && amountSize > 12.sp) {
+                                    amountSize -= 2.sp
+                                }
+                            }
                         )
                     }
                     HorizontalDivider(color = hubBorder, thickness = 1.dp)
@@ -465,75 +473,136 @@ fun ManagementScreen(
             }
         }
         item {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(20.dp),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
-            ) {
-                Column(
-                    Modifier.padding(14.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Text("تم برنامه", style = MaterialTheme.typography.titleMedium)
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        listOf("system" to "سیستم", "light" to "روشن", "dark" to "تیره")
-                            .forEach { (mode, label) ->
-                                FilterChip(
-                                    selected = themeMode == mode,
-                                    onClick = { onThemeModeChange(mode) },
-                                    label = { Text(label) }
-                                )
-                            }
-                    }
-                }
-            }
-        }
-        item {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(20.dp),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
-            ) {
-                Column(
-                    Modifier.padding(14.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Row(
-                        Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text("قفل برنامه", style = MaterialTheme.typography.titleMedium)
-                        Switch(
-                            checked = lockEnabled,
-                            onCheckedChange = onLockChange
-                        )
-                    }
-                    Text(
-                        "با اثر انگشت یا رمز دستگاه باز می‌شود؛ از اجرای بعد فعال است.",
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                }
-            }
-        }
-        item {
             ManagementCard(
-                title = "امنیت و حریم خصوصی",
-                subtitle = "قفل با پین‌کد، تشخیص چهره / اثر انگشت و بازنشانی کامل",
-                icon = Icons.Default.Lock,
-                onClick = { showSecuritySheet = true },
-                statusChip = if (lockEnabled) "فعال" else "خاموش",
-                statusChipPositive = lockEnabled,
-                tileColor = Color(0xFF6366F1)
+                title = "حساب‌ها و کارت‌ها",
+                subtitle = "مدیریت موجودی، کارت‌ها و پیامک‌های بانکی",
+                icon = Icons.Default.AccountBalanceWallet,
+                onClick = onShowAccounts,
+                statusChip = "${persianNumber(accounts.size)} حساب بانکی",
+                tileColor = Color(0xFF3B82F6)
             )
         }
         item {
             ManagementCard(
-                title = "پشتیبان‌گیری و دارایی",
-                subtitle = "فهرست پشتیبان‌ها، ساخت، بازیابی و خروجی اکسل",
-                icon = Icons.Default.Backup,
-                onClick = { showBackupSheet = true },
-                tileColor = Color(0xFF0EA5E9)
+                title = "اهداف و برنامه‌ریزی",
+                subtitle = "پس‌انداز هدفمند و نقشه‌راه مالی",
+                icon = Icons.Default.Flag,
+                onClick = onShowGoals,
+                statusChip = if (goals.isEmpty()) "شروع هدف جدید" else "${persianNumber(goals.size)} هدف",
+                tileColor = Color(0xFF10B981)
+            )
+        }
+        item {
+            ManagementCard(
+                title = "سرمایه‌گذاری و دارایی‌ها",
+                subtitle = "ثبت طلا، ارز، سهام، ملک و پیگیری سود",
+                icon = Icons.Default.TrendingUp,
+                onClick = onShowInvestments,
+                statusChip = "${persianNumber(assets.size)} دارایی",
+                tileColor = Color(0xFF14B8A6)
+            )
+        }
+        item {
+            ManagementCard(
+                title = "بودجه‌بندی هوشمند",
+                subtitle = "سقف هزینه‌ها و هشدار انحراف بودجه",
+                icon = Icons.Default.PieChart,
+                onClick = onNavigateToSmartBudget,
+                statusChip = if (budgetCount == 0) "تعریف بودجه" else "${persianNumber(budgetCount)} بودجه",
+                statusChipPositive = budgetCount > 0,
+                tileColor = Color(0xFFEF4444)
+            )
+        }
+        item {
+            ManagementCard(
+                title = "دسته‌ها",
+                subtitle = "سرفصل‌های درآمد، هزینه و آیکن‌ها",
+                icon = Icons.Default.Category,
+                onClick = onShowCategories,
+                statusChip = "${persianNumber(categories.size)} دسته‌بندی",
+                tileColor = Color(0xFFF97316)
+            )
+        }
+        item {
+            val (receivableTotal, payableTotal) = unsettledTotals(debts)
+            val openDebtCount = debts.count { !it.settled }
+            ManagementCard(
+                title = "طلب و بدهی",
+                subtitle = "پیگیری مطالبات و تسویه‌حساب با اشخاص",
+                icon = Icons.Default.People,
+                onClick = onShowDebts,
+                statusChip = if (openDebtCount == 0) "تسویه کامل" else "${persianNumber(openDebtCount)} مورد باز",
+                statusChipPositive = openDebtCount == 0,
+                tileColor = Color(0xFF7C3AED)
+            )
+        }
+        item {
+            ManagementCard(
+                title = "محاسبه دنگی",
+                subtitle = "تقسیم هوشمند هزینه‌های مشترک و سه‌نفره",
+                icon = Icons.Default.Group,
+                onClick = { showDongiSheet = true },
+                statusChip = "ماشین‌حساب دنگی",
+                tileColor = Color(0xFF2563EB)
+            )
+        }
+        item {
+            ManagementCard(
+                title = "یادآورها",
+                subtitle = "یک‌جا، همه سررسیدها",
+                icon = Icons.Default.Notifications,
+                onClick = onNavigateToReminders,
+                statusChip = remindersStatusText,
+                tileColor = Color(0xFFEAB308)
+            )
+        }
+        item {
+            ManagementCard(
+                title = "تکرارشونده‌ها",
+                subtitle = "قوانین تکرار خودکار تراکنش‌ها",
+                icon = Icons.Default.Repeat,
+                onClick = onNavigateHome,
+                statusChip = "${persianNumber(recurring.size)} قانون",
+                tileColor = Color(0xFFF59E0B)
+            )
+        }
+        item {
+            ManagementCard(
+                title = "بودجه‌ها و اهداف",
+                subtitle = "بودجه ماه و هدف‌های پس‌انداز",
+                icon = Icons.Default.Savings,
+                onClick = onNavigateToReports,
+                statusChip = "${persianNumber(budgetCount)} بودجه",
+                tileColor = Color(0xFFEC4899)
+            )
+        }
+        item {
+            ManagementCard(
+                title = "گزارش‌ها",
+                subtitle = "گزارش ماه و روند مالی",
+                icon = Icons.Default.BarChart,
+                onClick = onNavigateToReports,
+                tileColor = Color(0xFF8B5CF6)
+            )
+        }
+        item {
+            ManagementCard(
+                title = "اقساط",
+                subtitle = "وام‌ها و خریدهای اقساطی",
+                icon = Icons.Default.CreditCard,
+                onClick = { showInstallmentsSheet = true },
+                statusChip = "${persianNumber(installments.size)} قسط",
+                tileColor = Color(0xFF06B6D4)
+            )
+        }
+        item {
+            ManagementCard(
+                title = "کارها و یادآورها",
+                subtitle = "کارهای روزانه و سررسیدها",
+                icon = Icons.Default.EventNote,
+                onClick = { showTasksSheet = true },
+                statusChip = tasksHubSubtitle(tasks),
+                tileColor = Color(0xFF84CC16)
             )
         }
         item { Text("بخش‌ها", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.onSurface) }
@@ -611,135 +680,82 @@ fun ManagementScreen(
         }
         item {
             ManagementCard(
-                title = "حساب‌ها و کارت‌ها",
-                subtitle = "مدیریت موجودی، کارت‌ها و پیامک‌های بانکی",
-                icon = Icons.Default.AccountBalanceWallet,
-                onClick = onShowAccounts,
-                statusChip = "${persianNumber(accounts.size)} حساب بانکی",
-                tileColor = Color(0xFF3B82F6)
+                title = "تنظیمات",
+                subtitle = "امنیت، پشتیبان‌گیری، خروجی، پیامک و درباره برنامه",
+                icon = Icons.Default.Settings,
+                onClick = onShowSettings
+            )
+        }
+        item {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(20.dp),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+            ) {
+                Column(
+                    Modifier.padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text("تم برنامه", style = MaterialTheme.typography.titleMedium)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        listOf("system" to "سیستم", "light" to "روشن", "dark" to "تیره")
+                            .forEach { (mode, label) ->
+                                FilterChip(
+                                    selected = themeMode == mode,
+                                    onClick = { onThemeModeChange(mode) },
+                                    label = { Text(label) }
+                                )
+                            }
+                    }
+                }
+            }
+        }
+        item {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(20.dp),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+            ) {
+                Column(
+                    Modifier.padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("قفل برنامه", style = MaterialTheme.typography.titleMedium)
+                        Switch(
+                            checked = lockEnabled,
+                            onCheckedChange = onLockChange
+                        )
+                    }
+                    Text(
+                        "با اثر انگشت یا رمز دستگاه باز می‌شود؛ از اجرای بعد فعال است.",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+            }
+        }
+        item {
+            ManagementCard(
+                title = "امنیت و حریم خصوصی",
+                subtitle = "قفل با پین‌کد، تشخیص چهره / اثر انگشت و بازنشانی کامل",
+                icon = Icons.Default.Lock,
+                onClick = { showSecuritySheet = true },
+                statusChip = if (lockEnabled) "فعال" else "خاموش",
+                statusChipPositive = lockEnabled,
+                tileColor = Color(0xFF6366F1)
             )
         }
         item {
             ManagementCard(
-                title = "دسته‌ها",
-                subtitle = "سرفصل‌های درآمد، هزینه و آیکن‌ها",
-                icon = Icons.Default.Category,
-                onClick = onShowCategories,
-                statusChip = "${persianNumber(categories.size)} دسته‌بندی",
-                tileColor = Color(0xFFF97316)
-            )
-        }
-        item {
-            ManagementCard(
-                title = "تکرارشونده‌ها",
-                subtitle = "قوانین تکرار خودکار تراکنش‌ها",
-                icon = Icons.Default.Repeat,
-                onClick = onNavigateHome,
-                statusChip = "${persianNumber(recurring.size)} قانون",
-                tileColor = Color(0xFFF59E0B)
-            )
-        }
-        item {
-            ManagementCard(
-                title = "بودجه‌ها و اهداف",
-                subtitle = "بودجه ماه و هدف‌های پس‌انداز",
-                icon = Icons.Default.Savings,
-                onClick = onNavigateToReports,
-                statusChip = "${persianNumber(budgetCount)} بودجه",
-                tileColor = Color(0xFFEC4899)
-            )
-        }
-        item {
-            ManagementCard(
-                title = "بودجه‌بندی هوشمند",
-                subtitle = "سقف هزینه‌ها و هشدار انحراف بودجه",
-                icon = Icons.Default.PieChart,
-                onClick = onNavigateToSmartBudget,
-                statusChip = if (budgetCount == 0) "تعریف بودجه" else "${persianNumber(budgetCount)} بودجه",
-                statusChipPositive = budgetCount > 0,
-                tileColor = Color(0xFFEF4444)
-            )
-        }
-        item {
-            ManagementCard(
-                title = "یادآورها",
-                subtitle = "یک‌جا، همه سررسیدها",
-                icon = Icons.Default.Notifications,
-                onClick = onNavigateToReminders,
-                statusChip = remindersStatusText,
-                tileColor = Color(0xFFEAB308)
-            )
-        }
-        item {
-            ManagementCard(
-                title = "اهداف و برنامه‌ریزی",
-                subtitle = "پس‌انداز هدفمند و نقشه‌راه مالی",
-                icon = Icons.Default.Flag,
-                onClick = onShowGoals,
-                statusChip = if (goals.isEmpty()) "شروع هدف جدید" else "${persianNumber(goals.size)} هدف",
-                tileColor = Color(0xFF10B981)
-            )
-        }
-        item {
-            ManagementCard(
-                title = "گزارش‌ها",
-                subtitle = "گزارش ماه و روند مالی",
-                icon = Icons.Default.BarChart,
-                onClick = onNavigateToReports,
-                tileColor = Color(0xFF8B5CF6)
-            )
-        }
-        item {
-            ManagementCard(
-                title = "اقساط",
-                subtitle = "وام‌ها و خریدهای اقساطی",
-                icon = Icons.Default.CreditCard,
-                onClick = { showInstallmentsSheet = true },
-                statusChip = "${persianNumber(installments.size)} قسط",
-                tileColor = Color(0xFF06B6D4)
-            )
-        }
-        item {
-            val (receivableTotal, payableTotal) = unsettledTotals(debts)
-            val openDebtCount = debts.count { !it.settled }
-            ManagementCard(
-                title = "طلب و بدهی",
-                subtitle = "پیگیری مطالبات و تسویه‌حساب با اشخاص",
-                icon = Icons.Default.People,
-                onClick = onShowDebts,
-                statusChip = if (openDebtCount == 0) "تسویه کامل" else "${persianNumber(openDebtCount)} مورد باز",
-                statusChipPositive = openDebtCount == 0,
-                tileColor = Color(0xFF7C3AED)
-            )
-        }
-        item {
-            ManagementCard(
-                title = "کارها و یادآورها",
-                subtitle = "کارهای روزانه و سررسیدها",
-                icon = Icons.Default.EventNote,
-                onClick = { showTasksSheet = true },
-                statusChip = tasksHubSubtitle(tasks),
-                tileColor = Color(0xFF84CC16)
-            )
-        }
-        item {
-            ManagementCard(
-                title = "محاسبه دنگی",
-                subtitle = "تقسیم هوشمند هزینه‌های مشترک و سه‌نفره",
-                icon = Icons.Default.Group,
-                onClick = { showDongiSheet = true },
-                statusChip = "ماشین‌حساب دنگی",
-                tileColor = Color(0xFF2563EB)
-            )
-        }
-        item {
-            ManagementCard(
-                title = "سرمایه‌گذاری و دارایی‌ها",
-                subtitle = "ثبت طلا، ارز، سهام، ملک و پیگیری سود",
-                icon = Icons.Default.TrendingUp,
-                onClick = onShowInvestments,
-                statusChip = "${persianNumber(assets.size)} دارایی",
-                tileColor = Color(0xFF14B8A6)
+                title = "پشتیبان‌گیری و دارایی",
+                subtitle = "فهرست پشتیبان‌ها، ساخت، بازیابی و خروجی اکسل",
+                icon = Icons.Default.Backup,
+                onClick = { showBackupSheet = true },
+                tileColor = Color(0xFF0EA5E9)
             )
         }
     }
