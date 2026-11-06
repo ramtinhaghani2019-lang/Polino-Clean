@@ -414,11 +414,28 @@ internal class TransactionRepository(context: Context) {
         return ids.size
     }
 
+    /**
+     * بذر یک‌بارمصرف الگوهای پیش‌فرض پیامک بانکی (مرحله ۱۲۰): فقط
+     * الگوهایی که شناسه‌شان در جدول نیست درج می‌شوند؛ الگوی دستی
+     * کاربر با همان فرستنده هرگز بازنویسی یا حذف نمی‌شود. پرچم از
+     * اجرای دوباره جلوگیری می‌کند؛ تعداد درج‌شده برمی‌گردد.
+     */
+    suspend fun seedDefaultSmsPatternsOnce(): Int {
+        if (prefs.getBoolean(KEY_SMS_PATTERN_SEEDS_V1, false)) return 0
+        val missing = missingDefaultSmsPatterns(
+            runCatching { getPatterns() }.getOrDefault(emptyList())
+        )
+        missing.forEach { addPattern(it) }
+        prefs.edit().putBoolean(KEY_SMS_PATTERN_SEEDS_V1, true).apply()
+        return missing.size
+    }
+
     private companion object {
         const val PREFS = "polino_finance_v1"
         const val KEY = "transactions"
         const val KEY_MIGRATED = "room_migrated_v1"
         const val KEY_SMS_DEDUP_CLEANUP_V1 = "sms_duplicate_cleanup_v1"
+        const val KEY_SMS_PATTERN_SEEDS_V1 = "sms_pattern_seeds_v1"
     }
 }
 

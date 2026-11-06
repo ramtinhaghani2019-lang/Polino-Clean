@@ -17,9 +17,15 @@ internal data class SmsPatternEntity(
     val isIncome: Boolean = false
 )
 
+/**
+ * الگوها بر اساس فرستنده مرتب می‌شوند و برای یک فرستنده، برداشت
+ * (isIncome=false) پیش از واریز می‌آید — همان اولویت هزینه‌بر‌درآمد
+ * در parseBankSms — تا پیامکی که هم «انتقال» دارد و هم «واریز»
+ * (مثل تأیید انتقال وجه خروجی) برداشت شناخته شود، نه واریز.
+ */
 @Dao
 internal interface SmsPatternDao {
-    @Query("SELECT * FROM sms_patterns ORDER BY sender")
+    @Query("SELECT * FROM sms_patterns ORDER BY sender, isIncome ASC")
     suspend fun getAll(): List<SmsPatternEntity>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)

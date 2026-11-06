@@ -228,6 +228,10 @@ fun FinanceDashboard(
             // پیش از خواندن فهرست اجرا می‌شود تا تکراری‌ها از همین
             // بارگذاری اول دیده نشوند. با پرچم فقط یک‌بار اجرا می‌شود.
             repository.cleanupDuplicateSmsTransactionsOnce()
+            // بذر یک‌بارمصرف الگوهای پیش‌فرض پیامک بانکی (مرحله ۱۲۰)؛
+            // پیش از خواندن فهرست اجرا می‌شود و الگوی دستی کاربر را
+            // دست نمی‌زند. با پرچم فقط یک‌بار اجرا می‌شود.
+            repository.seedDefaultSmsPatternsOnce()
             transactions = repository.getAll()
             accounts = repository.getAccounts()
             categories = repository.getCategories()
