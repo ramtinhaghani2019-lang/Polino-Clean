@@ -1,34 +1,45 @@
 package com.polino.app.dashboard
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.filled.Calculate
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import java.math.BigDecimal
 import java.math.RoundingMode
@@ -206,11 +217,44 @@ fun CalculatorSheet(
                 .padding(horizontal = 20.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Text(
-                "ماشین حساب مالی",
-                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
-                color = if (isDarkCalc) Color.White else MaterialTheme.colorScheme.onSurface
-            )
+            // مرحله ۱۱۵: سربرگ عین پرگار — کاشی آیکون بنفش + تیتر + زیرعنوان + ✕.
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(44.dp)
+                        .background(Color(0xFFA855F7), RoundedCornerShape(14.dp)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        Icons.Filled.Calculate,
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        "ماشین حساب مالی",
+                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                        color = if (isDarkCalc) Color.White else MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        "محاسبات سریع و هوشمند",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (isDarkCalc) Color(0xFFB3ACD6) else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                IconButton(onClick = onDismiss) {
+                    Icon(
+                        Icons.Filled.Close,
+                        contentDescription = "بستن",
+                        tint = if (isDarkCalc) Color.White else MaterialTheme.colorScheme.onSurface
+                    )
+                }
+            }
             Text(
                 formatCalcDisplay(shown),
                 style = MaterialTheme.typography.displaySmall.copy(fontWeight = FontWeight.Bold),
@@ -224,51 +268,72 @@ fun CalculatorSheet(
                 listOf("+/-" to "+/-", "۰" to "0", "." to ".", "=" to "="),
                 listOf("۰۰" to "00", "۰۰۰" to "000")
             )
-            rows.forEach { row ->
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    row.forEach { (label, value) ->
-                        val isBackspace = value == "BACK"
-                        Button(
-                            onClick = {
-                                when (value) {
-                                    "AC" -> press { calc.clear() }
-                                    "BACK" -> press { calc.inputBackspace() }
-                                    "%" -> press { calc.inputPercent() }
-                                    "+/-" -> press { calc.inputToggleSign() }
-                                    "." -> press { calc.inputDecimalPoint() }
-                                    "=" -> press { calc.inputEquals() }
-                                    "+", "−", "×", "÷" -> press {
-                                        calc.inputOp(value.first())
-                                    }
-                                    else -> press { calc.inputDigit(value) }
+            // مرحله ۱۱۵: کیپد فقط همین‌جا چپ‌به‌راست (عین پرگار)؛ بقیه اپ راست‌به‌چپ می‌ماند.
+            // رنگ‌ها نمونه‌برداری‌شده از فریم g_51 پرگار: رقم #14142E، قرمز #3C2339،
+            // عملگر بنفش #2B1752، مساوی #9133E9.
+            CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    rows.forEach { row ->
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            row.forEach { (label, value) ->
+                                val containerColor = when (value) {
+                                    "=" -> Color(0xFF9133E9)
+                                    "AC", "BACK", "%", "+/-" -> Color(0xFF3C2339)
+                                    "÷", "×", "−", "+" -> Color(0xFF2B1752)
+                                    else -> Color(0xFF14142E)
                                 }
-                            },
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(56.dp),
-                            shape = RoundedCornerShape(16.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = if (isBackspace) Color(0xFF4A2020)
-                                else Color(0xFF2A2150),
-                                contentColor = if (isBackspace) Color(0xFFF87171)
-                                else Color(0xFFD8D0F5)
-                            ),
-                            border = BorderStroke(
-                                1.dp,
-                                if (isBackspace) Color(0xFF7F2D2D) else Color(0xFF3D3368)
-                            )
-                        ) {
-                            Text(label, style = MaterialTheme.typography.titleMedium)
+                                val contentColor = when (value) {
+                                    "=" -> Color.White
+                                    "AC", "BACK", "%", "+/-" -> Color(0xFFF87171)
+                                    "÷", "×", "−", "+" -> Color(0xFFA855F7)
+                                    else -> Color.White
+                                }
+                                val keyBorder = when (value) {
+                                    "=" -> null
+                                    "AC", "BACK", "%", "+/-" -> BorderStroke(1.dp, Color(0xFF7F2D2D))
+                                    else -> BorderStroke(1.dp, Color(0xFF3D3368))
+                                }
+                                Button(
+                                    onClick = {
+                                        when (value) {
+                                            "AC" -> press { calc.clear() }
+                                            "BACK" -> press { calc.inputBackspace() }
+                                            "%" -> press { calc.inputPercent() }
+                                            "+/-" -> press { calc.inputToggleSign() }
+                                            "." -> press { calc.inputDecimalPoint() }
+                                            "=" -> press { calc.inputEquals() }
+                                            "+", "−", "×", "÷" -> press {
+                                                calc.inputOp(value.first())
+                                            }
+                                            else -> press { calc.inputDigit(value) }
+                                        }
+                                    },
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(56.dp),
+                                    shape = RoundedCornerShape(16.dp),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = containerColor,
+                                        contentColor = contentColor
+                                    ),
+                                    border = keyBorder
+                                ) {
+                                    Text(label, style = MaterialTheme.typography.titleMedium)
+                                }
+                            }
                         }
                     }
                 }
             }
+            // مرحله ۱۱۵: سه دکمه می‌مانند؛ ارتفاع ۵۶dp استاندارد دکمه‌های اپ.
             OutlinedButton(
                 onClick = {
                     clipboard.setText(AnnotatedString(shown.ifEmpty { "0" }))
                     copied = true
                 },
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp)
             ) {
                 Text(
                     if (copied) "کپی شد ✓" else "کپی نتیجه",
@@ -284,7 +349,9 @@ fun CalculatorSheet(
                         ?.toString()
                     if (amount != null) onUseAmount(amount)
                 },
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = Color(0xFFA855F7),
                     contentColor = Color.White
@@ -294,7 +361,9 @@ fun CalculatorSheet(
             }
             TextButton(
                 onClick = onDismiss,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp)
             ) { Text("بستن") }
             Spacer(Modifier.height(12.dp))
         }
