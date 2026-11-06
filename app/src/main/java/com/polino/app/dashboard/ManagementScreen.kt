@@ -436,8 +436,8 @@ fun ManagementScreen(
                             maxLines = 1,
                             modifier = Modifier.weight(1.4f, fill = false),
                             onTextLayout = { result ->
-                                if (result.hasVisualOverflow && amountSize > 12.sp) {
-                                    amountSize -= 2.sp
+                                if (result.hasVisualOverflow && amountSize.value > 12f) {
+                                    amountSize = (amountSize.value - 2).sp
                                 }
                             }
                         )
