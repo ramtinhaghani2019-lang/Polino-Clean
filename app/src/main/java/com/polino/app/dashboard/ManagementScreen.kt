@@ -12,6 +12,8 @@ import com.polino.app.sms.SMS_ENABLED_KEY
 import com.polino.app.sms.SMS_PREFS_NAME
 import com.polino.app.sms.DetectedSender
 import com.polino.app.sms.detectSenders
+import com.polino.app.sms.isReadSmsPermanentlyDenied
+import com.polino.app.sms.openAppSettings
 import com.polino.app.sms.rescanInboxSms
 import com.polino.app.sms.scanInboxSms
 import com.polino.app.sms.SmsPatternSheet
@@ -210,6 +212,10 @@ fun ManagementScreen(
     var detectedSenders by remember { mutableStateOf<List<DetectedSender>?>(null) }
     var smsRescanMessage by remember { mutableStateOf("") }
     var smsDetectMessage by remember { mutableStateOf("") }
+    // مرحله ۱۱۸: عین تنظیمات — رد دائم دسترسی باعث می‌شود درخواست
+    // دوباره بی‌صدا رد شود؛ این پرچم ورق الگوها را وادار می‌کند کارت
+    // واضح با دکمه تنظیمات برنامه نشان دهد.
+    var smsPermissionPermanentlyDenied by remember { mutableStateOf(false) }
     var pendingInboxAction by remember { mutableStateOf("") }
     val readSmsPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -220,12 +226,17 @@ fun ManagementScreen(
             } else if (pendingInboxAction == "rescan") {
                 smsRescanMessage = "دسترسی خواندن پیامک داده نشده است."
             }
+            smsPermissionPermanentlyDenied = isReadSmsPermanentlyDenied(context)
             pendingInboxAction = ""
             return@rememberLauncherForActivityResult
         }
+        smsPermissionPermanentlyDenied = false
         when (pendingInboxAction) {
             "detect" -> {
                 pendingInboxAction = ""
+                // مرحله ۱۱۸: بازخورد فوری عین پرگار، هم‌زمان با شروع
+                // اسکن واقعی (نه به‌جای آن).
+                smsDetectMessage = "بررسی پیامک‌های اخیر آغاز شد"
                 scope.launch {
                     detectedSenders = detectSenders(scanInboxSms(context))
                     smsDetectMessage = if (detectedSenders.isNullOrEmpty()) {
@@ -254,6 +265,9 @@ fun ManagementScreen(
                 context, Manifest.permission.READ_SMS
             ) == PackageManager.PERMISSION_GRANTED
         ) {
+            // مرحله ۱۱۸: بازخورد فوری عین پرگار، هم‌زمان با شروع
+            // اسکن واقعی (نه به‌جای آن).
+            smsDetectMessage = "بررسی پیامک‌های اخیر آغاز شد"
             scope.launch {
                 detectedSenders = detectSenders(scanInboxSms(context))
                 smsDetectMessage = if (detectedSenders.isNullOrEmpty()) {
@@ -1591,6 +1605,8 @@ fun ManagementScreen(
             detectedSenders = detectedSenders,
             smsDetectMessage = smsDetectMessage,
             onScanSenders = { runDetectSenders() },
+            onOpenAppSettings = { openAppSettings(context) },
+            smsPermissionPermanentlyDenied = smsPermissionPermanentlyDenied,
             onAddPattern = { sender, keywords, isFinancial, isIncome ->
                 scope.launch {
                     repository.addPattern(
@@ -2360,11 +2376,23 @@ internal fun AccountDetailSheet(
                         if (showDetectedPicker) {
                             val detected = detectedSenders
                             if (detected == null) {
-                                Text(
-                                    "در حال اسکن صندوق پیامک…",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = sheetMuted
-                                )
+                                // مرحله ۱۱۸: اگر اسکن رد شده یا هنوز
+                                // نتیجه‌ای نیست، پیام واقعی (رد دسترسی
+                                // یا شروع اسکن) نشان داده می‌شود تا
+                                // «در حال اسکن…» برای همیشه گیر نکند.
+                                if (smsDetectMessage.isNotEmpty()) {
+                                    Text(
+                                        smsDetectMessage,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = sheetMuted
+                                    )
+                                } else {
+                                    Text(
+                                        "در حال اسکن صندوق پیامک…",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = sheetMuted
+                                    )
+                                }
                             } else if (detected.isEmpty()) {
                                 Text(
                                     "فرستنده‌ای در صندوق پیامک پیدا نشد.",

@@ -62,6 +62,7 @@ import com.polino.app.dashboard.PlansScreen
 import com.polino.app.dashboard.RemindersScreen
 import com.polino.app.dashboard.ReportsScreen
 import com.polino.app.dashboard.SettingsScreen
+import com.polino.app.dashboard.SmsReadingScreen
 import com.polino.app.dashboard.SmartBudgetScreen
 import com.polino.app.dashboard.TransactionsScreen
 import com.polino.app.data.BudgetRepository
@@ -161,6 +162,9 @@ private fun PolinoApp(
     var showPlans by remember { mutableStateOf(false) }
     var showNotes by remember { mutableStateOf(false) }
     var showSettings by remember { mutableStateOf(false) }
+    // مرحله ۱۱۸: صفحه اختصاصی خوانش پیامک‌های بانکی؛ از تنظیمات باز
+    // می‌شود و بازگشت از آن به تنظیمات برمی‌گردد.
+    var showSmsReading by remember { mutableStateOf(false) }
     var showDebts by remember { mutableStateOf(false) }
     var showCategories by remember { mutableStateOf(false) }
     var showInvestments by remember { mutableStateOf(false) }
@@ -209,10 +213,18 @@ private fun PolinoApp(
         return
     }
 
+    // مرحله ۱۱۸: صفحه خوانش پیامک پیش از تنظیمات بررسی می‌شود تا
+    // وقتی از تنظیمات باز شده، روی آن بنشیند؛ بازگشت به تنظیمات
+    // برمی‌گردد، نه به هاب مدیریت.
+    if (showSmsReading) {
+        SmsReadingScreen(onBack = { showSmsReading = false; showSettings = true })
+        return
+    }
+
     if (showSettings) {
         SettingsScreen(
             onBack = { showSettings = false },
-            onNavigateToManagement = { showSettings = false; tab = Tab.Management },
+            onNavigateToSmsReading = { showSettings = false; showSmsReading = true },
             lockEnabled = lockEnabled,
             onLockChange = { enabled ->
                 lockEnabled = enabled

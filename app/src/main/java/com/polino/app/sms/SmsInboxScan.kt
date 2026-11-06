@@ -1,7 +1,14 @@
 package com.polino.app.sms
 
+import android.Manifest
+import android.app.Activity
 import android.content.Context
+import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
+import android.provider.Settings
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import com.polino.app.data.MoneyTransaction
 import com.polino.app.data.TransactionRepository
 import java.util.UUID
@@ -144,4 +151,40 @@ internal suspend fun rescanInboxSms(context: Context, repository: TransactionRep
         inserted++
     }
     return inserted
+}
+
+/**
+ * آیا دسترسی READ_SMS به‌طور دائم رد شده است؟ فقط در این حالت سیستم
+ * دیگر پنجره درخواست دسترسی نشان نمی‌دهد: درخواست دوباره بی‌صدا رد
+ * می‌شود و کاربر «هیچ اتفاقی نمی‌افتد» می‌بیند. این تابع فقط پس از
+ * یک رد واقعی صدا زده می‌شود؛ پس از اولین رد، سیستم هنوز دفعه بعد
+ * پنجره نشان می‌دهد (shouldShowRequestPermissionRationale درست
+ * برمی‌گردد) و تابع نادرست می‌گوید. پس از رد دوم یا «دیگر نپرس»،
+ * دلیل‌نما نادرست می‌شود و تابع درست می‌گوید.
+ */
+internal fun isReadSmsPermanentlyDenied(context: Context): Boolean {
+    if (ContextCompat.checkSelfPermission(
+            context, Manifest.permission.READ_SMS
+        ) == PackageManager.PERMISSION_GRANTED
+    ) {
+        return false
+    }
+    val activity = context as? Activity ?: return false
+    return !ActivityCompat.shouldShowRequestPermissionRationale(
+        activity, Manifest.permission.READ_SMS
+    )
+}
+
+/**
+ * صفحه تنظیمات سیستمی برنامه را باز می‌کند تا کاربر دسترسی ردشده را
+ * خودش دوباره بدهد؛ تنها راه برگرداندن دسترسی‌ای که به‌طور دائم رد
+ * شده است.
+ */
+internal fun openAppSettings(context: Context) {
+    val intent = Intent(
+        Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+        Uri.fromParts("package", context.packageName, null)
+    )
+    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    context.startActivity(intent)
 }

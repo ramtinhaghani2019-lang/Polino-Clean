@@ -65,6 +65,8 @@ import com.polino.app.sms.SMS_ENABLED_KEY
 import com.polino.app.sms.SMS_PREFS_NAME
 import com.polino.app.sms.SmsPatternSheet
 import com.polino.app.sms.detectSenders
+import com.polino.app.sms.isReadSmsPermanentlyDenied
+import com.polino.app.sms.openAppSettings
 import com.polino.app.sms.scanInboxSms
 import java.util.UUID
 import android.Manifest
@@ -89,8 +91,8 @@ private val SettingsRowMuted = Color(0xFFC0BDDD)
  * خصوصی، پشتیبان‌گیری و دارایی، خروجی اطلاعات، خوانش پیامک، مدیریت
  * الگوهای پیامک، درباره پولینو و ارتباط با ما. هر ردیف قابلیتِ موجود را
  * باز می‌کند و چیزی را دوباره نمی‌سازد: قفل و پشتیبان ورق‌های خودشان را
- * دارند، خوانش پیامک و الگوها در مدیریت زندگی می‌کنند، خروجی اکسل ورق
- * انتخاب بازه و محتوا را باز می‌کند و فایل چندبرگی می‌سازد. کارت حساب کاربری و بنر ویژه پرگار عمداً
+ * دارند، خوانش پیامک صفحه اختصاصی خودش را دارد، الگوها ورق خودشان را،
+ * خروجی اکسل ورق انتخاب بازه و محتوا را باز می‌کند و فایل چندبرگی می‌سازد. کارت حساب کاربری و بنر ویژه پرگار عمداً
  * ساخته نشده‌اند (پولینو حساب کاربری و پرداخت درون‌برنامه‌ای ندارد و همه
  * امکاناتش باز است) و هیچ کانال پشتیبانی‌ای اختراع نشده است.
  */
@@ -98,7 +100,7 @@ private val SettingsRowMuted = Color(0xFFC0BDDD)
 @Composable
 internal fun SettingsScreen(
     onBack: () -> Unit,
-    onNavigateToManagement: () -> Unit,
+    onNavigateToSmsReading: () -> Unit,
     lockEnabled: Boolean,
     onLockChange: (Boolean) -> Unit
 ) {
@@ -118,17 +120,29 @@ internal fun SettingsScreen(
     var patterns by remember { mutableStateOf<List<SmsPatternEntity>>(emptyList()) }
     var detectedSenders by remember { mutableStateOf<List<DetectedSender>?>(null) }
     var smsDetectMessage by remember { mutableStateOf("") }
+    // مرحله ۱۱۸: وقتی دسترسی به‌طور دائم رد شده باشد، درخواست دوباره
+    // بی‌صدا رد می‌شود و کاربر «هیچ اتفاقی نمی‌افتد» می‌بیند؛ این
+    // پرچم ورق الگوها را وادار می‌کند به‌جای خط کوچک کم‌رنگ، یک کارت
+    // واضح با دکمه باز کردن تنظیمات برنامه نشان دهد.
+    var smsPermissionPermanentlyDenied by remember { mutableStateOf(false) }
     var pendingInboxAction by remember { mutableStateOf("") }
     val readSmsPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { granted ->
         if (!granted) {
             smsDetectMessage = "دسترسی خواندن پیامک داده نشده است."
+            smsPermissionPermanentlyDenied = isReadSmsPermanentlyDenied(context)
             pendingInboxAction = ""
             return@rememberLauncherForActivityResult
         }
+        smsPermissionPermanentlyDenied = false
         if (pendingInboxAction == "detect") {
             pendingInboxAction = ""
+            // مرحله ۱۱۸: بازخورد فوری عین پرگار — پیام همان لحظه
+            // نشان داده می‌شود، ولی فقط خبر شروع اسکن واقعی است؛
+            // اسکن واقعاً در کرون زیر اجرا می‌شود و نتیجه‌اش جای
+            // همین پیام می‌نشیند.
+            smsDetectMessage = "بررسی پیامک‌های اخیر آغاز شد"
             scope.launch {
                 detectedSenders = detectSenders(scanInboxSms(context))
                 smsDetectMessage = if (detectedSenders.isNullOrEmpty()) {
@@ -144,6 +158,9 @@ internal fun SettingsScreen(
                 context, Manifest.permission.READ_SMS
             ) == PackageManager.PERMISSION_GRANTED
         ) {
+            // مرحله ۱۱۸: بازخورد فوری عین پرگار، هم‌زمان با شروع
+            // اسکن واقعی (نه به‌جای آن).
+            smsDetectMessage = "بررسی پیامک‌های اخیر آغاز شد"
             scope.launch {
                 detectedSenders = detectSenders(scanInboxSms(context))
                 smsDetectMessage = if (detectedSenders.isNullOrEmpty()) {
@@ -287,7 +304,7 @@ internal fun SettingsScreen(
                                 icon = Icons.Default.Sms,
                                 chip = if (smsEnabled) "فعال" else "غیرفعال",
                                 chipColor = if (smsEnabled) SettingsGreen else SettingsMuted,
-                                onClick = onNavigateToManagement
+                                onClick = onNavigateToSmsReading
                             )
                             HorizontalDivider(color = SettingsDivider, thickness = 1.dp)
                             SettingsRow(
@@ -344,6 +361,8 @@ internal fun SettingsScreen(
             detectedSenders = detectedSenders,
             smsDetectMessage = smsDetectMessage,
             onScanSenders = { runDetectSenders() },
+            onOpenAppSettings = { openAppSettings(context) },
+            smsPermissionPermanentlyDenied = smsPermissionPermanentlyDenied,
             onAddPattern = { sender, keywords, isFinancial, isIncome ->
                 scope.launch {
                     repository.addPattern(

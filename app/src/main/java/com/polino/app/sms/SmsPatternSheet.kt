@@ -79,7 +79,13 @@ internal fun SmsPatternSheet(
     onAddPattern: (sender: String, keywords: String, isFinancial: Boolean, isIncome: Boolean) -> Unit,
     onEditPattern: (pattern: SmsPatternEntity, sender: String, keywords: String, isFinancial: Boolean, isIncome: Boolean) -> Unit,
     onDeletePattern: (pattern: SmsPatternEntity) -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    // مرحله ۱۱۸: وقتی دسترسی خواندن پیامک به‌طور دائم رد شده باشد،
+    // دکمه اسکن بی‌صدا رد می‌شود و کاربر «هیچ اتفاقی نمی‌افتد»
+    // می‌بیند؛ ورق در این حالت یک کارت واضح با دکمه باز کردن
+    // تنظیمات برنامه نشان می‌دهد، نه فقط یک خط کوچک کم‌رنگ.
+    smsPermissionPermanentlyDenied: Boolean = false,
+    onOpenAppSettings: () -> Unit = {}
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var showForm by remember { mutableStateOf(false) }
@@ -193,6 +199,37 @@ internal fun SmsPatternSheet(
                             }
                             OutlinedButton(onClick = onScanSenders) {
                                 Text("اسکن دوباره")
+                            }
+                        }
+                    }
+                    if (smsPermissionPermanentlyDenied) {
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(20.dp),
+                            colors = CardDefaults.cardColors(containerColor = PatternSheetKey),
+                            border = BorderStroke(1.dp, PatternSheetRed)
+                        ) {
+                            Column(
+                                Modifier.padding(16.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Text(
+                                    "دسترسی خواندن پیامک رد شده است؛ سیستم دیگر پنجره درخواست نشان نمی‌دهد.",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White
+                                )
+                                Text(
+                                    "برای اسکن صندوق پیامک، دسترسی را از تنظیمات برنامه فعال کنید.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = PatternSheetMuted
+                                )
+                                OutlinedButton(
+                                    onClick = onOpenAppSettings,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Text("باز کردن تنظیمات برنامه")
+                                }
                             }
                         }
                     }
