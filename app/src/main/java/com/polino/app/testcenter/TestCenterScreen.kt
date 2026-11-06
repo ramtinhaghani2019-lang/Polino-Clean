@@ -1,5 +1,6 @@
 package com.polino.app.testcenter
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -33,6 +34,10 @@ import androidx.compose.ui.unit.dp
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun TestCenterScreen(onBack: () -> Unit) {
+    // مرحله ۱۲۱: تست‌سنتر از منوی تنظیمات باز می‌شود؛ دکمه بازگشت
+    // سیستمی هم مثل پیکان بالای صفحه به تنظیمات برمی‌گردد، نه اینکه
+    // از برنامه خارج شود.
+    BackHandler(onBack = onBack)
     var results by remember { mutableStateOf(PolinoSelfTests.runAll()) }
     val passed = results.count { it.passed }
 

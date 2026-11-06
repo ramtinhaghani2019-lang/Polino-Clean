@@ -19,7 +19,6 @@ import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.FloatingActionButton
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -173,7 +172,8 @@ private fun PolinoApp(
     var calculatorAmount by remember { mutableStateOf("") }
 
     if (showTestCenter) {
-        TestCenterScreen(onBack = { showTestCenter = false })
+        // مرحله ۱۲۱: تست‌سنتر از منوی تنظیمات باز می‌شود؛ بازگشت به تنظیمات برمی‌گردد.
+        TestCenterScreen(onBack = { showTestCenter = false; showSettings = true })
         return
     }
 
@@ -225,6 +225,7 @@ private fun PolinoApp(
         SettingsScreen(
             onBack = { showSettings = false },
             onNavigateToSmsReading = { showSettings = false; showSmsReading = true },
+            onNavigateToTestCenter = { showSettings = false; showTestCenter = true },
             lockEnabled = lockEnabled,
             onLockChange = { enabled ->
                 lockEnabled = enabled
@@ -293,8 +294,8 @@ private fun PolinoApp(
             if (BuildConfig.DEBUG) {
                 TopAppBar(
                     // مرحله ۱۰۵: نوار بالای عین پرگار — همبرگر (بازکننده تنظیمات)
-                    // در سمت شروع، نام پولینو کنارش، و تست‌سنتر (موقت، تا نسخه‌های
-                    // بعد) در سمت پایان؛ آموزش و ویژه عمداً نیستند.
+                    // در سمت شروع و نام پولینو کنارش؛ آموزش و ویژه عمداً نیستند.
+                    // مرحله ۱۲۱: تست‌سنتر از نوار بالا حذف شد و به منوی تنظیمات رفت.
                     navigationIcon = {
                         IconButton(onClick = { showSettings = true }) {
                             Icon(
@@ -304,11 +305,6 @@ private fun PolinoApp(
                         }
                     },
                     title = { Text("پولینو") },
-                    actions = {
-                        TextButton(onClick = { showTestCenter = true }) {
-                            Text("تست‌سنتر")
-                        }
-                    },
                     colors = TopAppBarDefaults.topAppBarColors(
                         containerColor = Color.Transparent
                     )

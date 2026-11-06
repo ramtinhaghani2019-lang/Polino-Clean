@@ -27,6 +27,7 @@ import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Science
 import androidx.compose.material.icons.filled.Sms
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -89,7 +90,8 @@ private val SettingsRowMuted = Color(0xFFC0BDDD)
 /**
  * صفحه اختصاصی تنظیمات عین منوی تنظیمات پرگار: ردیف‌های امنیت و حریم
  * خصوصی، پشتیبان‌گیری و دارایی، خروجی اطلاعات، خوانش پیامک، مدیریت
- * الگوهای پیامک، درباره پولینو و ارتباط با ما. هر ردیف قابلیتِ موجود را
+ * الگوهای پیامک، درباره پولینو، ارتباط با ما و تست‌سنتر (فقط در نسخه
+ * دیباگ). هر ردیف قابلیتِ موجود را
  * باز می‌کند و چیزی را دوباره نمی‌سازد: قفل و پشتیبان ورق‌های خودشان را
  * دارند، خوانش پیامک صفحه اختصاصی خودش را دارد، الگوها ورق خودشان را،
  * خروجی اکسل ورق انتخاب بازه و محتوا را باز می‌کند و فایل چندبرگی می‌سازد. کارت حساب کاربری و بنر ویژه پرگار عمداً
@@ -101,6 +103,7 @@ private val SettingsRowMuted = Color(0xFFC0BDDD)
 internal fun SettingsScreen(
     onBack: () -> Unit,
     onNavigateToSmsReading: () -> Unit,
+    onNavigateToTestCenter: () -> Unit,
     lockEnabled: Boolean,
     onLockChange: (Boolean) -> Unit
 ) {
@@ -327,6 +330,17 @@ internal fun SettingsScreen(
                                 icon = Icons.Default.Email,
                                 onClick = { showContactSheet = true }
                             )
+                            // مرحله ۱۲۱: تست‌سنتر از نوار بالا به منوی تنظیمات آمد؛
+                            // مثل قبل فقط در نسخه دیباگ دیده می‌شود.
+                            if (BuildConfig.DEBUG) {
+                                HorizontalDivider(color = SettingsDivider, thickness = 1.dp)
+                                SettingsRow(
+                                    title = "تست‌سنتر",
+                                    subtitle = "خودآزمون محاسبات و بررسی سلامت برنامه",
+                                    icon = Icons.Default.Science,
+                                    onClick = onNavigateToTestCenter
+                                )
+                            }
                         }
                     }
                 }
