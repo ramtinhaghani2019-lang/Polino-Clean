@@ -18,6 +18,7 @@ import com.polino.app.sms.SmsPatternSheet
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -2929,17 +2930,23 @@ internal fun AssetDialog(
                     modifier = Modifier.fillMaxWidth()
                 )
                 if (quickPicks.isNotEmpty()) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
                         quickPicks.forEach { pick ->
                             FilterChip(
                                 selected = name == pick,
                                 onClick = { name = pick },
-                                label = { Text(pick) }
+                                label = { Text(pick, maxLines = 1, softWrap = false) }
                             )
                         }
                     }
                 }
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
                     types.take(3).forEach { option ->
                         FilterChip(
                             selected = type == option,
@@ -2947,11 +2954,14 @@ internal fun AssetDialog(
                                 type = option
                                 unit = assetUnitsFor(option).first()
                             },
-                            label = { Text(option) }
+                            label = { Text(option, maxLines = 1, softWrap = false) }
                         )
                     }
                 }
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
                     types.drop(3).forEach { option ->
                         FilterChip(
                             selected = type == option,
@@ -2959,16 +2969,19 @@ internal fun AssetDialog(
                                 type = option
                                 unit = assetUnitsFor(option).first()
                             },
-                            label = { Text(option) }
+                            label = { Text(option, maxLines = 1, softWrap = false) }
                         )
                     }
                 }
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
                     units.forEach { option ->
                         FilterChip(
                             selected = unit == option,
                             onClick = { unit = option },
-                            label = { Text(option) }
+                            label = { Text(option, maxLines = 1, softWrap = false) }
                         )
                     }
                 }
@@ -2993,12 +3006,15 @@ internal fun AssetDialog(
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
                     accounts.forEach { account ->
                         FilterChip(
                             selected = selectedAccount == account.id,
                             onClick = { selectedAccount = account.id },
-                            label = { Text(account.name) }
+                            label = { Text(account.name, maxLines = 1, softWrap = false) }
                         )
                     }
                 }
