@@ -26,7 +26,7 @@ class SmsReceiver : BroadcastReceiver() {
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 val repository = TransactionRepository(context)
-                val existing = runCatching { repository.getAll() }.getOrDefault(emptyList())
+                val existing = runCatching { repository.getAll() }.getOrDefault(emptyList()).toMutableList()
                 val patterns = runCatching { repository.getPatterns() }.getOrDefault(emptyList())
                 val smsLinks = runCatching { repository.getAccountSmsLinks() }.getOrDefault(emptyList())
                 Telephony.Sms.Intents.getMessagesFromIntent(intent).forEach { sms ->
@@ -40,19 +40,23 @@ class SmsReceiver : BroadcastReceiver() {
                     val amount = (if (pattern != null) parseSmsAmount(body) else parsed?.amount)
                         ?: return@forEach
                     val income = resolveSmsIncome(pattern, parsed?.income ?: false)
-                    if (isSmsDuplicate(existing, amount, sms.timestampMillis)) return@forEach
-                    repository.upsert(
-                        MoneyTransaction(
-                            id = UUID.randomUUID().toString(),
-                            title = "تراکنش بانکی",
-                            amount = amount,
-                            income = income,
-                            category = "سایر",
-                            dateMillis = sms.timestampMillis,
-                            accountId = resolveSmsAccountId(smsLinks, originator),
-                            note = ""
-                        )
+                    val accountId = resolveSmsAccountId(smsLinks, originator)
+                    if (isSmsDuplicate(existing, amount, income, accountId, sms.timestampMillis)) return@forEach
+                    val transaction = MoneyTransaction(
+                        id = UUID.randomUUID().toString(),
+                        title = "تراکنش بانکی",
+                        amount = amount,
+                        income = income,
+                        category = "سایر",
+                        dateMillis = sms.timestampMillis,
+                        accountId = accountId,
+                        note = ""
                     )
+                    repository.upsert(transaction)
+                    // فهرستِ در حافظه هم به‌روز می‌شود تا بخش بعدیِ همین
+                    // پیامک چندپاره یا تحویل دوباره همان پیامک، تکراری
+                    // شناخته شود و دوباره ثبت نشود (عین اسکن مجدد).
+                    existing.add(transaction)
                 }
             } catch (_: Exception) {
                 // خطای پیامک نباید برنامه را از کار بیندازد؛ پیامک بعدی دوباره تلاش می‌شود.

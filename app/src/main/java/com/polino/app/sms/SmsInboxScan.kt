@@ -41,20 +41,37 @@ fun detectSenders(rows: List<InboxSmsRow>): List<DetectedSender> {
 }
 
 /**
+ * پنجره تکراری پیامک (۵ دقیقه): دو پیامک با همان مبلغ، جهت و حساب
+ * مقصد که زمانشان در این پنجره باشد همان تراکنش‌اند. پنجره به‌جای
+ * برابری دقیق میلی‌ثانیه است چون زمان پیامک در دو مسیر یکی نیست:
+ * دریافت زنده زمان PDU را می‌بیند و اسکن صندوق ستون date را؛
+ * اختلافشان معمولاً چند ثانیه تا یکی‌دو دقیقه است. بخش‌های یک پیامک
+ * چندپاره یا تحویل دوباره همان پیامک هم زمان یکسان یا نزدیک دارند.
+ * دو تراکنش واقعاً جدا با همان مبلغ که بیش از ۵ دقیقه از هم فاصله
+ * دارند تکراری شمرده نمی‌شوند.
+ */
+internal const val SMS_DUPLICATE_WINDOW_MILLIS = 5 * 60 * 1000L
+
+/**
  * همان قاعده تکراریِ دریافت زنده (SmsReceiver): پیامکی تکراری است که
- * تراکنشی با همان عنوان «تراکنش بانکی»، همان مبلغ و همان زمان در
- * داده‌ها باشد. اسکن مجدد و دریافت زنده هر دو همین تابع را صدا می‌زنند
- * تا دو قاعده متفاوت برای تکراری به وجود نیاید.
+ * تراکنشی با همان عنوان «تراکنش بانکی»، همان مبلغ، همان جهت، همان
+ * حساب مقصد و زمانی در پنجره تکراری در داده‌ها باشد. اسکن مجدد و
+ * دریافت زنده هر دو همین تابع را صدا می‌زنند تا دو قاعده متفاوت
+ * برای تکراری به وجود نیاید.
  */
 internal fun isSmsDuplicate(
     existing: List<MoneyTransaction>,
     amount: Long,
+    income: Boolean,
+    accountId: String,
     timestampMillis: Long
 ): Boolean {
     return existing.any {
         it.title == "تراکنش بانکی" &&
             it.amount == amount &&
-            it.dateMillis == timestampMillis
+            it.income == income &&
+            it.accountId == accountId &&
+            kotlin.math.abs(it.dateMillis - timestampMillis) <= SMS_DUPLICATE_WINDOW_MILLIS
     }
 }
 
@@ -110,7 +127,8 @@ internal suspend fun rescanInboxSms(context: Context, repository: TransactionRep
         val amount = (if (pattern != null) parseSmsAmount(row.body) else parsed?.amount)
             ?: return@forEach
         val income = resolveSmsIncome(pattern, parsed?.income ?: false)
-        if (isSmsDuplicate(existing, amount, row.timestampMillis)) return@forEach
+        val accountId = resolveSmsAccountId(smsLinks, row.sender)
+        if (isSmsDuplicate(existing, amount, income, accountId, row.timestampMillis)) return@forEach
         val transaction = MoneyTransaction(
             id = UUID.randomUUID().toString(),
             title = "تراکنش بانکی",
@@ -118,7 +136,7 @@ internal suspend fun rescanInboxSms(context: Context, repository: TransactionRep
             income = income,
             category = "سایر",
             dateMillis = row.timestampMillis,
-            accountId = resolveSmsAccountId(smsLinks, row.sender),
+            accountId = accountId,
             note = ""
         )
         repository.upsert(transaction)

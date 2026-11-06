@@ -154,6 +154,13 @@ private fun relativeJalaliDay(millis: Long): String {
     }
 }
 
+/** ساعت تراکنش با رقم‌های فارسی («۱۴:۳۲») برای زیرنویس ردیف تراکنش. */
+private fun transactionTime(millis: Long): String {
+    if (millis == 0L) return ""
+    val time = Instant.ofEpochMilli(millis).atZone(ZoneId.systemDefault()).toLocalTime()
+    return "${faNum(time.hour.toLong()).padStart(2, '۰')}:${faNum(time.minute.toLong()).padStart(2, '۰')}"
+}
+
 @Composable
 fun FinanceDashboard(
     onNavigateToReports: () -> Unit = {},
@@ -217,6 +224,10 @@ fun FinanceDashboard(
     LaunchedEffect(Unit) {
         runCatching {
             repository.migrateIfNeeded()
+            // پاک‌سازی یک‌بارمصرف تراکنش‌های بانکی تکراری (مرحله ۱۱۷)؛
+            // پیش از خواندن فهرست اجرا می‌شود تا تکراری‌ها از همین
+            // بارگذاری اول دیده نشوند. با پرچم فقط یک‌بار اجرا می‌شود.
+            repository.cleanupDuplicateSmsTransactionsOnce()
             transactions = repository.getAll()
             accounts = repository.getAccounts()
             categories = repository.getCategories()
@@ -868,8 +879,10 @@ private fun TransactionRow(
                 style = MaterialTheme.typography.titleMedium,
                 color = Color.White
             )
+            val time = transactionTime(transaction.dateMillis)
             Text(
-                "${relativeJalaliDay(transaction.dateMillis)} • ${transaction.category}",
+                if (time.isEmpty()) "${relativeJalaliDay(transaction.dateMillis)} • ${transaction.category}"
+                else "${relativeJalaliDay(transaction.dateMillis)} • $time • ${transaction.category}",
                 style = MaterialTheme.typography.bodySmall,
                 color = HeroMuted
             )

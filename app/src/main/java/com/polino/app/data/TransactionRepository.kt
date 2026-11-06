@@ -2,6 +2,8 @@ package com.polino.app.data
 
 import android.content.Context
 import androidx.room.Room
+import java.time.Instant
+import java.time.ZoneId
 import java.util.UUID
 
 internal class TransactionRepository(context: Context) {
@@ -396,9 +398,53 @@ internal class TransactionRepository(context: Context) {
         prefs.edit().putBoolean(KEY_MIGRATED, true).apply()
     }
 
+    /**
+     * پاک‌سازی یک‌بارمصرف تراکنش‌های بانکی تکراری (مرحله ۱۱۷): در هر
+     * گروه «تراکنش بانکی» با همان مبلغ، جهت و روز تقویمی فقط قدیمی‌ترین
+     * می‌ماند و بقیه حذف می‌شوند؛ تراکنش‌های دستی دست نمی‌خورند.
+     * پرچم از اجرای دوباره جلوگیری می‌کند؛ تعداد حذف‌شده برمی‌گردد.
+     * هیچ تغییری در ساختار پایگاه داده نمی‌دهد — فقط حذف ردیف با
+     * همان DAOی حذف تراکنش و یک پرچم SharedPreferences.
+     */
+    suspend fun cleanupDuplicateSmsTransactionsOnce(): Int {
+        if (prefs.getBoolean(KEY_SMS_DEDUP_CLEANUP_V1, false)) return 0
+        val ids = findDuplicateSmsTransactionIds(runCatching { getAll() }.getOrDefault(emptyList()))
+        ids.forEach { delete(it) }
+        prefs.edit().putBoolean(KEY_SMS_DEDUP_CLEANUP_V1, true).apply()
+        return ids.size
+    }
+
     private companion object {
         const val PREFS = "polino_finance_v1"
         const val KEY = "transactions"
         const val KEY_MIGRATED = "room_migrated_v1"
+        const val KEY_SMS_DEDUP_CLEANUP_V1 = "sms_duplicate_cleanup_v1"
     }
+}
+
+/**
+ * شناسه تراکنش‌های بانکی تکراری برای پاک‌سازی یک‌بارمصرف: فقط ردیف‌های
+ * «تراکنش بانکی» گروه‌بندی می‌شوند — همان مبلغ، همان جهت و همان روز
+ * تقویمی به وقت دستگاه — و در هر گروه فقط قدیمی‌ترین می‌ماند؛
+ * شناسه بقیه برمی‌گردد. تراکنش دستی هیچ‌وقت در خروجی نیست.
+ * تابع خالص است تا بدون پایگاه داده تست شود.
+ */
+internal fun findDuplicateSmsTransactionIds(transactions: List<MoneyTransaction>): List<String> {
+    return transactions
+        .filter { it.title == "تراکنش بانکی" }
+        .groupBy { tx ->
+            val day = Instant.ofEpochMilli(tx.dateMillis)
+                .atZone(ZoneId.systemDefault()).toLocalDate()
+            Triple(tx.amount, tx.income, day)
+        }
+        .values
+        .flatMap { group ->
+            if (group.size < 2) {
+                emptyList()
+            } else {
+                group.sortedWith(
+                    compareBy<MoneyTransaction> { it.dateMillis }.thenBy { it.id }
+                ).drop(1).map { it.id }
+            }
+        }
 }
